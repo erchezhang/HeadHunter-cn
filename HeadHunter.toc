@@ -1,7 +1,10 @@
 ## Interface: 11509, 16001
 ## Title: HeadHunter - Wanted: Dead or Alive
 ## Notes: Track gankers, post WANTED bounties and hunt them down with your faction.
+## Title-zhCN: HeadHunter - 通缉：生死不论
+## Notes-zhCN: 记录偷袭你的人，发布 WANTED 通缉令，与阵营同伴一起将他们绳之以法。
 ## Author: Vati
+## X-Translated-By: 车长不二
 ## Version: 0.3.1
 ## SavedVariables: HeadHunter_DB
 ## OptionalDeps: HeadHunter_Data
