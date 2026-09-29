@@ -4,6 +4,20 @@
 
 # HeadHunter - Wanted: Dead or Alive
 
+> **简体中文汉化版 · Simplified Chinese localization**
+>
+> 本仓库在原插件 **v0.3.1**（作者 Vati / [GudaAddons](https://headhunterwow.com)）基础上加入了简体中文翻译：
+>
+> - **翻译范围**：主窗口、通缉令、鼠标提示、设置页、地图标记等浏览界面，`/hh help` 的全部命令说明与输出，以及中屏/聊天提醒——共 **519 条文案**全量覆盖（原插件文案集中在 `Locales.lua`）
+> - **实现方式**：`Locales.lua` 末尾的 zhCN 覆盖块仅在 `GetLocale() == "zhCN"` 时生效，英文客户端读到的仍是原版英文；另有 3 处小改动用于种族/职业/阵营的中文显示（`Core/Utils.lua`、`Detection/DeathReports.lua`、`UI/MainWindow.lua`），**同步与游戏逻辑未改动**，原插件 477 项离线测试全部通过
+> - **安装 / 译名 / 升级说明**：见 [README.zh-CN.md](README.zh-CN.md)；同步机制与端到端数据流分析见 [docs/工作流程与信息同步报告.md](docs/工作流程与信息同步报告.md)
+>
+> 原插件无 LICENSE 文件，代码与英文文案版权归原作者；汉化版仅供个人使用与学习，如原作者有异议请开 Issue，会立即处理。
+>
+> English: this fork adds a Simplified Chinese localization on top of HeadHunter v0.3.1 by Vati (GudaAddons). Everything below is the original, unchanged documentation.
+
+---
+
 **Got ganked? HeadHunter records who killed you, shares it with your faction and marks WANTED outlaws on the map. Form a posse and bring them to justice.**
 
 For **Classic Era** and **WoW: Forever**.
