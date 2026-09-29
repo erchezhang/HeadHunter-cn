@@ -105,6 +105,14 @@ local function Named(name, who)
 end
 MainWindow.Named = Named
 
+-- Faction as the client shows it (FACTION_ALLIANCE / FACTION_HORDE: "联盟" on zhCN)
+local function FactionLabel(faction)
+    if faction == "Alliance" then return _G.FACTION_ALLIANCE or "Alliance" end
+    if faction == "Horde" then return _G.FACTION_HORDE or "Horde" end
+    return faction
+end
+MainWindow.FactionLabel = FactionLabel
+
 -- Hover tooltip lines for an enemy (first line = title)
 function MainWindow.EntryTooltip(entry, now)
     now = now or ns.Utils.ServerTime()
@@ -652,7 +660,7 @@ function MainWindow:Refresh()
     end
     frame.empty:SetText(#rows == 0 and L["EMPTY_" .. current.tab:upper()] or "")
     if current.tab == "duels" or current.tab == "wanted" then
-        frame.faction:SetText(string.format(L.FACTION_BUTTON, self:ListFaction() or "?"))
+        frame.faction:SetText(string.format(L.FACTION_BUTTON, FactionLabel(self:ListFaction()) or "?"))
         frame.faction:Show()
     else
         frame.faction:Hide()

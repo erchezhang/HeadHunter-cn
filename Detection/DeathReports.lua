@@ -71,7 +71,7 @@ end
 local function Describe(enemy)
     local parts = { ns.Utils.LevelText(enemy.level) }
     if enemy.race then parts[#parts + 1] = ns.Utils.RaceName(enemy.race) end
-    if enemy.class then parts[#parts + 1] = enemy.class:sub(1, 1) .. enemy.class:sub(2):lower() end
+    if enemy.class then parts[#parts + 1] = ns.Utils.ClassName(enemy.class) end
     return table.concat(parts, " ")
 end
 DeathReports.Describe = Describe

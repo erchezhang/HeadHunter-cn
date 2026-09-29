@@ -424,7 +424,19 @@ end
 local RACE_NAMES = { NightElf = "Night Elf", Scourge = "Undead" }
 
 function Utils.RaceName(race)
-    return race and (RACE_NAMES[race] or race) or nil
+    if not race then return nil end
+    -- Localized display name (set by Locales.lua on a zhCN client), else English
+    local shown = ns.RaceDisplay and ns.RaceDisplay[race]
+    if shown then return shown end
+    return RACE_NAMES[race] or race
+end
+
+-- A class token as players know it ("ROGUE" -> "Rogue", Chinese on a zhCN client)
+function Utils.ClassName(class)
+    if not class then return nil end
+    local shown = ns.ClassDisplay and ns.ClassDisplay[class]
+    if shown then return shown end
+    return class:sub(1, 1) .. class:sub(2):lower()
 end
 
 -- Inline class icon for text, from the client's class icon sheet, or "" when unknown
