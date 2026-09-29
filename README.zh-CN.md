@@ -2,7 +2,9 @@
 
 给 [HeadHunter - Wanted: Dead or Alive](https://headhunterwow.com) 插件做的简体中文本地化版本。
 
-- 原插件：**HeadHunter v0.3.1**，作者 **Vati**（GudaAddons），官网 [headhunterwow.com](https://headhunterwow.com)
+- **原始项目地址**：https://github.com/GudaAddons/HeadHunter（原作者 Vati / GudaAddons，v0.3.1，官网 [headhunterwow.com](https://headhunterwow.com)）
+- **汉化分支地址**：https://github.com/erchezhang/HeadHunter-cn
+- **汉化：车长不二 完成**
 - 适用客户端：Classic Era（Interface 11509）与 WoW Forever（Interface 16001）
 - 本仓库内容：原插件完整文件 + 简体中文翻译 + 中文化相关代码改动
 
