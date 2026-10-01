@@ -388,7 +388,7 @@ end
 -- { id, enemy, report }, one per enemy id
 function Bounties:PostableTargets(now)
     now = now or ns.Utils.ServerTime()
-    local deaths = ns.db and ns.db.deaths or {}
+    local deaths = ns.DeathReports:Mine()
     local Engine = ns.RulesEngine
     local list, seen = {}, {}
     for i = #deaths, 1, -1 do

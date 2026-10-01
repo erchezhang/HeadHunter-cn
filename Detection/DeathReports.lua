@@ -119,6 +119,20 @@ function DeathReports.CountHelpers()
     return count
 end
 
+-- The deaths of the character we play, oldest first. The saved deaths are shared by
+-- all our characters on the realm.
+function DeathReports:Mine()
+    local U = ns.Utils
+    local me = U.UnitKey("player")
+    local list = {}
+    for _, report in ipairs(ns.db and ns.db.deaths or {}) do
+        if type(report) == "table" and type(report.victim) == "table" and U.SameCharacter(report.victim.key, me) then
+            list[#list + 1] = report
+        end
+    end
+    return list
+end
+
 function DeathReports:Find(id)
     for _, report in ipairs(ns.db.deaths) do
         if report.id == id then return report end
@@ -212,7 +226,7 @@ ns.Events:Register("HH_INITIALIZED", function()
 end, OWNER)
 
 ns.SlashCommands:Register("deaths", function(args)
-    local deaths = ns.db and ns.db.deaths or {}
+    local deaths = DeathReports:Mine()
     local count = math.min(tonumber(args[1]) or 10, #deaths)
     ns:Print(string.format(L.DEATHS_HEADER, #deaths))
     for i = #deaths, #deaths - count + 1, -1 do

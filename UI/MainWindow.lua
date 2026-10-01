@@ -1,6 +1,8 @@
 -- HH-060: the main window. /hh (no arguments) or the minimap button toggles it.
 --
--- Tabs:
+-- Sections (author, 2026-10-01): the top tabs, each with its own sub-tabs in the
+-- toolbar: Bounty board (WANTED · Hall of Shame), Duels, Events (Ongoing · Upcoming),
+-- Me (My deaths · My marks). The views:
 --   WANTED         players' bounties first (HH-118, merged per target, newest first),
 --                  then who is WANTED now; sort by rank, kills or last kill; Alliance or
 --                  Horde (the switch top left, the enemy faction first)
@@ -9,13 +11,16 @@
 --   High Noon      the best duelists (HH-093), Alliance or Horde (the switch top left)
 --   My deaths      our own PvP deaths, newest first
 --   My marks       our HeadHunter rank and what earned or cost marks (HH-050)
---   Tournaments    Gurubashi Tournaments (HH-103): a click selects one; Create, Join /
---                  Leave and Cancel (own) top left; UI/TournamentDialog.lua creates
+--   Events         the website's tournaments on our world (WEB-080), being played or
+--                  to come; a click opens the event: its rounds, who meets who, the
+--                  scores, and its website link to copy (Tournament/Tournaments.lua)
 -- A row click opens the outlaw's poster (UI/Poster.lua).
+-- Hall of Shame, Duels and My deaths have a search by name (top right), one per tab;
+-- the rows keep their place.
 --
 -- MainWindow.Rows(tab, sortKey, now) is the pure part (tested offline): one table per
--- row with the text of each column. The rest only draws it, in the GudaBags look
--- (UI/Theme.lua: dark window, tabs on the bottom edge).
+-- row with the text of each column. The rest only draws it, in the website's look
+-- (UI/Theme.lua, HH-125: leather, gold frame, tabs in the wood header).
 
 local addonName, ns = ...
 local L = ns.L
@@ -24,61 +29,91 @@ local MainWindow = ns:RegisterModule("MainWindow", {})
 
 local OWNER = "MainWindow"
 
-MainWindow.WIDTH = 620
-MainWindow.HEIGHT = 440
-MainWindow.ROW_HEIGHT = 18
+MainWindow.WIDTH = 840
+MainWindow.HEIGHT = 580
+MainWindow.ROW_HEIGHT = 26
+MainWindow.TEXT_SIZE = 14    -- the list text; names one bigger (HH-125)
+MainWindow.NAME_SIZE = 15
 MainWindow.MAX_ROWS = 300
 MainWindow.BOARD_MIN = 25    -- the WANTED tab fills up to this many rows with outlaws at large
 MainWindow.REFRESH = 30      -- seconds, while shown ("5 min ago" texts)
 
-MainWindow.TABS = { "wanted", "shame", "duels", "deaths", "marks", "tours" }
+-- The top tabs and their views (the sub-tabs); a view is what the list shows
+MainWindow.SECTIONS = {
+    { id = "board", views = { "wanted", "shame" } },
+    { id = "duels", views = { "duels" } },
+    { id = "events", views = { "ongoing", "upcoming" } },
+    { id = "me", views = { "deaths", "marks" } },
+}
+MainWindow.TABS = { "wanted", "shame", "duels", "ongoing", "upcoming", "deaths", "marks" }
+-- Tabs of older versions
+MainWindow.OLD_TABS = { tours = "ongoing" }
+-- The faction crests in the Alliance / Horde switch: the game's PvP flag icons,
+-- cut to the crest
+MainWindow.FACTION_ICONS = {
+    Alliance = "Interface\\TargetingFrame\\UI-PVP-Alliance",
+    Horde = "Interface\\TargetingFrame\\UI-PVP-Horde",
+}
+MainWindow.FACTION_ICON_COORDS = { 0.03, 0.62, 0.02, 0.62 }
+-- Tabs with a search box, each with its own search (the long lists)
+MainWindow.SEARCH_TABS = { shame = true, duels = true, deaths = true }
 
--- Columns per tab: key, header, width, sort key (WANTED only)
+-- Columns per tab: key, header, width, sort key (WANTED only); name columns use the
+-- name font, like the website's player cells
 MainWindow.COLUMNS = {
     wanted = {
-        { key = "rank", header = "COL_RANK", width = 90, sort = "rank" },
-        { key = "name", header = "COL_NAME", width = 150 },
-        { key = "kills", header = "COL_KILLS", width = 50, sort = "kills" },
-        { key = "lastKill", header = "COL_LAST_KILL", width = 200, sort = "last" },
-        { key = "badges", header = "COL_BADGES", width = 100 },
+        { key = "rank", header = "COL_RANK", width = 125, sort = "rank" },
+        { key = "name", header = "COL_NAME", width = 215, font = "name" },
+        { key = "kills", header = "COL_KILLS", width = 70, sort = "kills" },
+        { key = "lastKill", header = "COL_LAST_KILL", width = 245, sort = "last" },
+        { key = "badges", header = "COL_BADGES", width = 135 },
     },
     shame = {
-        { key = "name", header = "COL_NAME", width = 150 },
-        { key = "desc", header = "COL_WHO", width = 130 },
-        { key = "coward", header = "COL_COWARD_KILLS", width = 90 },
-        { key = "kills", header = "COL_KILLS", width = 50 },
-        { key = "status", header = "COL_STATUS", width = 170 },
+        { key = "name", header = "COL_NAME", width = 215, font = "name" },
+        { key = "desc", header = "COL_WHO", width = 180 },
+        { key = "coward", header = "COL_COWARD_KILLS", width = 115 },
+        { key = "kills", header = "COL_KILLS", width = 70 },
+        { key = "status", header = "COL_STATUS", width = 210 },
     },
     duels = {
-        { key = "position", header = "COL_POSITION", width = 30 },
-        { key = "name", header = "COL_NAME", width = 170 },
-        { key = "rank", header = "COL_DUEL_RANK", width = 110 },
-        { key = "record", header = "COL_RECORD", width = 70 },
-        { key = "net", header = "COL_NET", width = 60 },
-        { key = "lastDuel", header = "COL_LAST_DUEL", width = 110 },
+        { key = "position", header = "COL_POSITION", width = 40 },
+        { key = "name", header = "COL_NAME", width = 235, font = "name" },
+        { key = "rank", header = "COL_DUEL_RANK", width = 145 },
+        { key = "record", header = "COL_RECORD", width = 100 },
+        { key = "net", header = "COL_NET", width = 80 },
+        { key = "lastDuel", header = "COL_LAST_DUEL", width = 190 },
     },
-    tours = {
-        { key = "name", header = "COL_TOUR", width = 125 },
-        { key = "format", header = "COL_FORMAT", width = 35 },
-        { key = "series", header = "COL_SERIES", width = 70 },
-        { key = "start", header = "COL_START", width = 90 },
-        { key = "level", header = "COL_LEVEL", width = 40 },
-        { key = "teams", header = "COL_TEAMS", width = 45 },
-        { key = "organizer", header = "COL_ORGANIZER", width = 80 },
-        { key = "status", header = "COL_STATUS", width = 85 },
+    events = {
+        { key = "name", header = "COL_TOUR", width = 180 },
+        { key = "format", header = "COL_FORMAT", width = 50 },
+        { key = "series", header = "COL_SERIES", width = 100 },
+        { key = "start", header = "COL_START", width = 135 },
+        { key = "level", header = "COL_LEVEL", width = 55 },
+        { key = "teams", header = "COL_ENTRANTS", width = 70 },
+        { key = "organizer", header = "COL_HOST", width = 110, font = "name" },
+        { key = "status", header = "COL_STATUS", width = 80 },
+    },
+    -- One event's round: who meets who
+    -- The last 200 px hold the row's buttons (Call, Ready, Confirm ...)
+    event = {
+        { key = "match", header = "COL_MATCH", width = 36 },
+        { key = "a", header = "COL_ENTRANT", width = 180, font = "name" },
+        { key = "score", header = "COL_SCORE", width = 56 },
+        { key = "b", header = "COL_OPPONENT", width = 180, font = "name" },
+        { key = "status", header = "COL_STATUS", width = 150 },
     },
     marks = {
-        { key = "time", header = "COL_WHEN", width = 90 },
-        { key = "change", header = "COL_CHANGE", width = 60 },
-        { key = "reason", header = "COL_REASON", width = 340 },
-        { key = "total", header = "COL_TOTAL", width = 60 },
+        { key = "time", header = "COL_WHEN", width = 125 },
+        { key = "change", header = "COL_CHANGE", width = 80 },
+        { key = "reason", header = "COL_REASON", width = 480 },
+        { key = "total", header = "COL_TOTAL", width = 95 },
     },
     deaths = {
-        { key = "time", header = "COL_WHEN", width = 90 },
-        { key = "name", header = "COL_KILLER", width = 150 },
-        { key = "desc", header = "COL_WHO", width = 130 },
-        { key = "kind", header = "COL_KIND", width = 100 },
-        { key = "zone", header = "COL_ZONE", width = 120 },
+        { key = "time", header = "COL_WHEN", width = 125 },
+        { key = "name", header = "COL_KILLER", width = 205, font = "name" },
+        { key = "desc", header = "COL_WHO", width = 180 },
+        { key = "kind", header = "COL_KIND", width = 125 },
+        { key = "zone", header = "COL_ZONE", width = 145 },
     },
 }
 
@@ -104,14 +139,6 @@ local function Named(name, who)
     return (icon ~= "" and (icon .. " ") or "") .. ClassColored(name, who.class)
 end
 MainWindow.Named = Named
-
--- Faction as the client shows it (FACTION_ALLIANCE / FACTION_HORDE: "联盟" on zhCN)
-local function FactionLabel(faction)
-    if faction == "Alliance" then return _G.FACTION_ALLIANCE or "Alliance" end
-    if faction == "Horde" then return _G.FACTION_HORDE or "Horde" end
-    return faction
-end
-MainWindow.FactionLabel = FactionLabel
 
 -- Hover tooltip lines for an enemy (first line = title)
 function MainWindow.EntryTooltip(entry, now)
@@ -261,6 +288,7 @@ local function ShameRows(now)
         end
         rows[#rows + 1] = {
             id = entry.id,
+            plain = OutlawName(entry),
             name = Named(OutlawName(entry), entry),
             desc = ns.DeathReports.Describe(entry),
             coward = tostring(entry.cowardKills or 0),
@@ -274,6 +302,7 @@ local function ShameRows(now)
         local name = ns.Utils.DisplayName(shamed.owner) or shamed.owner
         local daysLeft = math.max(1, math.ceil((shamed.blockedUntil - now) / 86400))
         rows[#rows + 1] = {
+            plain = name,
             name = name,
             desc = L.SHAME_UNPAID_WHO,
             coward = "-",
@@ -297,7 +326,8 @@ local function DuelRows(faction, now)
     local HighNoon = ns.HighNoon
     local rows = {}
     for _, p in ipairs(HighNoon:List(faction)) do
-        local name = Named(ns.Utils.DisplayName(p.key) or p.key, p)
+        local plain = ns.Utils.DisplayName(p.key) or p.key
+        local name = Named(plain, p)
         local lastDuel = p.lastT and ns.Utils.Ago(math.max(0, now - p.lastT)) or "-"
         local whisper = MainWindow.CanWhisper(p.key, p.faction) and p.key or nil
         local tooltip = { name, string.format(L.DUEL_TOOLTIP, HighNoon.Title(p)),
@@ -305,6 +335,7 @@ local function DuelRows(faction, now)
         if whisper then tooltip[#tooltip + 1] = L.WINDOW_ROW_WHISPER end
         rows[#rows + 1] = {
             position = tostring(p.position),
+            plain = plain,
             name = name,
             rank = HighNoon.RankName(p.topGun and "topgun" or p.rank),
             record = p.wins .. "-" .. p.losses,
@@ -332,7 +363,7 @@ local function MarksRows()
 end
 
 local function DeathRows(now)
-    local deaths = ns.db and ns.db.deaths or {}
+    local deaths = ns.DeathReports:Mine()
     local rows = {}
     for i = #deaths, 1, -1 do
         local report = deaths[i]
@@ -340,7 +371,8 @@ local function DeathRows(now)
             local id = ns.RulesEngine.EnemyId(report.killer)
             local zone = ns.Utils.MapName(report.mapID) or L.UNKNOWN_ZONE
             local kind = ns.Classify.ReportLabel(report)
-            local name = Named(ns.DeathReports.DisplayName(report.killer), report.killer)
+            local plain = ns.DeathReports.DisplayName(report.killer)
+            local name = Named(plain, report.killer)
             -- This death first, then what we know about the killer overall
             local entry = id and ns.Wanted:Get(id)
             local tooltip = entry and MainWindow.EntryTooltip(entry, now) or { name, L.WINDOW_ROW_HINT }
@@ -349,6 +381,7 @@ local function DeathRows(now)
             rows[#rows + 1] = {
                 id = id,
                 time = date("%m-%d %H:%M", report.t),
+                plain = plain,
                 name = name,
                 desc = ns.DeathReports.Describe(report.killer),
                 kind = kind,
@@ -360,72 +393,154 @@ local function DeathRows(now)
     return rows
 end
 
--- "in 25 min", "in 3 h 20 min", "in 2 d 4 h"
-local function StartsIn(seconds)
-    local minutes = math.ceil(seconds / 60)
-    if minutes < 60 then return string.format(L.TOUR_IN_MIN, minutes) end
-    if minutes < 1440 then return string.format(L.TOUR_IN_HOURS, math.floor(minutes / 60), minutes % 60) end
-    return string.format(L.TOUR_IN_DAYS, math.floor(minutes / 1440), math.floor(minutes % 1440 / 60))
-end
-
--- Gurubashi Tournaments (HH-103), soonest first
-local function TourRows(now)
+-- The website's tournaments (WEB-080), soonest first, being played (ongoing) or to come
+-- (upcoming); a tooltip with the details, a click opens the event
+local function EventRows(view, now)
     local TN = ns.Tournaments
     local rows = {}
-    for _, t in ipairs(TN:List()) do
-        local status = TN:JoinStatus(t)
-        local organizer = ns.Utils.DisplayName(t.organizer) or t.organizer
-        local bracket = L["TOUR_BRACKET_" .. t.bracket:upper()]
-        local start = t.start > now and StartsIn(t.start - now) or ns.Utils.Ago(now - t.start)
-        local statusText = L["TOUR_STATUS_" .. status:upper()] or status
-        local tooltip = {
-            "|cffffd100" .. t.name .. "|r",
-            string.format(L.TIP_TOUR_FORMAT, t.format, t.format, bracket, t.bestOf),
-            string.format(L.TIP_TOUR_VENUE, TN.Where(t)),
-            string.format(L.TIP_TOUR_START, start, ns.Arena.RealmClock((t.start - now) / 60) or "?"),
-            string.format(L.TIP_TOUR_TEAMS, #t.order, t.maxTeams, t.minLevel),
-            string.format(L.TIP_TOUR_ORGANIZER, organizer),
-            statusText,
-        }
-        for _, teamId in ipairs(t.order) do
-            local team = t.entrants[teamId]
-            local names = {}
-            for i, member in ipairs(team.members) do
-                names[i] = (ns.Utils.DisplayName(member) or member)
-                    .. (team.here and team.here[member] and L.TIP_TOUR_HERE or "")
-            end
-            tooltip[#tooltip + 1] = "|cffaaaaaa  " .. table.concat(names, ", ") .. "|r"
+    for _, t in ipairs(TN:List(now)) do
+        if TN.Ongoing(t, now) == (view == "ongoing") then
+            local host = ns.Utils.DisplayName(t.host) or t.host or "?"
+            local status = L["TOUR_STATUS_" .. TN.State(t, now):upper()]
+            local format = t.teamSize .. "v" .. t.teamSize
+            local tooltip = {
+                "|cffffd100" .. t.name .. "|r",
+                format .. " · " .. TN.Series(t),
+                string.format(L.TIP_TOUR_VENUE, TN.Where(t)),
+                string.format(L.TIP_TOUR_START, TN.Start(t, now)),
+            }
+            if #t.days > 1 then tooltip[#tooltip + 1] = string.format(L.TIP_TOUR_DAYS, #t.days) end
+            tooltip[#tooltip + 1] = string.format(L.TIP_TOUR_ENTRANTS, TN.Entrants(t), TN.Levels(t))
+            tooltip[#tooltip + 1] = string.format(L.TIP_TOUR_HOST, host)
+            tooltip[#tooltip + 1] = status
+            tooltip[#tooltip + 1] = "|cffaaaaaa" .. L.TIP_EVENT_OPEN .. "|r"
+            rows[#rows + 1] = {
+                event = t.id, name = t.name, format = format, series = TN.Series(t), start = TN.Start(t, now),
+                level = TN.Levels(t), teams = TN.Entrants(t), organizer = host, status = status, tooltip = tooltip,
+            }
         end
+    end
+    return rows
+end
+
+-- The live state of a match to play, and its buttons: the organizer's call, ready,
+-- games and confirm (Tournament/Matches.lua); a called player's Ready
+local function MatchState(t, round, m, now, organizer)
+    local M, TN = ns.Matches, ns.Tournaments
+    local call = M:Call(t.id, round, m.match)
+    local actions = {}
+    if organizer then
+        if not call then
+            actions[1] = { kind = "call", label = L.EVENT_ACT_CALL }
+            actions[2] = { kind = "set", label = L.EVENT_ACT_SET }
+            return nil, actions
+        end
+        actions[2] = { kind = "set", label = L.EVENT_ACT_SET }
+        local wa, wb = call.wins.a, call.wins.b
+        if call.decided then
+            actions[1] = { kind = "confirm", label = string.format(L.EVENT_ACT_CONFIRM, wa .. " - " .. wb) }
+            return string.format(L.EVENT_ST_DECIDED, wa, wb), actions
+        end
+        if #call.games > 0 then return string.format(L.EVENT_ST_PLAYING, wa, wb), actions end
+        if call.go then return L.EVENT_ST_GO, actions end
+        local left = call.readyBy - now
+        local ready = (call.ready.a and 1 or 0) + (call.ready.b and 1 or 0)
+        if left > 0 then
+            return string.format(L.EVENT_ST_CALLED, ready, math.floor(left / 60), left % 60), actions
+        end
+        local late = not call.ready.a and "a" or "b"
+        local name = TN.SideName(t, late == "a" and m.a or m.b) or "?"
+        actions[1] = { kind = "noshow", side = late, label = string.format(L.EVENT_ACT_NOSHOW, name) }
+        actions[2] = { kind = "call", label = L.EVENT_ACT_RECALL }
+        return string.format(L.EVENT_ST_NOT_READY, name), actions
+    end
+    local mine = M:Mine()
+    if mine and mine.tid == t.id and mine.round == round and mine.match == m.match and not mine.ready then
+        actions[1] = { kind = "ready", label = L.EVENT_ACT_READY }
+        return L.EVENT_ST_CALLED_YOU, actions
+    end
+    return nil, actions
+end
+
+-- One round of an event: who meets who, the score, what is left (pure, tested offline)
+function MainWindow.MatchRows(t, roundNumber, now)
+    local TN = ns.Tournaments
+    now = now or ns.Utils.ServerTime()
+    local rounds = TN.Bracket(t)
+    local round = rounds[roundNumber]
+    local rows = {}
+    if not round then return rows end
+    -- Matches are called once the tournament has started
+    local organizer = ns.Matches.IsOrganizer(t) and TN.Ongoing(t, now)
+    for _, m in ipairs(round.matches) do
+        local a, b = TN.SideName(t, m.a), TN.SideName(t, m.b)
+        local played = m.winner ~= nil and not m.bye
+        local status
+        if m.bye then
+            status = L.EVENT_FREE_PASS
+        elseif not (m.a and m.b) then
+            status = L.EVENT_NOT_DECIDED
+        elseif m.forfeit then
+            status = L.EVENT_ST_NO_SHOW
+        elseif played then
+            status = L.EVENT_PLAYED
+        else
+            status = L.EVENT_TO_PLAY
+        end
+        local actions = {}
+        if m.a and m.b and not m.bye and not m.winner then
+            local live
+            live, actions = MatchState(t, round.number, m, now, organizer)
+            status = live or status
+        elseif played and organizer and not ns.Brackets.NextIsPlayed(rounds, round.number, m.match) then
+            actions = { { kind = "set", label = L.EVENT_ACT_CHANGE } }
+        end
+        -- The winner: a green check before the name (the name keeps its class color); a
+        -- side that did not come in grey. The details in the tooltip (the columns are short)
+        local won = "|TInterface\\RaidFrame\\ReadyCheck-Ready:14:14|t %s"
+        local function Side(side, entrant, name)
+            if not name then return "" end
+            if m.forfeit == side then return "|cff808080" .. name .. "|r" end
+            local label = TN.SideLabel(t, entrant)
+            return played and m.winner == side and string.format(won, label) or label
+        end
+        local tooltip = { m.thirdPlace and L.EVENT_THIRD_PLACE
+            or string.format(L.EVENT_MATCH_TITLE, TN.RoundName(round.number, #rounds), m.match) }
+        if a and b then tooltip[#tooltip + 1] = a .. " vs " .. b end
+        if m.forfeit then tooltip[#tooltip + 1] = string.format(L.EVENT_NO_SHOW, m.forfeit == "a" and a or b) end
+        tooltip[#tooltip + 1] = status
         rows[#rows + 1] = {
-            id = t.id, tour = true, name = t.name, format = t.format .. "v" .. t.format,
-            series = string.format(L.TOUR_SERIES, t.bestOf, t.bracket == "robin" and L.TOUR_ROBIN_SHORT or ""),
-            start = start, level = t.minLevel .. "+", teams = #t.order .. "/" .. t.maxTeams,
-            organizer = organizer, status = statusText, tooltip = tooltip,
+            eventMatch = { round = round.number, match = m.match },
+            match = m.thirdPlace and L.EVENT_THIRD_SHORT or ("#" .. m.match),
+            a = Side("a", m.a, a),
+            b = Side("b", m.b, b),
+            tooltip = tooltip,
+            score = m.forfeit and L.EVENT_FF or (played and (m.winsA .. " - " .. m.winsB)) or (m.bye and "" or "vs"),
+            status = status,
+            actions = actions,
         }
     end
     return rows
 end
 
--- Buttons for the selected tournament: { action = "join" | "leave" | "here" | nil, cancel = bool }
-local ACTION = { open = "join", joined = "leave", checkin_me = "here" }
-
-function MainWindow.TourActions(t)
-    local TN = ns.Tournaments
-    if not t then return {} end
-    local status = TN:JoinStatus(t)
-    local open = t.state ~= "finished" and t.state ~= "cancelled"
-    return {
-        action = ACTION[status],
-        cancel = open and TN:IsOrganizer(t) or false,
-    }
+-- tab: one of TABS; sortKey (WANTED): "rank" | "kills" | "last"; faction (WANTED, High Noon): "Alliance" | "Horde"
+-- Rows keep their place (the Duels # column) and are only left out, so a search by
+-- part of a name, any case, finds players far down the list too
+local function Matching(rows, search)
+    local needle = search and search ~= "" and search:lower() or nil
+    if not needle then return rows end
+    local found = {}
+    for _, row in ipairs(rows) do
+        if row.plain and row.plain:lower():find(needle, 1, true) then found[#found + 1] = row end
+    end
+    return found
 end
 
--- tab: one of TABS; sortKey (WANTED): "rank" | "kills" | "last"; faction (WANTED, High Noon): "Alliance" | "Horde"
-function MainWindow.Rows(tab, sortKey, now, faction)
+function MainWindow.Rows(tab, sortKey, now, faction, search)
     now = now or ns.Utils.ServerTime()
     local rows
-    if tab == "tours" then
-        rows = TourRows(now)
+    if tab == "ongoing" or tab == "upcoming" then
+        rows = EventRows(tab, now)
     elseif tab == "duels" then
         rows = DuelRows(faction, now)
     elseif tab == "marks" then
@@ -437,6 +552,7 @@ function MainWindow.Rows(tab, sortKey, now, faction)
     else
         rows = WantedRows(sortKey, now, faction)
     end
+    if MainWindow.SEARCH_TABS[tab] then rows = Matching(rows, search) end
     for i = #rows, MainWindow.MAX_ROWS + 1, -1 do rows[i] = nil end
     return rows
 end
@@ -447,7 +563,20 @@ end
 
 local frame
 -- faction: High Noon list, wantedFaction: WANTED list (nil = the default of each tab)
-local current = { tab = "wanted", sort = "rank", faction = nil, wantedFaction = nil }
+-- searches: tab -> the text in its search box
+-- event: the open event's id (Events), round: the round shown in it (nil: the one played)
+-- lastView: section -> the view last shown there
+local current = { tab = "wanted", sort = "rank", faction = nil, wantedFaction = nil, searches = {},
+    event = nil, round = nil, lastView = {} }
+
+function MainWindow.SectionOf(view)
+    for _, section in ipairs(MainWindow.SECTIONS) do
+        for _, v in ipairs(section.views) do
+            if v == view then return section end
+        end
+    end
+    return MainWindow.SECTIONS[1]
+end
 local rowFrames = {}
 local sinceRefresh = 0
 
@@ -464,55 +593,126 @@ local function CreateMainFrame()
     f:SetClampedToScreen(true)
     tinsert(UISpecialFrames, "HeadHunterMainFrame")
 
-    -- The GudaBags look (UI/Theme.lua): dark window, tabs on the bottom edge
-    ns.Theme.StyleFrame(f, L.WINDOW_TITLE)
+    -- The website's look (UI/Theme.lua): leather, gold frame, tabs in the wood header
+    local Theme = ns.Theme
+    Theme.StyleFrame(f, L.WINDOW_TITLE)
     local tabs = {}
-    for i, tab in ipairs(MainWindow.TABS) do tabs[i] = { id = tab, label = L["TAB_" .. tab:upper()] } end
-    f.tabs = ns.Theme.CreateTabs(f, tabs, function(tab) MainWindow:SelectTab(tab) end)
-    -- Under development: the Tournaments tab (the last one) only with /hh debug tours on
-    for _, button in ipairs(f.tabs.buttons) do
-        if button.id == "tours" then f.toursTab = button end
+    for i, section in ipairs(MainWindow.SECTIONS) do
+        tabs[i] = { id = section.id, label = L["SECTION_" .. section.id:upper()] }
     end
-    if not MainWindow.ToursEnabled() then f.toursTab:Hide() end
+    f.tabs = Theme.CreateTopTabs(f, tabs, function(id) MainWindow:SelectSection(id) end)
 
-    f.options = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-    f.options:SetSize(80, 20)
-    f.options:SetPoint("TOPRIGHT", -30, -6)
-    f.options:SetText(L.OPTIONS_BUTTON)
-    f.options:SetScript("OnClick", function() ns.SettingsPanel:Open() end)
+    f.options = Theme.HeaderGear(f, function() ns.SettingsPanel:Open() end)
+    f.options:SetScript("OnEnter", function(self)
+        if not GameTooltip then return end
+        GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+        GameTooltip:SetText(L.OPTIONS_BUTTON)
+        GameTooltip:Show()
+    end)
+    f.options:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
 
-    -- WANTED and High Noon: switch between the Alliance and Horde lists
-    f.faction = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-    f.faction:SetSize(110, 20)
-    f.faction:SetPoint("TOPLEFT", 14, -6)
-    f.faction:SetScript("OnClick", function() MainWindow:SwitchFaction() end)
+    -- The toolbar under the header (only on tabs with buttons)
+    local toolbarY = -(Theme.HEADER_HEIGHT + 10)
+    -- WANTED and Duels: the Alliance and Horde lists side by side, the one on show gold
+    local U = ns.Utils
+    f.faction = Theme.Segmented(f, {
+        { value = "Alliance", label = U.FactionName("Alliance"), icon = MainWindow.FACTION_ICONS.Alliance,
+            coords = MainWindow.FACTION_ICON_COORDS },
+        { value = "Horde", label = U.FactionName("Horde"), icon = MainWindow.FACTION_ICONS.Horde,
+            coords = MainWindow.FACTION_ICON_COORDS },
+    }, function(faction) MainWindow:SetFaction(faction) end)
+    f.faction:SetPoint("TOPLEFT", 16, toolbarY)
     f.faction:Hide()
 
-    -- Tournaments: Create, Join / Leave and Cancel for the selected one
-    local function TourButton(width, x, onClick)
-        local button = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-        button:SetSize(width, 20)
-        button:SetPoint("TOPLEFT", x, -6)
-        button:SetScript("OnClick", onClick)
-        button:Hide()
-        return button
+    -- A section's sub-tabs, top left
+    f.subtabs = {}
+    for _, section in ipairs(MainWindow.SECTIONS) do
+        if #section.views > 1 then
+            local options = {}
+            for i, view in ipairs(section.views) do options[i] = { value = view, label = L["TAB_" .. view:upper()] } end
+            local set = Theme.Segmented(f, options, function(view) MainWindow:SelectTab(view) end)
+            set:SetPoint("TOPLEFT", 16, toolbarY)
+            set.width = 110 * #options
+            set:Hide()
+            f.subtabs[section.id] = set
+        end
     end
-    f.tourCreate = TourButton(80, 14, function() ns.TournamentDialog:Open() end)
-    f.tourCreate:SetText(L.TOUR_BUTTON_CREATE)
-    f.tourAction = TourButton(80, 98, function() MainWindow:TourAction() end)
-    f.tourCancel = TourButton(80, 182, function()
-        if current.selected then ns.Tournaments:DoCancel(current.selected) end
-    end)
-    f.tourCancel:SetText(L.TOUR_BUTTON_CANCEL)
 
-    f.count = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    f.count:SetPoint("BOTTOMRIGHT", -16, 10)
+    -- An open event: Back, its name, the round switch, Copy link
+    f.eventBack = Theme.Button(f, L.EVENT_BACK, "outline", 80, 24)
+    f.eventBack:SetPoint("TOPLEFT", 16, toolbarY)
+    f.eventBack:SetScript("OnClick", function() MainWindow:CloseEvent() end)
+    f.eventTitle = Theme.Text(f, "heading", 15, "gold")
+    f.eventTitle:SetPoint("LEFT", f.eventBack, "RIGHT", 12, 0)
+    f.eventTitle:SetWidth(240)
+    f.eventTitle:SetJustifyH("LEFT")
+    f.eventTitle:SetWordWrap(false)
+    f.eventLink = Theme.Button(f, L.EVENT_COPY_LINK, "gold", 110, 24)
+    f.eventLink:SetPoint("TOPRIGHT", -18, toolbarY)
+    f.eventLink:SetScript("OnClick", function() MainWindow:CopyEventLink() end)
+    f.eventNext = Theme.Button(f, ">", "outline", 28, 24)
+    f.eventNext:SetPoint("RIGHT", f.eventLink, "LEFT", -12, 0)
+    f.eventNext:SetScript("OnClick", function() MainWindow:ShowRound(1) end)
+    f.eventRound = Theme.Text(f, "text", 14, "foreground")
+    f.eventRound:SetPoint("RIGHT", f.eventNext, "LEFT", -8, 0)
+    f.eventPrev = Theme.Button(f, "<", "outline", 28, 24)
+    f.eventPrev:SetPoint("RIGHT", f.eventRound, "LEFT", -8, 0)
+    f.eventPrev:SetScript("OnClick", function() MainWindow:ShowRound(-1) end)
+    -- The Events list: events are made on the website, a link to copy
+    f.eventsCreate = Theme.Button(f, L.EVENTS_CREATE, "gold", 150, 24)
+    f.eventsCreate:SetPoint("TOPRIGHT", -18, toolbarY)
+    f.eventsCreate:SetScript("OnClick", function() MainWindow:CopyCreateLink() end)
+    f.eventsInfo = Theme.Text(f, "text", 13, "muted")
+    f.eventsInfo:SetPoint("RIGHT", f.eventsCreate, "LEFT", -12, 0)
+    f.eventsInfo:SetJustifyH("RIGHT")
+    f.eventsInfo:SetText(L.EVENTS_INFO)
+    f.eventsCreate:Hide()
+    f.eventsInfo:Hide()
+    -- Our confirmed results to the website: a quick UI reload saves them, then HeadHunter
+    -- Sync sends them (an addon cannot reach the website itself)
+    f.eventSend = Theme.Button(f, "", "gold", 140, 24)
+    f.eventSend:SetPoint("RIGHT", f.eventPrev, "LEFT", -12, 0)
+    f.eventSend:SetScript("OnClick", function() MainWindow:SendToWebsite() end)
+    for _, w in ipairs({ f.eventBack, f.eventTitle, f.eventLink, f.eventNext, f.eventRound, f.eventPrev, f.eventSend }) do
+        w:Hide()
+    end
+
+    -- Search tabs: find a player by name (Esc clears it, a second Esc leaves the box)
+    local search = CreateFrame("EditBox", nil, f)
+    search:SetSize(220, 24)
+    search:SetPoint("TOPRIGHT", -18, toolbarY)
+    search:SetAutoFocus(false)
+    search:SetTextInsets(8, 8, 0, 0)
+    Theme.Font(search, "text", 14)
+    local fg = Theme.COLORS.foreground
+    search:SetTextColor(fg[1], fg[2], fg[3])
+    local searchBg = search:CreateTexture(nil, "BACKGROUND")
+    searchBg:SetAllPoints(search)
+    searchBg:SetColorTexture(0, 0, 0, 0.35)
+    Theme.Border(search, 0.45)
+    search.hint = Theme.Text(search, "text", 14, "muted")
+    search.hint:SetPoint("LEFT", 8, 0)
+    search.hint:SetText(L.SEARCH_PLAYER)
+    search:SetScript("OnTextChanged", function(self)
+        local text = self:GetText() or ""
+        self.hint:SetShown(text == "")
+        MainWindow:SetSearch(text)
+    end)
+    search:SetScript("OnEscapePressed", function(self)
+        if (self:GetText() or "") ~= "" then self:SetText("") else self:ClearFocus() end
+    end)
+    search:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
+    search:Hide()
+    f.search = search
+
+    f.count = Theme.Text(f, "text", 13, "muted")
+    f.count:SetPoint("BOTTOMRIGHT", -18, 11)
 
     -- Forever: saved data resets on reload (known client issue), on every tab; hover for more
     f.forever = CreateFrame("Frame", nil, f)
-    f.forever:SetSize(360, 14)
-    f.forever:SetPoint("BOTTOMLEFT", 16, 8)
-    f.forever.text = f.forever:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    f.forever:SetSize(420, 16)
+    f.forever:SetPoint("BOTTOMLEFT", 18, 9)
+    f.forever.text = Theme.Text(f.forever, "text", 13, "gold")
     f.forever.text:SetPoint("LEFT")
     f.forever.text:SetTextColor(1, 0.53, 0)
     f.forever.text:SetText(L.FOREVER_SAVED_VARS_SHORT)
@@ -526,16 +726,17 @@ local function CreateMainFrame()
     f.forever:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
     if ns.Database:ResetsOnReload() then f.forever:Show() else f.forever:Hide() end
 
-    -- Column headers (buttons: clicking a sortable one sorts)
+    -- Column headers (buttons: clicking a sortable one sorts), a gold line under them
     f.headers = {}
+    f.headerLine = f:CreateTexture(nil, "ARTWORK")
+    f.headerLine:SetColorTexture(Theme.COLORS.gold[1], Theme.COLORS.gold[2], Theme.COLORS.gold[3], 0.35)
+    f.headerLine:SetHeight(1)
     f.scroll = CreateFrame("ScrollFrame", nil, f, "UIPanelScrollFrameTemplate")
-    f.scroll:SetPoint("TOPLEFT", 14, -56)
-    f.scroll:SetPoint("BOTTOMRIGHT", -34, 28)
     f.content = CreateFrame("Frame", nil, f.scroll)
     f.content:SetSize(MainWindow.WIDTH - 50, MainWindow.ROW_HEIGHT)
     f.scroll:SetScrollChild(f.content)
 
-    f.empty = f:CreateFontString(nil, "OVERLAY", "GameFontDisable")
+    f.empty = Theme.Text(f, "text", 16, "muted")
     f.empty:SetPoint("CENTER", f, "CENTER", 0, -20)
 
     f:SetScript("OnUpdate", function(_, elapsed)
@@ -562,13 +763,16 @@ local function RowFrame(i)
     row:SetHeight(MainWindow.ROW_HEIGHT)
     row:SetPoint("TOPLEFT", 0, -(i - 1) * MainWindow.ROW_HEIGHT)
     row:SetPoint("RIGHT", frame.content, "RIGHT")
+    local gold = ns.Theme.COLORS.gold
     row.highlight = row:CreateTexture(nil, "HIGHLIGHT")
     row.highlight:SetAllPoints(row)
-    row.highlight:SetColorTexture(1, 1, 1, 0.08)
-    row.selectedMark = row:CreateTexture(nil, "BACKGROUND")
-    row.selectedMark:SetAllPoints(row)
-    row.selectedMark:SetColorTexture(1, 0.82, 0, 0.15)
-    row.selectedMark:Hide()
+    row.highlight:SetColorTexture(gold[1], gold[2], gold[3], 0.08)
+    -- A thin line between rows, as in the website's tables
+    row.line = row:CreateTexture(nil, "BORDER")
+    row.line:SetPoint("BOTTOMLEFT")
+    row.line:SetPoint("BOTTOMRIGHT")
+    row.line:SetHeight(1)
+    row.line:SetColorTexture(gold[1], gold[2], gold[3], 0.1)
     row.cells = {}
     row:SetScript("OnEnter", ShowRowTooltip)
     row:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
@@ -580,7 +784,7 @@ end
 local function Cell(row, c)
     local cell = row.cells[c]
     if not cell then
-        cell = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        cell = row:CreateFontString(nil, "OVERLAY")
         cell:SetJustifyH("LEFT")
         cell:SetWordWrap(false)
         row.cells[c] = cell
@@ -588,50 +792,79 @@ local function Cell(row, c)
     return cell
 end
 
+-- The list starts under the toolbar (every section has one)
+local function ListTop()
+    return ns.Theme.HEADER_HEIGHT + 44
+end
+
 local function LayoutHeaders(columns)
+    local Theme = ns.Theme
     for _, header in ipairs(frame.headers) do header:Hide() end
-    local x = 14
+    local top = ListTop()
+    local x = 16
     for c, column in ipairs(columns) do
         local header = frame.headers[c]
         if not header then
             header = CreateFrame("Button", nil, frame)
-            header:SetHeight(18)
-            header.text = header:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+            header:SetHeight(22)
+            header.text = Theme.Text(header, "heading", 12, "gold")
             header.text:SetPoint("LEFT", header, "LEFT", 2, 0)
+            header.text:SetJustifyH("LEFT")
             header:SetScript("OnClick", function(self)
                 if self.sort then MainWindow:SetSort(self.sort) end
             end)
             frame.headers[c] = header
         end
         header:ClearAllPoints()
-        header:SetPoint("TOPLEFT", frame, "TOPLEFT", x, -34)
+        header:SetPoint("TOPLEFT", frame, "TOPLEFT", x, -top)
         header:SetWidth(column.width)
+        header.text:SetWidth(column.width - 4)
         header.sort = column.sort
         header.text:SetText(L[column.header])
-        -- The sorted column in white, the others in the usual gold
-        if column.sort and column.sort == current.sort then
-            header.text:SetTextColor(1, 1, 1)
-        else
-            header.text:SetTextColor(1, 0.82, 0)
-        end
+        -- The sorted column in the light text colour, the others gold
+        local color = (column.sort and column.sort == current.sort) and Theme.COLORS.foreground or Theme.COLORS.gold
+        header.text:SetTextColor(color[1], color[2], color[3])
         header:Show()
         x = x + column.width
     end
+    frame.headerLine:ClearAllPoints()
+    frame.headerLine:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, -(top + 23))
+    frame.headerLine:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -16, -(top + 23))
+    frame.scroll:ClearAllPoints()
+    frame.scroll:SetPoint("TOPLEFT", 16, -(top + 26))
+    frame.scroll:SetPoint("BOTTOMRIGHT", -34, 34)
 end
 
 function MainWindow:Refresh()
     sinceRefresh = 0
     if not (frame and frame:IsShown()) then return end
-    local columns = self.COLUMNS[current.tab]
-    frame.tabs:Select(current.tab)
+    local event = self:OpenEvent()
+    local columns = event and self.COLUMNS.event or self.COLUMNS[current.tab] or self.COLUMNS.events
+    local section = self.SectionOf(current.tab)
+    frame.tabs:Select(section.id)
     LayoutHeaders(columns)
-    local rows = self.Rows(current.tab, current.sort, nil, self:ListFaction())
+    local search = not event and self:Search() or nil
+    local rows
+    if event then
+        local count = #ns.Tournaments.Bracket(event)
+        current.round = current.round and math.max(1, math.min(current.round, count)) or nil
+        rows = self.MatchRows(event, self:EventRound(event))
+    else
+        rows = self.Rows(current.tab, current.sort, nil, self:ListFaction(), search)
+    end
     for i, data in ipairs(rows) do
         local row = RowFrame(i)
         row.data = data
         local x = 2
         for c, column in ipairs(columns) do
             local cell = Cell(row, c)
+            if column.font == "name" then
+                ns.Theme.Font(cell, "name", self.NAME_SIZE)
+            else
+                ns.Theme.Font(cell, "text", self.TEXT_SIZE)
+            end
+            local fg = ns.Theme.COLORS.foreground
+            cell:SetTextColor(fg[1], fg[2], fg[3])
             cell:ClearAllPoints()
             cell:SetPoint("LEFT", row, "LEFT", x, 0)
             cell:SetWidth(column.width - 4)
@@ -640,7 +873,7 @@ function MainWindow:Refresh()
             x = x + column.width
         end
         for c = #columns + 1, #row.cells do row.cells[c]:Hide() end
-        if data.tour and data.id == current.selected then row.selectedMark:Show() else row.selectedMark:Hide() end
+        self:LayoutRowButtons(row, data.actions)
         row:Show()
     end
     for i = #rows + 1, #rowFrames do
@@ -658,71 +891,257 @@ function MainWindow:Refresh()
         end
         frame.count:SetText(count)
     end
-    frame.empty:SetText(#rows == 0 and L["EMPTY_" .. current.tab:upper()] or "")
-    if current.tab == "duels" or current.tab == "wanted" then
-        frame.faction:SetText(string.format(L.FACTION_BUTTON, FactionLabel(self:ListFaction()) or "?"))
+    if #rows > 0 then
+        frame.empty:SetText("")
+    elseif event then
+        frame.empty:SetText(L.EMPTY_EVENT)
+    elseif search then
+        frame.empty:SetText(string.format(L.SEARCH_EMPTY, (search:gsub("|", "||"))))
+    else
+        frame.empty:SetText(L["EMPTY_" .. current.tab:upper()])
+    end
+    self:LayoutToolbar(section, event)
+    self.shownRows = rows
+end
+
+-- Up to two buttons at the right end of a row (the event view's Call, Ready, Confirm ...)
+function MainWindow:LayoutRowButtons(row, actions)
+    row.actionButtons = rawget(row, "actionButtons") or {}
+    for i = 1, 2 do
+        local action = actions and actions[i]
+        local button = row.actionButtons[i]
+        if action and not button then
+            button = ns.Theme.Button(row, "", i == 1 and "gold" or "outline", 96, 20)
+            button:SetPoint("RIGHT", row, "RIGHT", -4 - (i - 1) * 100, 0)
+            button:SetScript("OnClick", function(self) MainWindow:OnMatchAction(row.data, self.action) end)
+            row.actionButtons[i] = button
+        end
+        if button then
+            button.action = action
+            if action then
+                button:SetText(action.label)
+                button:Show()
+            else
+                button:Hide()
+            end
+        end
+    end
+end
+
+-- A row button of the event view
+function MainWindow:OnMatchAction(data, action)
+    local t = self:OpenEvent()
+    if not (t and data and data.eventMatch and action) then return end
+    local round, match = data.eventMatch.round, data.eventMatch.match
+    local M = ns.Matches
+    if action.kind == "call" then
+        M:CallMatch(t, round, match)
+    elseif action.kind == "ready" then
+        M:Ready()
+    elseif action.kind == "confirm" then
+        local call = M:Call(t.id, round, match)
+        if call then M:Confirm(t, round, match, call.wins.a, call.wins.b) end
+    elseif action.kind == "noshow" then
+        M:Confirm(t, round, match, 0, 0, action.side)
+    elseif action.kind == "set" then
+        local call = M:Call(t.id, round, match)
+        ns.ResultDialog:Open(t, round, match, call and call.decided and (call.wins.a .. "-" .. call.wins.b) or nil)
+    end
+    self:Refresh()
+end
+
+-- The toolbar of the section on show: its sub-tabs, the faction switch, the search; an
+-- open event has its own (Back, name, round switch, Copy link)
+function MainWindow:LayoutToolbar(section, event)
+    for id, set in pairs(frame.subtabs) do
+        if id == section.id and not event then
+            set:Select(current.tab)
+            set:Show()
+        else
+            set:Hide()
+        end
+    end
+    local sub = not event and frame.subtabs[section.id]
+    local faction = not event and (current.tab == "duels" or current.tab == "wanted")
+    if faction then
+        frame.faction:ClearAllPoints()
+        frame.faction:SetPoint("TOPLEFT", 16 + (sub and (sub.width + 12) or 0), -(ns.Theme.HEADER_HEIGHT + 10))
+        frame.faction:Select(self:ListFaction())
         frame.faction:Show()
     else
         frame.faction:Hide()
     end
-    self:UpdateTourButtons()
-    self.shownRows = rows
-end
-
--- The Tournaments tab's buttons follow the selected tournament
-function MainWindow:UpdateTourButtons()
-    local onTab = current.tab == "tours"
-    local t = current.selected and ns.Tournaments:Get(current.selected)
-    if not t then current.selected = nil end
-    local actions = self.TourActions(t)
-    local create = onTab and ns.Tournaments:CanHost()
-    self.tourButtons = { create = create, action = onTab and actions.action or nil, cancel = onTab and actions.cancel }
-    if not frame then return end
-    if create then frame.tourCreate:Show() else frame.tourCreate:Hide() end
-    if onTab and actions.action then
-        frame.tourAction:SetText(L["TOUR_BUTTON_" .. actions.action:upper()])
-        frame.tourAction:Show()
+    if not event and self.SEARCH_TABS[current.tab] then frame.search:Show() else frame.search:Hide() end
+    for _, w in ipairs({ frame.eventBack, frame.eventTitle, frame.eventLink, frame.eventNext, frame.eventRound,
+            frame.eventPrev }) do
+        if event then w:Show() else w:Hide() end
+    end
+    local eventsList = section.id == "events" and not event
+    for _, w in ipairs({ frame.eventsCreate, frame.eventsInfo }) do
+        if eventsList then w:Show() else w:Hide() end
+    end
+    local unsent = event and ns.Matches:Unsent() or 0
+    if unsent > 0 then
+        frame.eventSend:SetText(string.format(L.EVENT_SEND, unsent))
+        frame.eventSend:Show()
     else
-        frame.tourAction:Hide()
+        frame.eventSend:Hide()
     end
-    if onTab and actions.cancel then frame.tourCancel:Show() else frame.tourCancel:Hide() end
+    if event then
+        local TN = ns.Tournaments
+        local count = #TN.Bracket(event)
+        local round = self:EventRound(event)
+        frame.eventTitle:SetText(event.name .. " · " .. event.teamSize .. "v" .. event.teamSize .. " · " .. TN.Series(event))
+        frame.eventRound:SetText(count > 0 and string.format(L.EVENT_ROUND_OF, TN.RoundName(round, count), round, count) or "")
+        if frame.eventPrev.SetEnabled then
+            frame.eventPrev:SetEnabled(round > 1)
+            frame.eventNext:SetEnabled(round < count)
+        end
+    end
 end
 
-function MainWindow:TourAction()
-    local t = current.selected and ns.Tournaments:Get(current.selected)
-    local action = self.TourActions(t).action
-    if action == "here" then
-        ns.Tournaments:DoCheckIn(t.id)
-    elseif action then
-        ns.Tournaments:DoJoin(t.id, action == "leave")
-    end
+-- The open event, or nil (it may have ended since)
+function MainWindow:OpenEvent()
+    if not current.event then return nil end
+    local t = ns.Tournaments:Get(current.event)
+    if not t then current.event = nil end
+    return t
+end
+
+-- The round shown in the open event: the one picked, else the one being played
+function MainWindow:EventRound(t)
+    return current.round or ns.Tournaments.CurrentRound(ns.Tournaments.Bracket(t))
+end
+
+function MainWindow:ShowEvent(id)
+    current.event, current.round = id, nil
+    if frame and frame.scroll.SetVerticalScroll then frame.scroll:SetVerticalScroll(0) end
     self:Refresh()
 end
 
-function MainWindow:SelectedTour()
-    return current.selected
-end
-
--- The Tournaments tab is under development: hidden unless /hh debug tours on
-function MainWindow.ToursEnabled()
-    return ns.db and ns.db.settings.devTournaments and true or false
-end
-
--- Shows or hides the Tournaments tab after /hh debug tours on|off
-function MainWindow:ApplyToursTab()
-    local on = self.ToursEnabled()
-    if not on and current.tab == "tours" then current.tab = "wanted" end
-    if frame and frame.toursTab then
-        if on then frame.toursTab:Show() else frame.toursTab:Hide() end
-    end
+function MainWindow:CloseEvent()
+    current.event, current.round = nil, nil
     self:Refresh()
+end
+
+-- The previous (-1) or next (1) round of the open event
+function MainWindow:ShowRound(step)
+    local t = self:OpenEvent()
+    if not t then return end
+    local count = #ns.Tournaments.Bracket(t)
+    current.round = math.max(1, math.min(count, self:EventRound(t) + step))
+    self:Refresh()
+end
+
+-- The open event's page on the website, to copy: an addon cannot open a browser
+function MainWindow:CopyEventLink()
+    local t = self:OpenEvent()
+    if not t then return end
+    if not t.url then
+        ns:Print(L.EVENT_NO_LINK)
+        return
+    end
+    self:ShowLink(L.EVENT_LINK_TEXT, t.url)
+end
+
+-- The website's page to make an event, to copy
+function MainWindow:CopyCreateLink()
+    local url = ns.SiteData:Link("create_tournament")
+    if not url then
+        ns:Print(L.EVENTS_NO_LINK)
+        return false
+    end
+    self:ShowLink(L.EVENTS_CREATE_TEXT, url)
+    return true
+end
+
+-- A popup with a link selected in a box, for Ctrl+C
+function MainWindow:ShowLink(text, url)
+    if not StaticPopupDialogs.HEADHUNTER_LINK then
+        StaticPopupDialogs.HEADHUNTER_LINK = {
+            button1 = OKAY or "OK",
+            hasEditBox = true,
+            editBoxWidth = 360,
+            OnShow = function(dialog, url)
+                local box = dialog.editBox or dialog.EditBox
+                if box then
+                    box:SetText(url or "")
+                    box:HighlightText()
+                    box:SetFocus()
+                end
+            end,
+            EditBoxOnEscapePressed = function(box) box:GetParent():Hide() end,
+            EditBoxOnEnterPressed = function(box) box:GetParent():Hide() end,
+            timeout = 0,
+            whileDead = true,
+            hideOnEscape = true,
+            preferredIndex = 3,
+        }
+    end
+    StaticPopupDialogs.HEADHUNTER_LINK.text = text
+    StaticPopup_Show("HEADHUNTER_LINK", nil, nil, url)
+end
+
+-- Reload the UI (a click, after a yes) so the game saves our results for HeadHunter Sync
+function MainWindow:SendToWebsite()
+    local unsent = ns.Matches:Unsent()
+    if unsent == 0 then return false end
+    if not StaticPopupDialogs.HEADHUNTER_SEND then
+        StaticPopupDialogs.HEADHUNTER_SEND = {
+            button1 = YES or "Yes",
+            button2 = NO or "No",
+            OnAccept = function() ReloadUI() end,
+            timeout = 0,
+            whileDead = true,
+            hideOnEscape = true,
+            preferredIndex = 3,
+        }
+    end
+    StaticPopupDialogs.HEADHUNTER_SEND.text = string.format(L.EVENT_SEND_CONFIRM, unsent)
+    StaticPopup_Show("HEADHUNTER_SEND")
+    return true
+end
+
+function MainWindow:SelectSection(id)
+    for _, section in ipairs(self.SECTIONS) do
+        if section.id == id then
+            self:SelectTab(current.lastView[id] or section.views[1])
+            return
+        end
+    end
 end
 
 function MainWindow:SelectTab(tab)
-    if tab == "tours" and not self.ToursEnabled() then tab = "wanted" end
+    tab = self.OLD_TABS[tab] or tab
+    local section = self.SectionOf(tab)
+    local known = false
+    for _, view in ipairs(section.views) do known = known or view == tab end
+    if not known then tab = section.views[1] end
     current.tab = tab
+    current.lastView[section.id] = tab
+    current.event, current.round = nil, nil
+    if frame and frame.scroll.SetVerticalScroll then frame.scroll:SetVerticalScroll(0) end
+    -- The box shows this tab's own search
+    if frame and self.SEARCH_TABS[tab] then
+        frame.search:SetText(current.searches[tab] or "")
+        frame.search.hint:SetShown(current.searches[tab] == nil)
+    end
+    self:Refresh()
+end
+
+-- The search of the tab on show; empty or only spaces shows the whole list
+function MainWindow:SetSearch(text)
+    if not self.SEARCH_TABS[current.tab] then return end
+    text = (text or ""):match("^%s*(.-)%s*$")
+    local search = text ~= "" and text or nil
+    if search == current.searches[current.tab] then return end
+    current.searches[current.tab] = search
     if frame and frame.scroll.SetVerticalScroll then frame.scroll:SetVerticalScroll(0) end
     self:Refresh()
+end
+
+function MainWindow:Search()
+    return self.SEARCH_TABS[current.tab] and current.searches[current.tab] or nil
 end
 
 function MainWindow:SetSort(sortKey)
@@ -747,6 +1166,19 @@ function MainWindow:ListFaction()
     return nil
 end
 
+-- Shows the Alliance or Horde list on the tab on show (WANTED or Duels)
+function MainWindow:SetFaction(faction)
+    if current.tab == "wanted" then
+        current.wantedFaction = faction
+    elseif current.tab == "duels" then
+        current.faction = faction
+    else
+        return
+    end
+    if frame and frame.scroll.SetVerticalScroll then frame.scroll:SetVerticalScroll(0) end
+    self:Refresh()
+end
+
 function MainWindow:SwitchFaction()
     if current.tab == "wanted" then
         current.wantedFaction = self:WantedFaction() == "Horde" and "Alliance" or "Horde"
@@ -760,11 +1192,10 @@ function MainWindow:Current()
     return current.tab, current.sort
 end
 
--- A row opens the outlaw's poster (HH-061); on the Tournaments tab it selects
+-- A row opens the outlaw's poster (HH-061), or the event (Events)
 function MainWindow:OnRowClick(data)
-    if data and data.tour then
-        current.selected = data.id
-        self:Refresh()
+    if data and data.event then
+        self:ShowEvent(data.event)
     elseif data and data.whisper then
         ns.Utils.OpenWhisper(data.whisper)
     elseif data and data.id then
@@ -804,7 +1235,7 @@ end
 ns.Events:Register("HH_INITIALIZED", function()
     local request = function() MainWindow:RequestRefresh() end
     for _, event in ipairs({ "HH_WANTED_UPDATED", "HH_DEATH_RECORDED", "HH_REPORT_UPDATED", "HH_MARKS_CHANGED",
-            "HH_HIGHNOON_UPDATED", "HH_TOURNAMENT_UPDATED", "HH_BOUNTY_UPDATED" }) do
+            "HH_HIGHNOON_UPDATED", "HH_BOUNTY_UPDATED", "HH_MATCHES_CHANGED" }) do
         ns.Events:Register(event, request, OWNER)
     end
 end, OWNER)

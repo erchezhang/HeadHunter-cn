@@ -152,8 +152,10 @@ local function Describe(result)
 end
 Transport.DescribeResult = Describe
 
--- Raw send; returns ok, result
+-- Raw send; returns ok, result. In test mode (HeadHunter_Dev noSharing, Core/Dev.lua)
+-- nothing is sent, and the queue treats it as sent so it does not retry.
 local function RawSend(message, chatType, target)
+    if ns.Dev.NoSharing() then return true, "not sent: test mode" end
     local sender = C_ChatInfo and C_ChatInfo.SendAddonMessage or SendAddonMessage
     local ok, result = pcall(sender, Transport.PREFIX, message, chatType, target)
     if not ok then return false, "error: " .. tostring(result) end
@@ -381,7 +383,7 @@ end
 function Transport:SendRealmWide(typeCode, records)
     local channelID = self:ChannelID()
     local faction = MyFactionCode()
-    if not channelID or not faction or #records == 0 then return 0 end
+    if not channelID or not faction or #records == 0 or ns.Dev.NoSharing() then return 0 end
     local messages = ns.Protocol.Pack(faction, typeCode, records, ns.Protocol.MAX_MESSAGE - #self.CHAT_MARK)
     local sent = 0
     for i = 1, math.min(#messages, self.MAX_TEXT_MESSAGES) do

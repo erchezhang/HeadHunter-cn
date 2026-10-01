@@ -17,7 +17,7 @@ local Sighting = ns:RegisterModule("Sighting", {})
 
 local OWNER = "Sighting"
 
-Sighting.THROTTLE = 120
+Sighting.THROTTLE = 300          -- the same outlaw again: 5 minutes (author, 2026-10-01)
 Sighting.BULLY_THROTTLE = 600  -- a bully or Deadbeat (Hall of Shame) not WANTED: once per 10 min each
 
 -- WANTED, at large, or with a player's bounty (HH-118)
@@ -79,7 +79,7 @@ function Sighting:OnEnemySeen(record, source)
     local name = ns.Utils.DisplayName(record.key) or entry.name
     local badges = Wanted.BadgeNames(entry)
     local suffix = badges ~= "" and (" · " .. badges) or ""
-    -- The chat line stays with us (nothing is sent to other HeadHunters)
+    -- The chat line stays with us; Alerts/Spotted.lua tells the others where he is
     local text, chat
     if entry.wanted then
         text = string.format(L.SIGHTING_TEXT, Wanted.RankName(entry.rank), name)
@@ -96,7 +96,7 @@ function Sighting:OnEnemySeen(record, source)
     local bounty = ns.Bounties:Line(entry.id)
     if bounty then chat = chat .. " · " .. bounty end
 
-    ns.Alerts:Show({
+    local alerted = ns.Alerts:Show({
         key = "seen:" .. entry.id,
         throttle = self.THROTTLE,
         text = text,
@@ -104,6 +104,7 @@ function Sighting:OnEnemySeen(record, source)
         sound = true,
         combat = true, -- the outlaw may be the one we are fighting: tell us now
     })
+    if alerted then ns.Events:Fire("HH_OUTLAW_SEEN", entry) end
 end
 
 -- HH-118: a Deadbeat of our own faction (unpaid bounties, blocked 30 days) we target

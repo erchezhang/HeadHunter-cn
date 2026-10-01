@@ -162,7 +162,7 @@ function CatchUp:OnData(record, sender)
     if state ~= "pulling" or not ns.Utils.SameCharacter(sender, source) then return end
     local kind, body = record:sub(1, 1), record:sub(2)
     if kind == "D" then
-        if ns.Reports:AddRelayed(body) then received.reports = received.reports + 1 end
+        if ns.Reports:AddRelayed(body, sender) then received.reports = received.reports + 1 end
     elseif kind == "K" then
         if ns.Justice:AddRelayed(body, sender) then received.catches = received.catches + 1 end
     elseif kind == "U" then

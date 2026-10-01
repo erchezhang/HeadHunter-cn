@@ -186,4 +186,52 @@ return function(T, H)
         T.eq(ns.L.TAB_MARKS, "My bounty", "tab label")
         T.noErrors()
     end)
+
+    T.case("each character has its own bounty; the first one keeps the old total", function()
+        local ns = H.Boot({ client = "era" })
+        ns.db.marks = { total = 12, events = { { t = H.serverTime - 60, delta = 12, reason = "catch", outlaw = "X",
+            rank = "mostwanted", total = 12 } } }
+        T.eq(ns.Marks:Total(), 12, "the old total goes to the character we play")
+        T.eq(#ns.Marks:Events(), 1, "with its events")
+        H.units.player.name = "Tovik"
+        T.eq(ns.Marks:Total(), 0, "another character starts at 0")
+        T.eq(#ns.Marks:Events(), 0, "and sees none of the first one's events")
+        ns.Marks:Add(3, "bully", "Brute")
+        T.eq(ns.Marks:Total(), 3, "own bounty")
+        T.eq(ns.MainWindow.Rows("marks")[1].total, "3", "running total of this character")
+        H.units.player.name = "Vati"
+        T.eq(ns.Marks:Total(), 12, "the first character's bounty is back")
+        T.eq(#ns.Marks:Events(), 1, "and its events only")
+        H.units.player.name = "Tovik"
+        T.eq(ns.Marks:Total(), 3, "the second one's too")
+        T.noErrors()
+    end)
+
+    T.case("each character's bounty is kept over a logout", function()
+        local ns = H.Boot({ client = "era" })
+        ns.Marks:Add(5, "catch", "Brute", "outlaw")
+        local saved = ns.Database:Root()
+        H.Install({ client = "era", savedDB = saved })
+        H.units.player.name = "Tovik"
+        local alt = H.Load()
+        H.Fire("ADDON_LOADED", "HeadHunter")
+        H.Fire("PLAYER_LOGIN")
+        T.eq(alt.Marks:Total(), 0, "the new character")
+        alt.Marks:Add(1, "join", "Brute", "outlaw")
+        T.eq(alt.Marks:Total(), 1, "its own")
+        T.eq(#alt.db.marks.events, 2, "one list, each event with its hunter")
+        T.noErrors()
+    end)
+
+    T.case("the website's totals go to each character", function()
+        local ns = H.Boot({ client = "era" })
+        T.ok(ns.Marks:SetTotalOf("Tovik-Firemaw", 20), "another character")
+        T.eq(ns.Marks:Total(), 0, "not ours")
+        T.ok(ns.Marks:SetTotalOf("Vati-Firemaw", 7), "ours")
+        T.eq(ns.Marks:Total(), 7, "ours")
+        T.ok(not ns.Marks:SetTotalOf("Vati-Firemaw", 5), "never lower")
+        H.units.player.name = "Tovik"
+        T.eq(ns.Marks:Total(), 20, "the other character's")
+        T.noErrors()
+    end)
 end

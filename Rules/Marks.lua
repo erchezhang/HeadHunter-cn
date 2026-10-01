@@ -17,8 +17,9 @@
 --   none when the outlaw is 10+ levels below us: hunting down is ganking too.
 -- Ranks: Tracker 0, Bounty Hunter 10, Manhunter 25, Headhunter 50, Reaper 100.
 --
--- Kept in ns.db.marks = { total, events = newest last }. Our rank travels with posse
--- joins (Alerts/Posse.lua), so /hh posse shows each member's rank. Without a server
+-- Kept in ns.db.marks = { total, owner, totals, events = newest last }, per character
+-- (see Own below). Our rank travels with posse joins (Alerts/Posse.lua), so /hh posse
+-- shows each member's rank. Without a server
 -- marks can be forged; accepted for now (the website validates later).
 -- Fires HH_MARKS_CHANGED(total, event).
 
@@ -50,8 +51,70 @@ Marks.MAX_EVENTS = 200
 local lastJoin, lastCatch, lastBully = {}, {}, {}   -- outlaw id -> GetTime()
 local lastDecline
 
+-- Each character has its own bounty (author, 2026-09-30). The saved data is shared by
+-- the realm's characters: marks.total is the character we play (marks.owner), the
+-- others wait in marks.totals. Events are one list, each with its hunter. The first
+-- character to log in after the change takes the old shared total.
+local function Own(store)
+    local U = ns.Utils
+    local me = U.CompactName(U.UnitKey("player"))
+    if not me or store.owner == me then return store end
+    store.totals = store.totals or {}
+    if store.owner then
+        store.totals[store.owner] = store.total or 0
+        store.total = store.totals[me] or 0
+        store.totals[me] = nil
+    else
+        local key = U.UnitKey("player")
+        for _, event in ipairs(store.events or {}) do event.hunter = event.hunter or key end
+    end
+    store.owner = me
+    return store
+end
+
 local function Store()
-    return ns.db and ns.db.marks
+    local store = ns.db and ns.db.marks
+    return store and Own(store)
+end
+
+local function IsMine(event)
+    return ns.Utils.SameCharacter(event.hunter, ns.Utils.UnitKey("player"))
+end
+
+-- The saved total of one of our characters (SiteData: the website's number)
+function Marks:SetTotalOf(key, total)
+    local store = Store()
+    if not store then return false end
+    local id = ns.Utils.CompactName(key)
+    if not id then return false end
+    if id == store.owner then
+        if total <= (store.total or 0) then return false end
+        store.total = total
+    else
+        store.totals = store.totals or {}
+        if total <= (store.totals[id] or 0) then return false end
+        store.totals[id] = total
+    end
+    return true
+end
+
+-- At most MAX_EVENTS per character, the oldest go first
+function Marks.Trim(store)
+    local counts = {}
+    for _, event in ipairs(store.events) do
+        local id = ns.Utils.CompactName(event.hunter) or "?"
+        counts[id] = (counts[id] or 0) + 1
+    end
+    local kept = {}
+    for _, event in ipairs(store.events) do
+        local id = ns.Utils.CompactName(event.hunter) or "?"
+        if counts[id] > Marks.MAX_EVENTS then
+            counts[id] = counts[id] - 1
+        else
+            kept[#kept + 1] = event
+        end
+    end
+    store.events = kept
 end
 
 function Marks:Total()
@@ -85,11 +148,13 @@ function Marks:Next()
     return Marks.RankNameByIndex(index + 1), nextRank.min - self:Total()
 end
 
--- Newest first
+-- The character we play, newest first
 function Marks:Events()
     local store = Store()
     local list = {}
-    for i = #(store and store.events or {}), 1, -1 do list[#list + 1] = store.events[i] end
+    for i = #(store and store.events or {}), 1, -1 do
+        if IsMine(store.events[i]) then list[#list + 1] = store.events[i] end
+    end
     return list
 end
 
@@ -99,11 +164,11 @@ function Marks:Add(delta, reason, outlaw, rank)
     if not store then return nil end
     local before = self:RankIndex()
     store.total = math.max(0, (store.total or 0) + delta)
-    -- hunter: whose event it is, as marks are shared by the account (the sync app splits them)
+    -- hunter: whose event it is, as the realm's characters share one list (the sync app splits them)
     local event = { t = ns.Utils.ServerTime(), delta = delta, reason = reason, outlaw = outlaw, rank = rank,
         total = store.total, hunter = ns.Utils.UnitKey("player") }
     store.events[#store.events + 1] = event
-    while #store.events > self.MAX_EVENTS do table.remove(store.events, 1) end
+    Marks.Trim(store)
 
     ns:Print(Marks.Describe(event))
     local after = self:RankIndex()
@@ -161,7 +226,8 @@ function Marks:JoinedThisRun(entry)
     local name = OutlawName(entry)
     local store = Store()
     for _, event in ipairs(store and store.events or {}) do
-        if event.reason == "join" and (event.t or 0) >= since and ns.Utils.SameCharacter(event.outlaw, name) then
+        if event.reason == "join" and (event.t or 0) >= since and IsMine(event)
+            and ns.Utils.SameCharacter(event.outlaw, name) then
             return true
         end
     end

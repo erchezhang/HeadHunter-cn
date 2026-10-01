@@ -114,7 +114,8 @@ local function Publish(newEntries)
             changed = true
             ns.Events:Fire("HH_WANTED_CAUGHT", entry, before)
         elseif not before or (entry.wanted and entry.kills ~= before.kills)
-                or (entry.atLarge or false) ~= (before.atLarge or false) then
+                or (entry.atLarge or false) ~= (before.atLarge or false)
+                or (entry.badges and entry.badges.coward or false) ~= (before.badges and before.badges.coward or false) then
             changed = true
         end
     end
@@ -197,8 +198,11 @@ function Wanted.MergeBullies(entries, site)
     for id, theirs in pairs(site or {}) do
         local ours = entries[id]
         if ours then
-            ours.badges = ours.badges or {}
-            ours.badges.coward = true
+            -- A copy: a merged website or test entry shares its badges table with the source
+            local badges = {}
+            for k, v in pairs(ours.badges or {}) do badges[k] = v end
+            badges.coward = true
+            ours.badges = badges
             ours.cowardKills = math.max(ours.cowardKills or 0, theirs.cowardKills or 0)
             ours.level = ours.level or theirs.level
         else
@@ -221,7 +225,10 @@ function Wanted:ComputeNow(yield)
         { serialWindow = SerialWindow(), wantedKills = Wanted.TestThreshold(), catches = catches },
         yield)
     Wanted.MergeSite(result, ns.SiteData:Wanted(), catches, now)
+    -- Test entries from /hh dev (Core/Dev.lua), this client only
+    Wanted.MergeSite(result, ns.Dev.TestEntries("wanted"), catches, now)
     Wanted.MergeBullies(result, ns.SiteData:Bullies())
+    Wanted.MergeBullies(result, ns.Dev.TestEntries("shame"))
     Publish(result)
     return result
 end

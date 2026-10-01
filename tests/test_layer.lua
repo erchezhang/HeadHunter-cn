@@ -66,7 +66,7 @@ return function(T, H)
         H.Slash("sim send Gank 3")
         local text = H.chatSent[1].text
 
-        local nsB = H.Boot({ client = "era" })
+        local nsB = H.Boot({ client = "era", dev = { trust = { "Vati-Firemaw" } } })
         H.units.player.name = "Headhunta"
         H.units.target = NPC(bLayer)
         if whisper == false then H.Slash("alerts whisper off") end

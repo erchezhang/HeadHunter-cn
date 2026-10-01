@@ -30,8 +30,15 @@ SettingsPanel.OPTIONS = {
     { section = "SET_SECTION_DISPLAY" },
     { key = "mapPins", kind = "toggle", path = "mapPins", label = "SET_MAP", tip = "SET_MAP_TIP" },
     { key = "tooltip", kind = "toggle", path = "tooltip", label = "SET_TOOLTIP", tip = "SET_TOOLTIP_TIP" },
+    { key = "organizerMarks", kind = "toggle", path = "organizerMarks", label = "SET_ORGANIZER_MARKS",
+        tip = "SET_ORGANIZER_MARKS_TIP" },
+    { key = "wantedMarks", kind = "toggle", path = "wantedMarks", label = "SET_WANTED_MARKS", tip = "SET_WANTED_MARKS_TIP" },
+    { key = "shameMarks", kind = "toggle", path = "shameMarks", label = "SET_SHAME_MARKS", tip = "SET_SHAME_MARKS_TIP" },
     { key = "minimap", kind = "toggle", path = "minimap.hidden", invert = true, label = "SET_MINIMAP",
         tip = "SET_MINIMAP_TIP" },
+    -- HH-125: the HeadHunter windows (UI/Theme.lua), in %
+    { key = "scale", kind = "number", path = "uiScale", min = 90, max = 130, step = 10, format = "SET_PERCENT",
+        label = "SET_SCALE", tip = "SET_SCALE_TIP" },
     { section = "SET_SECTION_RULES" },
     { key = "serial", kind = "number", path = "serialKillerWindowMin", min = 5, max = 15, step = 1,
         label = "SET_SERIAL", tip = "SET_SERIAL_TIP" },
@@ -156,7 +163,7 @@ local function AddNumber(option, y)
         b:SetScript("OnLeave", HideTip)
     end
     widgets[option.key] = { refresh = function()
-        value:SetText(string.format(L.SET_MINUTES, SettingsPanel.Get(option) or option.min))
+        value:SetText(string.format(L[option.format or "SET_MINUTES"], SettingsPanel.Get(option) or option.min))
     end }
     return y - 30
 end

@@ -98,16 +98,6 @@ SlashCommands:Register("debug", function(args)
         ns:Print(string.format(L.DEBUG_DUELS, ns.HighNoon.MinDuels()))
         return
     end
-    -- /hh debug tours <on|off>: the Tournaments tab, hidden while under development
-    if mode == "tours" then
-        local value = args[2] and args[2]:lower()
-        if value == "off" or value == "on" then
-            ns.Database:SetSetting("devTournaments", value == "on" or nil)
-            ns.MainWindow:ApplyToursTab()
-        end
-        ns:Print(ns.MainWindow.ToursEnabled() and L.DEBUG_TOURS_ON or L.DEBUG_TOURS_OFF)
-        return
-    end
     -- /hh debug wanted <n|off>: testing override of the WANTED kill threshold
     if mode == "wanted" then
         local value = args[2] and args[2]:lower()

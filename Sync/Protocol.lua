@@ -27,10 +27,13 @@ Protocol.TYPES = {
     JUSTICE = "K", -- a WANTED outlaw killed by a HeadHunter or their group (HH-048)
     OFFER = "O",   -- catch-up: "I have N records for you" (HH-023)
     DUEL = "U",    -- High Noon: a duel someone saw (HH-091); also accepted from the other faction
-    TOURNAMENT = "V", -- Gurubashi Tournament: announce, entrants, requests (HH-101)
+    -- "V" was the in-game tournament (HH-101, removed 2026-09-30): not used again, as older
+    -- addons may still send it
     PING = "T", -- /hh sync ping: manual connectivity test
     PRESENCE = "N", -- HH-110: "here" with our version, counts who is online; both factions
     HELP = "B",     -- HH-111: "help on the way" to a Battle hotspot
+    SPOTTED = "L",  -- a watched outlaw spotted there (Alerts/Spotted.lua)
+    MATCH = "M",    -- a tournament match: call, ready, game, result (Tournament/Matches.lua)
     POSTER = "W",   -- HH-118: a player's bounty poster on their killer
     PAYMENT = "R",  -- HH-118: a bounty claimed, paid or unpaid (sent by the hunter)
 }
@@ -511,6 +514,54 @@ function Protocol.DecodeHelp(s)
     if type(s) ~= "string" then return nil end
     local mapID, t = s:match("^(%w+);(%w+)$")
     return mapID and Protocol.FromB36(mapID), t and Protocol.FromB36(t)
+end
+
+-------------------------------------------------
+-- Spotted (author, 2026-10-01): outlawId ; mapID ; time ; x ; y. The sender saw a
+-- watched outlaw (WANTED, at large, or with a player's bounty) there.
+-------------------------------------------------
+
+function Protocol.EncodeSpotted(outlawId, mapID, t, x, y)
+    return table.concat({ outlawId, Protocol.ToB36(mapID), Protocol.ToB36(t), EncodeCoord(x), EncodeCoord(y) }, ";")
+end
+
+-- Returns outlawId, mapID, time, x, y
+function Protocol.DecodeSpotted(s)
+    if type(s) ~= "string" then return nil end
+    local f = Split(s, ";")
+    if #f ~= 5 or Blank(f[1]) then return nil end
+    local mapID, t = Protocol.FromB36(f[2]), Protocol.FromB36(f[3])
+    if not mapID or not t then return nil end
+    return f[1], mapID, t, DecodeCoord(f[4]), DecodeCoord(f[5])
+end
+
+-------------------------------------------------
+-- Tournament match (author, 2026-10-01): kind ; tournament ; round ; match ; ...
+--   C ;tid;round;match;readyBy      D ;tid;round;match      R ;tid;round;match
+--   G ;tid;round;match;winnerKey;t
+--   F ;tid;round;match;a;b;winsA;winsB;forfeit;t
+-- Numbers base 36; names and ids as they are (no separators in them).
+-------------------------------------------------
+
+local MATCH_FIELDS = { C = 5, D = 4, R = 4, G = 6, F = 10 }
+
+function Protocol.EncodeMatch(kind, tid, round, match, ...)
+    local fields = { kind, tid, Protocol.ToB36(round), Protocol.ToB36(match) }
+    for _, v in ipairs({ ... }) do
+        fields[#fields + 1] = type(v) == "number" and Protocol.ToB36(v) or tostring(v or "")
+    end
+    return table.concat(fields, ";")
+end
+
+-- Returns kind, tid, round, match, and the kind's other fields as strings
+function Protocol.DecodeMatch(s)
+    if type(s) ~= "string" then return nil end
+    local f = Split(s, ";")
+    local kind = f[1]
+    if not MATCH_FIELDS[kind] or #f ~= MATCH_FIELDS[kind] or Blank(f[2]) then return nil end
+    local round, match = Protocol.FromB36(f[3]), Protocol.FromB36(f[4])
+    if not round or not match then return nil end
+    return kind, f[2], round, match, select(5, unpack(f))
 end
 
 -------------------------------------------------

@@ -1,0 +1,14 @@
+Textures for the HeadHunter window (HH-125), made with a script from the website's
+textures (head-hunter-web resources/images/textures), all CC0 1.0 from ambientCG:
+
+leather.tga  Leather 026  https://ambientcg.com/view?id=Leather026
+wood.tga     Wood 051     https://ambientcg.com/view?id=Wood051
+poster.tga   the website's poster-paper script (resources/art/poster-paper.php) without
+             the fold lines, made by us from Paper 006
+             (https://ambientcg.com/view?id=Paper006): torn edge and stains
+
+divider.tga, glow.tga, pin.tga and mark.tga are drawn by the same script.
+star.tga     the sheriff's star for tournament organizers (HH-128), drawn by us with a
+             script: white, tinted gold for the host and silver for co-organizers
+feather.tga  the white feather above Hall of Shame players, drawn by us with a script
+CC0: no attribution is required; the sources are kept here so they can be checked.

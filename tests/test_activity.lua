@@ -216,7 +216,7 @@ return function(T, H)
         local text = H.chatSent[1].text
 
         -- Character B receives them
-        local nsB = H.Boot({ client = "era" })
+        local nsB = H.Boot({ client = "era", dev = { trust = { "Vati-Firemaw" } } })
         H.units.player.name = "Headhunta"
         H.Slash("debug wanted 3")
         H.Fire("CHAT_MSG_CHANNEL", text, "Vati-Firemaw", "", "5. HeadHunterSync", "", "", 0, 5, "HeadHunterSync")

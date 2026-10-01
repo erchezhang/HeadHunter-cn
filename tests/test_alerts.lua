@@ -197,7 +197,7 @@ return function(T, H)
         T.eq(#H.sounds, 1, "sound")
     end)
 
-    T.case("the same outlaw alerts again only after 2 minutes", function()
+    T.case("the same outlaw alerts again only after 5 minutes", function()
         local ns = H.Boot({ client = "era" })
         WantedGank(ns)
         H.units.target = GankPlate()
@@ -205,7 +205,10 @@ return function(T, H)
         H.clock = H.clock + 30
         H.Fire("PLAYER_TARGET_CHANGED")
         T.eq(#H.centerTexts, 1, "throttled")
-        H.clock = H.clock + 100
+        H.clock = H.clock + 200
+        H.Fire("PLAYER_TARGET_CHANGED")
+        T.eq(#H.centerTexts, 1, "still throttled after 3 minutes and a half")
+        H.clock = H.clock + 80
         H.Fire("PLAYER_TARGET_CHANGED")
         T.eq(#H.centerTexts, 2, "alerts again")
     end)

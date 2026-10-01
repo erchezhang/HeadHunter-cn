@@ -161,6 +161,107 @@ return function(T, H)
         T.noErrors()
     end)
 
+    T.case("a witness finds the other duelist as the target of the one it sees", function()
+        local ns = H.Boot({ client = "era" })
+        H.units.target = { name = "Tovik", level = 20, class = "WARRIOR", race = "Human", faction = "Alliance", isPlayer = true }
+        H.units.targettarget = { name = "Marla", level = 20, class = "MAGE", race = "Gnome", faction = "Alliance", isPlayer = true }
+        H.Fire("CHAT_MSG_SYSTEM", "Tovik has defeated Marla in a duel")
+        local _, duel = next(ns.db.duels)
+        T.eq(duel and duel.loserLevel, 20, "level from the target's target")
+        T.eq(duel.loserClass, "MAGE", "class from the target's target")
+        T.noErrors()
+    end)
+
+    T.case("a witness finds a duelist in the raid", function()
+        local ns = H.Boot({ client = "era" })
+        H.units.target = { name = "Tovik", level = 20, class = "WARRIOR", race = "Human", faction = "Alliance", isPlayer = true }
+        H.units.raid5 = { name = "Marla", level = 21, class = "MAGE", race = "Gnome", faction = "Alliance", isPlayer = true }
+        H.Fire("CHAT_MSG_SYSTEM", "Tovik has defeated Marla in a duel")
+        local _, duel = next(ns.db.duels)
+        T.eq(duel and duel.loserLevel, 21, "level from the raid")
+        T.noErrors()
+    end)
+
+    T.case("a duel with an unknown level waits until we see that player", function()
+        local ns = H.Boot({ client = "era" })
+        H.inGuild = true
+        H.Slash("debug on")
+        H.units.target = { name = "Tovik", level = 20, class = "WARRIOR", race = "Human", faction = "Alliance", isPlayer = true }
+        local t = H.serverTime
+        H.Fire("CHAT_MSG_SYSTEM", "Tovik has defeated Marla in a duel")
+        T.eq(ns.Duels:Count(), 0, "not stored yet")
+        T.eq(ns.Duels:WaitingCount(), 1, "waiting")
+        T.ok(H.Printed("Duel waiting for a level"), "debug line")
+        H.units.target = nil
+        H.Advance(90 * 60)
+        H.serverTime = H.serverTime + 90 * 60
+        H.units.mouseover = { name = "Marla", level = 20, class = "MAGE", race = "Gnome", faction = "Alliance", isPlayer = true }
+        H.Fire("UPDATE_MOUSEOVER_UNIT")
+        T.eq(ns.Duels:Count(), 1, "stored when seen")
+        T.eq(ns.Duels:WaitingCount(), 0, "no longer waiting")
+        local _, duel = next(ns.db.duels)
+        T.eq(duel.t, t, "the time of the duel")
+        T.eq(duel.winnerLevel, 20, "winner level kept")
+        T.eq(duel.loserLevel, 20, "loser level filled")
+        T.ok(H.Printed("Duel recorded %(late%)"), "debug line")
+        H.Fire("UPDATE_MOUSEOVER_UNIT")
+        for _ = 1, 30 do H.Advance(1) end
+        T.eq(ns.Duels:Count(), 1, "stored once")
+        T.eq(#Sent("^1AU:"), 1, "shared once")
+        T.noErrors()
+    end)
+
+    T.case("a waiting duel is dropped after 2 hours", function()
+        local ns = H.Boot({ client = "era" })
+        H.Slash("debug on")
+        H.units.target = { name = "Tovik", level = 20, class = "WARRIOR", race = "Human", faction = "Alliance", isPlayer = true }
+        H.Fire("CHAT_MSG_SYSTEM", "Tovik has defeated Marla in a duel")
+        H.units.target = nil
+        H.Advance(ns.Duels.LEVEL_WAIT + 1)
+        H.units.mouseover = { name = "Marla", level = 20, class = "MAGE", race = "Gnome", faction = "Alliance", isPlayer = true }
+        H.Fire("UPDATE_MOUSEOVER_UNIT")
+        T.eq(ns.Duels:Count(), 0, "too late")
+        T.eq(ns.Duels:WaitingCount(), 0, "dropped")
+        T.ok(H.Printed("Duel not counted %(levels 20 vs nil%)"), "debug line")
+        T.noErrors()
+    end)
+
+    T.case("at most 50 duels wait; the oldest goes first", function()
+        local ns = H.Boot({ client = "era" })
+        H.units.target = { name = "Tovik", level = 20, class = "WARRIOR", race = "Human", faction = "Alliance", isPlayer = true }
+        for i = 1, ns.Duels.MAX_WAITING + 1 do
+            H.Fire("CHAT_MSG_SYSTEM", "Tovik has defeated Stranger" .. string.char(96 + (i % 26) + 1)
+                .. string.char(96 + math.floor(i / 26) + 1) .. " in a duel")
+        end
+        T.eq(ns.Duels:WaitingCount(), ns.Duels.MAX_WAITING, "capped")
+        H.units.target = nil
+        H.units.mouseover = { name = "Strangerba", level = 20, class = "MAGE", race = "Gnome", faction = "Alliance", isPlayer = true }
+        H.Fire("UPDATE_MOUSEOVER_UNIT")
+        T.eq(ns.Duels:Count(), 0, "the first one was dropped")
+        H.units.mouseover = { name = "Strangerca", level = 20, class = "MAGE", race = "Gnome", faction = "Alliance", isPlayer = true }
+        H.Fire("UPDATE_MOUSEOVER_UNIT")
+        T.eq(ns.Duels:Count(), 1, "the second one was kept")
+        T.noErrors()
+    end)
+
+    T.case("a peer's copy ends the wait; seeing the player later adds nothing", function()
+        local ns = H.Boot({ client = "era" })
+        H.inGuild = true
+        H.units.target = { name = "Tovik", level = 20, class = "WARRIOR", race = "Human", faction = "Alliance", isPlayer = true }
+        H.Fire("CHAT_MSG_SYSTEM", "Tovik has defeated Marla in a duel")
+        H.Deliver(ns.Protocol.Pack("A", "U", { ns.Protocol.EncodeDuel({ winner = "Tovik-Firemaw", loser = "Marla-Firemaw",
+            t = H.serverTime, mapID = 1429, faction = "Alliance", winnerLevel = 20, loserLevel = 20 }) }), "Witness-Firemaw")
+        T.eq(ns.Duels:Count(), 1, "the peer's copy")
+        T.eq(ns.Duels:WaitingCount(), 0, "no longer waiting")
+        H.units.target = nil
+        H.units.mouseover = { name = "Marla", level = 20, class = "MAGE", race = "Gnome", faction = "Alliance", isPlayer = true }
+        H.Fire("UPDATE_MOUSEOVER_UNIT")
+        for _ = 1, 30 do H.Advance(1) end
+        T.eq(ns.Duels:Count(), 1, "stored once")
+        T.eq(#Sent("^1AU:"), 0, "not shared")
+        T.noErrors()
+    end)
+
     -- Forever: no result line; our addon judges our own duel
     local function OwnDuel(opts)
         local ns = H.Boot({ client = "forever" })
@@ -631,9 +732,47 @@ return function(T, H)
         MW:Toggle()
         MW:SelectTab("duels")
         T.eq(#MW.shownRows, 2, "shown")
-        MW:SwitchFaction()
-        T.eq(MW:DuelFaction(), "Horde", "switched")
+        local switch = _G.HeadHunterMainFrame.faction
+        T.eq(switch.value, "Alliance", "the switch shows Alliance")
+        T.eq(#switch.buttons, 2, "Alliance and Horde side by side")
+        switch.buttons[2].scripts.OnClick(switch.buttons[2])
+        T.eq(MW:DuelFaction(), "Horde", "a click on Horde")
+        T.eq(switch.value, "Horde", "Horde lit")
         T.eq(MW.shownRows[1].name:find("Grom", 1, true) ~= nil, true, "Horde list shown")
+        MW:SelectTab("wanted")
+        T.eq(switch.value, MW:WantedFaction(), "WANTED keeps its own side")
+        MW:SelectTab("duels")
+        T.eq(switch.value, "Horde", "Duels still on Horde")
+        T.noErrors()
+    end)
+
+    T.case("Duels search: part of a name, any case, each player keeps their place", function()
+        local ns = H.Boot({ client = "era" })
+        Duels(ns, "Vati-Firemaw", "Bob-Firemaw", 5)
+        Settle()
+        local MW = ns.MainWindow
+        local rows = MW.Rows("duels", nil, nil, "Alliance", "bO")
+        T.eq(#rows, 1, "one match")
+        T.ok(rows[1].name:find("Bob", 1, true) ~= nil, "Bob")
+        T.eq(rows[1].position, "2", "his place on the whole list")
+        T.eq(#MW.Rows("duels", nil, nil, "Alliance", "Firemaw"), 0, "the realm is not part of the name")
+        T.eq(#MW.Rows("duels", nil, nil, "Alliance", ""), 2, "empty: everyone")
+
+        MW:Toggle()
+        MW:SelectTab("duels")
+        T.ok(_G.HeadHunterMainFrame.search:IsShown(), "the box on Duels")
+        MW:SetSearch("  vat ")
+        T.eq(MW:Search(), "vat", "spaces trimmed")
+        T.eq(#MW.shownRows, 1, "filtered")
+        MW:SetSearch("zzz")
+        T.eq(#MW.shownRows, 0, "nobody")
+        T.eq(_G.HeadHunterMainFrame.empty.shownText, "Nobody called zzz", "says so")
+        MW:SelectTab("wanted")
+        T.ok(not _G.HeadHunterMainFrame.search:IsShown(), "no box on WANTED")
+        MW:SelectTab("duels")
+        T.eq(MW:Search(), "zzz", "back on Duels: its search is still there")
+        MW:SetSearch("")
+        T.eq(#MW.shownRows, 2, "cleared: everyone again")
         T.noErrors()
     end)
 

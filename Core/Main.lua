@@ -24,6 +24,10 @@ Events:Register("PLAYER_LOGIN", function()
     if ns.Database:ResetsOnReload() then
         ns:Print(L.FOREVER_SAVED_VARS)
     end
+    -- HeadHunter_Dev noSharing (Core/Dev.lua): say that nothing is sent
+    if ns.Dev.NoSharing() then
+        ns:Print(L.DEV_NO_SHARING)
+    end
 end, "Main")
 
 Events:Register("PLAYER_LOGOUT", function()

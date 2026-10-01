@@ -5,6 +5,7 @@
 --   unknown enemy:          nothing
 --   any player with duels:  "High Noon: Deadeye #3 (1250)" (HH-093)
 --   a player's bounty:      "Bounty: 20g by Tallon · Camped me" (HH-118)
+--   a tournament organizer: "★ Tournament host: Gate Brawl · in progress" (HH-128, any player)
 --
 -- Hook: TooltipDataProcessor (unit post-call) where the client has it, else the
 -- tooltip's OnTooltipSetUnit script. Either may run more than once for one tooltip,
@@ -77,6 +78,9 @@ function TooltipLine:Fill(tooltip)
     if bounty then lines[#lines + 1] = { bounty, 1, 0.82, 0 } end
     local duel = self.DuelLine(unit)
     if duel then lines[#lines + 1] = duel end
+    -- HH-128: the sheriff's star on a tournament's host or co-organizer (any player)
+    local organizer = ns.Organizers:TooltipLine(unit)
+    if organizer then table.insert(lines, 1, organizer) end
     if #lines == 0 then return end
     tooltip.hhLineAdded = true
     for _, line in ipairs(lines) do

@@ -132,6 +132,97 @@ function Brackets.SingleElimination(seeds, bestOf)
     return bracket
 end
 
+-------------------------------------------------
+-- The website's bracket (author, 2026-10-01): TournamentBracketService::rounds, line by
+-- line, so the game shows the same rounds and moves the same winners on. Round 1 from
+-- the seeds (byes to the top seeds), then match m and m + 1 meet in the next round's
+-- match ceil(m / 2). A result counts only for the entrants it was entered for. The
+-- final plays opts.finalBestOf when set; with opts.thirdPlace and 4 entrants or more
+-- the semifinal losers meet as match 2 of the last round.
+--   results: { { round, match, a, b, winsA, winsB, forfeit = "a" | "b" | nil } }
+--   returns { { number, bestOf, matches = { { round, match, a, b, bye, winsA, winsB,
+--             forfeit, winner = "a" | "b" | nil, thirdPlace } } } }
+-------------------------------------------------
+
+local function WinnerSide(result)
+    if result.forfeit then return result.forfeit == "a" and "b" or "a" end
+    return (result.winsA or 0) > (result.winsB or 0) and "a" or "b"
+end
+
+local function BuiltMatch(round, number, a, b, result)
+    local bye = round == 1 and a ~= nil and b == nil
+    local counts = not bye and a ~= nil and b ~= nil and result ~= nil and result.a == a and result.b == b
+    return {
+        round = round, match = number, a = a, b = b, bye = bye,
+        winsA = counts and result.winsA or 0, winsB = counts and result.winsB or 0,
+        forfeit = counts and result.forfeit or nil,
+        winner = bye and "a" or (counts and WinnerSide(result) or nil),
+        thirdPlace = false,
+    }
+end
+
+function Brackets.Build(seeds, results, opts)
+    opts = opts or {}
+    local n = #seeds
+    if n < 2 then return {} end
+    local size = 2
+    while size < n do size = size * 2 end
+    local order = Brackets.SeedOrder(size)
+    local slots = {}
+    for i = 1, size / 2 do
+        local a, b = seeds[order[2 * i - 1]], seeds[order[2 * i]]
+        if a == nil then a, b = b, nil end
+        slots[i] = { a = a, b = b }
+    end
+    local count = math.floor(math.log(size) / math.log(2) + 0.5)
+    local byMatch = {}
+    for _, result in ipairs(results or {}) do byMatch[result.round .. ":" .. result.match] = result end
+    local bestOf = opts.bestOf or 1
+    local rounds = {}
+    local number = 1
+    while #slots > 0 do
+        local matches, winners = {}, {}
+        for i, slot in ipairs(slots) do
+            local match = BuiltMatch(number, i, slot.a, slot.b, byMatch[number .. ":" .. i])
+            matches[i] = match
+            winners[i] = (match.winner == "a" and slot.a) or (match.winner == "b" and slot.b) or false
+        end
+        if number == count and number > 1 and opts.thirdPlace and n >= 4 then
+            local function Loser(semi)
+                if semi.winner == "a" then return semi.b end
+                if semi.winner == "b" then return semi.a end
+                return nil
+            end
+            local semis = rounds[number - 1].matches
+            local third = BuiltMatch(number, 2, Loser(semis[1]), Loser(semis[2]), byMatch[number .. ":2"])
+            third.thirdPlace = true
+            matches[2] = third
+        end
+        rounds[number] = { number = number, bestOf = number == count and (opts.finalBestOf or bestOf) or bestOf,
+            matches = matches }
+        local nextSlots = {}
+        if #winners > 1 then
+            for i = 1, #winners, 2 do
+                nextSlots[#nextSlots + 1] = { a = winners[i] or nil, b = winners[i + 1] or nil }
+            end
+        end
+        slots = nextSlots
+        number = number + 1
+    end
+    return rounds
+end
+
+-- The match the winner plays next has a result: this one cannot change (for a semifinal
+-- also the match for 3rd place, which its loser plays)
+function Brackets.NextIsPlayed(rounds, round, match)
+    local nextRound = rounds[round + 1]
+    if not nextRound then return false end
+    local function Played(m) return m ~= nil and m.winner ~= nil and not m.bye end
+    local third = nextRound.matches[2]
+    return Played(nextRound.matches[math.ceil(match / 2)])
+        or (round + 1 == #rounds and third ~= nil and third.thirdPlace and Played(third))
+end
+
 -- Round robin (circle method): n - 1 rounds (n rounds for an odd n, one sits out each)
 function Brackets.RoundRobin(seeds, bestOf)
     local n = #seeds

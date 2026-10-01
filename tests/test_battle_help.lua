@@ -94,7 +94,7 @@ return function(T, H)
 
         ns.Hotspots:AddFighter(1436, U.CompactName(U.UnitKey("player")), H.serverTime, 0.4, 0.6, {})
         H.Deliver(help, "Iron-Firemaw")
-        T.ok(H.Printed("Iron is coming to the fight in Westfall"), "fighting there: told")
+        T.ok(H.Printed("|Hplayer:Iron|h%[Iron%]|h is coming to the fight in Westfall"), "fighting there: told, a click whispers them")
         H.printed = {}
         H.Deliver(help, "Iron-Firemaw")
         T.ok(not H.Printed("is coming to the fight"), "once a minute per helper")

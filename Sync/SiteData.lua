@@ -5,7 +5,8 @@
 --
 -- The file keeps the website's names (the /api/v1/sync/download answer):
 --   worlds["era|eu|Firemaw"] / ["forever|us|pvp"] = { generated_at, wanted = {...},
---     duels = { alliance = {...}, horde = {...} }, deadbeats = {...}, bullies = {...} }
+--     duels = { alliance = {...}, horde = {...} }, deadbeats = {...}, bullies = {...},
+--     tournaments = {...} (WEB-080: the Tournaments tab and the organizer stars read them) }
 --   forever_servers = { ["4620"] = "pve", ... }: WoW Forever server numbers and their realm type
 --   characters = { { world, name, deaths, duels, catches, bounty = { total, events } } }
 -- This module picks our world, maps names to the addon's (player keys, "ROGUE",
@@ -37,7 +38,7 @@ local RACES = {
 }
 local FACTIONS = { alliance = "Alliance", horde = "Horde" }
 
-local world, wanted, duelists, deadbeats, bullies
+local world, wanted, duelists, deadbeats, bullies, tournaments
 
 -------------------------------------------------
 -- Names
@@ -185,8 +186,72 @@ function SiteData.Duelist(d, faction)
     }
 end
 
+-- A tournament from the website (WEB-080): tournaments are made and joined only there
+-- (Tournament/Tournaments.lua lists them, Tournament/Organizers.lua marks their hosts)
+-- { id, name, venue, teamSize, bestOf, finalBestOf, thirdPlace, bracketSeed, faction,
+--   minLevel, maxLevel, places, entrants (count), drawn (entrant ids), people, results,
+--   url, startsAt, days, locksAt, signupsClosed, host = key, organizers = { key ... } }
+function SiteData.Tournament(t)
+    local id, startsAt = Text(t.id), Number(t.starts_at)
+    if not id or not startsAt then return nil end
+    local organizers = {}
+    for _, person in ipairs(type(t.organizers) == "table" and t.organizers or {}) do
+        local key = SiteData.Key(person)
+        if key then organizers[#organizers + 1] = key end
+    end
+    -- Every day's start, day 1 first: a tournament may run over several days (author, 2026-09-30)
+    local days = { startsAt }
+    for _, day in ipairs(type(t.days) == "table" and t.days or {}) do
+        if Number(day) and Number(day) > days[#days] then days[#days + 1] = Number(day) end
+    end
+    local teamSize = tonumber((Text(t.format) or "1v1"):match("^(%d)v")) or 1
+    local places = Number(t.places)
+    -- Who is drawn, as the website draws them (TournamentBracketService::entrants): the
+    -- players with a place, or the full teams among those with a place, in sign-up
+    -- order (author, 2026-10-01). people: entrant id -> { name, key, class, team }
+    local drawn, people = {}, {}
+    local teams = type(t.teams) == "table" and #t.teams > 0
+    for i, e in ipairs(teams and t.teams or (type(t.players) == "table" and t.players or {})) do
+        local entrant = type(e) == "table" and Text(e.entrant)
+        if entrant and (not places or i <= places) then
+            if teams then
+                if type(e.members) == "table" and #e.members >= teamSize then drawn[#drawn + 1] = entrant end
+                people[entrant] = { name = Text(e.name) or entrant, team = true }
+            else
+                drawn[#drawn + 1] = entrant
+                people[entrant] = { name = Text(e.name) or entrant, key = SiteData.Key(e), class = SiteData.Class(e.class),
+                    race = SiteData.Race(e.race), sex = Number(e.sex) }
+            end
+        end
+    end
+    local results = {}
+    for _, r in ipairs(type(t.results) == "table" and t.results or {}) do
+        if type(r) == "table" and Number(r.round) and Number(r.match) and Text(r.a) and Text(r.b) then
+            results[#results + 1] = { round = r.round, match = r.match, a = r.a, b = r.b,
+                winsA = Number(r.wins_a) or 0, winsB = Number(r.wins_b) or 0,
+                forfeit = (r.forfeit == "a" or r.forfeit == "b") and r.forfeit or nil }
+        end
+    end
+    -- Players, or teams in team formats
+    local entrants = type(t.teams) == "table" and #t.teams > 0 and #t.teams
+        or type(t.players) == "table" and #t.players or 0
+    return {
+        id = id, name = Text(t.name) or "?", venue = Text(t.venue) or "gurubashi",
+        teamSize = teamSize,
+        bestOf = Number(t.best_of) or 1, finalBestOf = Number(t.final_best_of),
+        thirdPlace = t.third_place_match == true, bracketSeed = Number(t.bracket_seed) or 1,
+        faction = Text(t.faction) and FACTIONS[t.faction] or nil,
+        minLevel = Number(t.min_level), maxLevel = Number(t.max_level),
+        places = places, entrants = entrants, drawn = drawn, people = people, results = results,
+        url = Text(t.url),
+        startsAt = startsAt, days = days, locksAt = Number(t.locks_at) or startsAt - 3600,
+        signupsClosed = t.signups_closed == true,
+        host = SiteData.Key(t.host), organizers = organizers,
+    }
+end
+
 function SiteData:Load()
-    world, wanted, duelists, deadbeats, bullies = nil, nil, nil, nil, nil
+    world, wanted, duelists, deadbeats, bullies, tournaments = nil, nil, nil, nil, nil, nil
     local data = Data()
     world = data and FindWorld(data)
     if not world then return false end
@@ -216,7 +281,25 @@ function SiteData:Load()
         local entry = type(b) == "table" and SiteData.BullyEntry(b)
         if entry then bullies[entry.id] = entry end
     end
+    -- WEB-080: the world's open tournaments
+    tournaments = {}
+    for _, t in ipairs(type(world.tournaments) == "table" and world.tournaments or {}) do
+        local tournament = type(t) == "table" and SiteData.Tournament(t)
+        if tournament then tournaments[#tournaments + 1] = tournament end
+    end
     return true
+end
+
+-- A website page from the download's links ("tournaments", "create_tournament"), or nil
+function SiteData:Link(name)
+    local data = Data()
+    local links = data and type(data.links) == "table" and data.links
+    return links and Text(links[name]) or nil
+end
+
+-- The website's open tournaments of our world, soonest first
+function SiteData:Tournaments()
+    return tournaments or {}
 end
 
 -- The website's Hall of Shame bullies: id -> entry
@@ -331,7 +414,8 @@ local function RestoreDeaths(list, me)
     return added
 end
 
-local function RestoreMarks(bounty, me, isMe)
+local function RestoreMarks(bounty, me)
+    ns.Marks:Total() -- the character we play owns marks.total
     local store = ns.db.marks
     local seen, added = {}, 0
     for _, event in ipairs(store.events) do
@@ -348,13 +432,10 @@ local function RestoreMarks(bounty, me, isMe)
     end
     if added > 0 then
         table.sort(store.events, function(a, b) return (a.t or 0) < (b.t or 0) end)
-        while #store.events > ns.Marks.MAX_EVENTS do table.remove(store.events, 1) end
+        ns.Marks.Trim(store)
     end
-    -- The addon keeps one total for the account; the character we play shows theirs
-    if isMe and Number(bounty.total) and bounty.total > (store.total or 0) then
-        store.total = bounty.total
-        added = added + 1
-    end
+    -- Each character keeps its own total
+    if Number(bounty.total) and ns.Marks:SetTotalOf(me, bounty.total) then added = added + 1 end
     return added
 end
 
@@ -362,7 +443,6 @@ end
 function SiteData:Restore()
     local data = Data()
     if not (data and ns.db and type(data.characters) == "table") then return 0 end
-    local myKey = ns.Utils.UnitKey("player")
     local realmType = ForeverRealmType(data)
     local added = 0
     for _, c in ipairs(data.characters) do
@@ -382,7 +462,7 @@ function SiteData:Restore()
                 if record and ns.Justice:Add(record, SiteData.ORIGIN) then added = added + 1 end
             end
             if type(c.bounty) == "table" then
-                added = added + RestoreMarks(c.bounty, me, ns.Utils.SameCharacter(me, myKey))
+                added = added + RestoreMarks(c.bounty, me)
             end
         end
     end

@@ -92,6 +92,11 @@ return function(T, H)
         Ping(ns, 1436, "Bravo-Firemaw", Ids(6, 10))
         local text = _G.StaticPopupDialogs.HEADHUNTER_HOTSPOT.text
         T.ok(text:find("Fighting: Bravo, Alpha", 1, true) ~= nil, "newest first: " .. text)
+        -- The chat line: links to whisper them with a click; the popup cannot be clicked
+        T.ok(H.Printed("Fighting: |Hplayer:Bravo|h%[Bravo%]|h, |Hplayer:Alpha|h%[Alpha%]|h"), "names to click in chat")
+        T.ok(not text:find("|Hplayer:", 1, true), "plain names in the popup")
+        T.eq(ns.Utils.PlayerLink("Iron-Stonespine"), "|Hplayer:Iron-Stonespine|h[Iron-Stonespine]|h", "another realm keeps it")
+        T.noErrors()
     end)
 
     T.case("a lone WANTED outlaw's kills: Battle heat, but a chat line only", function()

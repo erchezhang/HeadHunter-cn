@@ -16,8 +16,8 @@ local L = ns.L
 
 local BountyDialog = ns:RegisterModule("BountyDialog", {})
 
-BountyDialog.WIDTH = 320
-BountyDialog.HEIGHT = 200
+BountyDialog.WIDTH = 360
+BountyDialog.HEIGHT = 250
 BountyDialog.DEFAULT_GOLD = 5
 BountyDialog.DEFAULT_DAYS = 3
 
@@ -41,7 +41,7 @@ end
 -------------------------------------------------
 
 local function Label(f, text, y)
-    local label = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    local label = ns.Theme.Text(f, "bold", 13, "gold")
     label:SetPoint("TOPLEFT", 18, y)
     label:SetText(text)
     return label
@@ -53,7 +53,7 @@ local function Dropdown(f, key, y, options)
         get = function() return BountyDialog.values and BountyDialog.values[key] end,
         set = function(value) BountyDialog.values[key] = value end,
     })
-    select:SetPoint("TOPLEFT", 96, y + 6)
+    select:SetPoint("TOPLEFT", 106, y + 6)
     return select
 end
 
@@ -72,45 +72,41 @@ local function CreateDialog()
     tinsert(UISpecialFrames, "HeadHunterBountyDialog")
     ns.Theme.StyleFrame(f, L.BOUNTY_DLG_TITLE)
 
-    f.target = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    f.target:SetPoint("TOPLEFT", 18, -36)
+    f.target = ns.Theme.Text(f, "bold", 15, "foreground")
+    f.target:SetPoint("TOPLEFT", 18, -60)
     f.target:SetWidth(BountyDialog.WIDTH - 36)
     f.target:SetJustifyH("LEFT")
 
-    Label(f, L.BOUNTY_DLG_REASON, -66)
-    f.reason = Dropdown(f, "reason", -66, BountyDialog.ReasonOptions())
+    Label(f, L.BOUNTY_DLG_REASON, -90)
+    f.reason = Dropdown(f, "reason", -90, BountyDialog.ReasonOptions())
 
-    Label(f, L.BOUNTY_DLG_GOLD, -96)
+    Label(f, L.BOUNTY_DLG_GOLD, -120)
     f.gold = CreateFrame("EditBox", nil, f, "InputBoxTemplate")
     f.gold:SetSize(60, 20)
-    f.gold:SetPoint("TOPLEFT", 100, -93)
+    f.gold:SetPoint("TOPLEFT", 110, -117)
     f.gold:SetAutoFocus(false)
     f.gold:SetNumeric(true)
     f.gold:SetMaxLetters(2)
     f.gold:SetScript("OnTextChanged", function(self) BountyDialog.values.gold = tonumber(self:GetText()) end)
     f.gold:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
     f.gold:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
-    f.goldHint = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    f.goldHint:SetPoint("TOPLEFT", 170, -99)
+    f.goldHint = ns.Theme.Text(f, "text", 12, "muted")
+    f.goldHint:SetPoint("TOPLEFT", 180, -123)
     f.goldHint:SetText(string.format(L.BOUNTY_DLG_RANGE, ns.Bounties.Gold(ns.Bounties.MIN_GOLD), ns.Bounties.Gold(ns.Bounties.MAX_GOLD)))
 
-    Label(f, L.BOUNTY_DLG_DAYS, -126)
-    f.days = Dropdown(f, "days", -126, BountyDialog.DayOptions())
+    Label(f, L.BOUNTY_DLG_DAYS, -150)
+    f.days = Dropdown(f, "days", -150, BountyDialog.DayOptions())
 
-    f.error = f:CreateFontString(nil, "OVERLAY", "GameFontRedSmall")
-    f.error:SetPoint("BOTTOMLEFT", 18, 42)
+    f.error = ns.Theme.Text(f, "text", 13, "wanted")
+    f.error:SetPoint("BOTTOMLEFT", 18, 50)
     f.error:SetWidth(BountyDialog.WIDTH - 36)
     f.error:SetJustifyH("LEFT")
 
-    f.post = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-    f.post:SetSize(100, 22)
-    f.post:SetPoint("BOTTOMRIGHT", -124, 14)
-    f.post:SetText(L.BOUNTY_DLG_POST)
+    f.post = ns.Theme.Button(f, L.BOUNTY_DLG_POST, "gold", 110, 26)
+    f.post:SetPoint("BOTTOMRIGHT", -134, 16)
     f.post:SetScript("OnClick", function() BountyDialog:Submit() end)
-    f.close = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-    f.close:SetSize(100, 22)
-    f.close:SetPoint("BOTTOMRIGHT", -18, 14)
-    f.close:SetText(CANCEL or "Cancel")
+    f.close = ns.Theme.Button(f, CANCEL or "Cancel", "outline", 110, 26)
+    f.close:SetPoint("BOTTOMRIGHT", -18, 16)
     f.close:SetScript("OnClick", function() f:Hide() end)
     f:Hide()
     return f

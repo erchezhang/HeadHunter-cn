@@ -322,6 +322,15 @@ function Utils.DisplayName(key)
     return key
 end
 
+-- A player of our faction as a chat link (author, 2026-10-01): a left click whispers
+-- them, a right click opens the game's player menu. Only for chat lines: popups and
+-- center text cannot be clicked.
+function Utils.PlayerLink(key)
+    local name = Utils.DisplayName(key)
+    if not name or name == "" then return nil end
+    return "|Hplayer:" .. name .. "|h[" .. name .. "]|h"
+end
+
 -------------------------------------------------
 -- Time
 -------------------------------------------------
@@ -404,12 +413,19 @@ local GENDER_ATLAS = { [2] = "male", [3] = "female" }
 -- unknown. race: token ("Orc", "Scourge", "NightElf"); sex: 2 male, 3 female.
 -- Forever has the larger retail art ("raceicon128-...").
 function Utils.RaceIcon(race, sex, size)
-    if type(race) ~= "string" or race == "" then return "" end
+    local atlas = Utils.RaceAtlas(race, sex)
+    if not atlas then return "" end
+    size = size or 14
+    return string.format("|A:%s:%d:%d|a", atlas, size, size)
+end
+
+-- The race icon's atlas name ("raceicon-orc-male"), or nil when the race is unknown
+function Utils.RaceAtlas(race, sex)
+    if type(race) ~= "string" or race == "" then return nil end
     local name = race:lower()
     name = RACE_ATLAS[name] or name
     local prefix = ns.IsForever and "raceicon128" or "raceicon"
-    size = size or 14
-    return string.format("|A:%s-%s-%s:%d:%d|a", prefix, name, GENDER_ATLAS[sex] or "male", size, size)
+    return string.format("%s-%s-%s", prefix, name, GENDER_ATLAS[sex] or "male")
 end
 
 -- A level for text: the skull icon for -1 (10+ levels above the viewer), "?" unknown
@@ -420,23 +436,27 @@ function Utils.LevelText(level)
     return level and tostring(level) or "?"
 end
 
--- A race token as players know it ("NightElf" -> "Night Elf", "Scourge" -> "Undead")
+-- A race token as players know it ("NightElf" -> "Night Elf", "Scourge" -> "Undead").
+-- ns.RaceDisplay holds the names for other languages (Locales_<locale>.lua).
 local RACE_NAMES = { NightElf = "Night Elf", Scourge = "Undead" }
 
 function Utils.RaceName(race)
     if not race then return nil end
-    -- Localized display name (set by Locales.lua on a zhCN client), else English
-    local shown = ns.RaceDisplay and ns.RaceDisplay[race]
-    if shown then return shown end
-    return RACE_NAMES[race] or race
+    return ns.RaceDisplay and ns.RaceDisplay[race] or RACE_NAMES[race] or race
 end
 
--- A class token as players know it ("ROGUE" -> "Rogue", Chinese on a zhCN client)
+-- A class token as players know it ("ROGUE" -> "Rogue"), in the client's language
 function Utils.ClassName(class)
     if not class then return nil end
-    local shown = ns.ClassDisplay and ns.ClassDisplay[class]
-    if shown then return shown end
-    return class:sub(1, 1) .. class:sub(2):lower()
+    return LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[class]
+        or class:sub(1, 1) .. class:sub(2):lower()
+end
+
+-- "Alliance" / "Horde" in the client's language
+function Utils.FactionName(faction)
+    if faction == "Alliance" then return FACTION_ALLIANCE or faction end
+    if faction == "Horde" then return FACTION_HORDE or faction end
+    return faction
 end
 
 -- Inline class icon for text, from the client's class icon sheet, or "" when unknown

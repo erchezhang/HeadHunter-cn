@@ -159,6 +159,67 @@ return function(T, H)
         T.eq(ns.Reports:Count(), 0, "rejected")
     end)
 
+    -- HH-123: /hh sim send test deaths of other players
+    local function TestReport(victimKey, t)
+        local report = PeerReport(victimKey, t)
+        report.confidence = "sim"
+        return report
+    end
+
+    T.case("another player's test deaths count only from a trusted character", function()
+        local ns = H.Boot({ client = "era" })
+        H.Slash("debug on")
+        H.Deliver(PeerMessage(ns, TestReport("Tester-Firemaw")), "Tester-Firemaw")
+        T.eq(ns.Reports:Count(), 0, "debug mode alone does not trust anyone")
+        T.ok(ns.Reports.lastRejected:find("test data", 1, true), "reason kept for /hh sync")
+
+        ns = H.Boot({ client = "era", dev = { trust = { "Tester-Firemaw" } } })
+        H.Deliver(PeerMessage(ns, TestReport("Tester-Firemaw")), "Tester-Firemaw")
+        H.Deliver(PeerMessage(ns, TestReport("Stranger-Firemaw")), "Stranger-Firemaw")
+        H.Deliver(PeerMessage(ns, PeerReport("Stranger-Firemaw")), "Stranger-Firemaw")
+        local _, _, peers = ns.Reports:Count()
+        T.eq(peers, 2, "trusted test death and the stranger's real death")
+    end)
+
+    T.case("test deaths are relayed only from a trusted character and never passed on", function()
+        local ns = H.Boot({ client = "era", dev = { trust = { "Tester-Firemaw" } } })
+        local record = ns.Protocol.EncodeDeath(TestReport("Tester-Firemaw", H.serverTime - 60))
+        T.eq(ns.Reports:AddRelayed(record, "Stranger-Firemaw"), nil, "untrusted relay refused")
+        local added = ns.Reports:AddRelayed(record, "Tester-Firemaw")
+        T.ok(added, "trusted relay kept")
+        T.eq(added.sender, nil, "the relayer is not taken as the victim")
+        T.eq(#ns.Reports:Since(H.serverTime - 3600), 0, "not passed on to others")
+    end)
+
+    T.case("saved test deaths of untrusted players are dropped at load", function()
+        local saved = { reports = {} }
+        local function Put(id, origin, sender, relayedBy)
+            saved.reports[id] = { id = id, t = H.serverTime - 60, victim = { key = "Tester-Firemaw" },
+                killer = { key = "Gank-Stonespine", name = "Gank-Stonespine" }, assists = {},
+                confidence = "sim", origin = origin, sender = sender, relayedBy = relayedBy }
+        end
+        Put("a", "peer", "Tester-Firemaw")
+        Put("b", "peer", "Stranger-Firemaw")
+        Put("c", "relay", nil, "Stranger-Firemaw")
+        Put("d", "sim")
+        local ns = H.Boot({ client = "era", savedDB = saved, dev = { trust = { "Tester-Firemaw" } } })
+        T.ok(ns.Reports:Get("a"), "trusted kept")
+        T.eq(ns.Reports:Get("b"), nil, "untrusted peer dropped")
+        T.eq(ns.Reports:Get("c"), nil, "untrusted relay dropped")
+        T.ok(ns.Reports:Get("d"), "our own simulation kept")
+    end)
+
+    T.case("/hh sim send is refused where the zone cannot be read", function()
+        local ns = H.Boot({ client = "era" })
+        H.Slash("debug on")
+        H.playerMap = nil
+        H.Slash("sim send Gank-Stonespine 2")
+        T.ok(H.Printed("cannot be read"), "told why")
+        T.eq(ns.Reports:Count(), 0, "nothing sent")
+        H.Slash("sim send Gank-Stonespine 2 \"Westfall\"")
+        T.eq(ns.Reports:Count(), 2, "a named zone still works")
+    end)
+
     T.case("other-faction, echo, foreign prefix and junk are ignored", function()
         local ns = H.Boot({ client = "era" })
         H.Deliver(PeerMessage(ns, PeerReport("Victim-Firemaw"), "H"), "Victim-Firemaw")
@@ -469,6 +530,33 @@ return function(T, H)
         T.ok(H.Printed("Sync: channel joined #5"), "/hh sync")
         T.ok(H.Printed("Sync diag: faction Alliance"), "/hh sync diag")
         T.ok(H.Printed("Shared reports: 1"), "/hh reports")
+        T.noErrors()
+    end)
+
+    T.case("test mode (HeadHunter_Dev noSharing): nothing is sent, and the chat says so", function()
+        local ns = H.Boot({ client = "era", dev = { noSharing = true } })
+        H.inGuild = true
+        T.ok(H.Printed("Test mode"), "login line")
+        H.units.target = { name = "Gank", level = 31, class = "ROGUE", race = "Dwarf", faction = "Alliance", isPlayer = true }
+        H.units.mouseover = { name = "Bob", level = 29, class = "MAGE", race = "Gnome", faction = "Alliance", isPlayer = true }
+        H.Fire("CHAT_MSG_SYSTEM", "Gank has defeated Bob in a duel")
+        for _ = 1, 30 do H.Advance(1) end
+        T.eq(ns.Duels:Count(), 1, "still stored")
+        T.eq(#H.sent, 0, "no addon message")
+        T.eq(ns.Transport:SendRealmWide("U", { "x" }), 0, "no channel text")
+        T.noErrors()
+    end)
+
+    T.case("without test mode the same duel is shared", function()
+        local ns = H.Boot({ client = "era", dev = { trust = { "Tester-Firemaw" } } })
+        H.inGuild = true
+        T.ok(not H.Printed("Test mode"), "no login line")
+        H.units.target = { name = "Gank", level = 31, class = "ROGUE", race = "Dwarf", faction = "Alliance", isPlayer = true }
+        H.units.mouseover = { name = "Bob", level = 29, class = "MAGE", race = "Gnome", faction = "Alliance", isPlayer = true }
+        H.Fire("CHAT_MSG_SYSTEM", "Gank has defeated Bob in a duel")
+        for _ = 1, 30 do H.Advance(1) end
+        T.eq(ns.Duels:Count(), 1, "stored")
+        T.ok(#H.sent > 0, "shared")
         T.noErrors()
     end)
 end

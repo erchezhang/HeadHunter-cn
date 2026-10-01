@@ -13,6 +13,7 @@
 --   - the sender IS the victim (nobody can report deaths on someone else's behalf)
 --   - the time is plausible (not in the future, not older than MAX_AGE)
 --   - the sender stays under a per-sender rate limit
+--   - a test death (/hh sim send) comes from a character we trust (HH-123, Core/Dev.lua)
 -- Fires HH_REPORT_ADDED(report) and HH_REPORT_UPDATED(report).
 
 local addonName, ns = ...
@@ -52,6 +53,16 @@ function Reports:All()
     return pairs(Store() or {})
 end
 
+-- HH-123: another player's test death counts only when the one who sent it to us
+-- is a character we trust. Our own simulations and demo data (origin "sim") always do.
+function Reports.IsForeignTest(report, sender)
+    return report.confidence == "sim" and report.origin ~= "sim" and not ns.Dev.Trusts(sender)
+end
+
+local function SentBy(report)
+    return report.origin == "relay" and report.relayedBy or report.sender
+end
+
 function Reports:Prune(now)
     local store = Store()
     if not store then return end
@@ -59,7 +70,8 @@ function Reports:Prune(now)
     local minTime = now - self.MAX_AGE
     local list = {}
     for id, report in pairs(store) do
-        if type(report) ~= "table" or (tonumber(report.t) or 0) < minTime then
+        if type(report) ~= "table" or (tonumber(report.t) or 0) < minTime
+                or Reports.IsForeignTest(report, SentBy(report)) then
             store[id] = nil
         else
             list[#list + 1] = report
@@ -174,6 +186,10 @@ function Reports:OnPeerDeath(record, sender)
         Reject("implausible time", report.t, "now", now, "from", sender)
         return
     end
+    if Reports.IsForeignTest(report, sender) then
+        Reject("test data from", sender)
+        return
+    end
     if self:Get(report.id) then return end
     if not UnderRateLimit(sender) then
         Reject("rate limit for", sender)
@@ -184,22 +200,29 @@ end
 
 -- A report passed on by another HeadHunter during login catch-up (HH-023). It is
 -- not from the victim, so it is taken on the relaying peer's word; the time checks
--- still apply. Returns the added report, or nil.
-function Reports:AddRelayed(record)
+-- still apply. Returns the added report, or nil. relayedBy is kept apart from
+-- report.sender, which is always the victim (the posse whisper goes there).
+function Reports:AddRelayed(record, relayedBy)
     local report = ns.Protocol.DecodeDeath(record)
     if not report or not Canonical(report) then return nil end
     local now = ns.Utils.ServerTime()
     if report.t > now + self.MAX_SKEW or report.t < now - self.MAX_AGE then return nil end
+    if Reports.IsForeignTest(report, relayedBy) then return nil end
+    report.relayedBy = relayedBy
     return self:Add(report, "relay")
 end
 
 -- Reports to hand to a peer who missed them, newer than `since`, newest first, at
 -- most `limit`. Local-only simulations (/hh spree, /hh sim death) stay here;
--- /hh sim send ones were shared already (report.shared).
+-- /hh sim send ones were shared already (report.shared). Test deaths of other
+-- players are never passed on (HH-123).
 function Reports:Since(since, limit)
     local list = {}
     for _, report in self:All() do
-        if report.t > since and (report.origin ~= "sim" or report.shared) then list[#list + 1] = report end
+        local test = report.confidence == "sim" or report.origin == "sim"
+        if report.t > since and (not test or (report.origin == "sim" and report.shared)) then
+            list[#list + 1] = report
+        end
     end
     table.sort(list, function(a, b) return a.t > b.t end)
     for i = #list, (limit or #list) + 1, -1 do list[i] = nil end

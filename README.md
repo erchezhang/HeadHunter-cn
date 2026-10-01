@@ -6,16 +6,16 @@
 
 > **简体中文汉化版 · Simplified Chinese localization**
 >
-> - **原始项目地址 / Upstream**：https://github.com/GudaAddons/HeadHunter （原作者 Vati / GudaAddons，基于 v0.3.1）
+> - **原始项目地址 / Upstream**：https://github.com/GudaAddons/HeadHunter （原作者 Vati / GudaAddons，当前 **v0.3.6**）
 > - **汉化分支地址 / Localization fork**：https://github.com/erchezhang/HeadHunter-cn
 > - **汉化：车长不二 完成**（Simplified Chinese localization by 车长不二）
-> - **翻译范围**：主窗口、通缉令、鼠标提示、设置页、地图标记等浏览界面，`/hh help` 的全部命令说明与输出，以及中屏/聊天提醒——共 **519 条文案**全量覆盖（原插件文案集中在 `Locales.lua`）
-> - **实现方式**：`Locales.lua` 末尾的 zhCN 覆盖块仅在 `GetLocale() == "zhCN"` 时生效，英文客户端读到的仍是原版英文；另有 3 处小改动用于种族/职业/阵营的中文显示（`Core/Utils.lua`、`Detection/DeathReports.lua`、`UI/MainWindow.lua`），**同步与游戏逻辑未改动**，原插件 477 项离线测试全部通过
+> - **翻译范围**：主窗口、通缉令、鼠标提示、设置页、地图标记等浏览界面，`/hh help` 的全部命令说明与输出，以及中屏/聊天提醒——全部文案覆盖，并随上游持续同步
+> - **实现方式**：从 v0.3.2 起上游已内置官方多语言架构，简体中文位于 **`Locales_zhCN.lua`**（由本仓库车长不二贡献并合入上游，上游 `X-Translated-By: 车长不二 (zhCN, zhTW)`），仅在 `ns.locale == "zhCN"` 时生效，英文客户端读到的仍是原版英文；上游自带 `tests/test_locales.lua` 校验每个键的格式符与颜色码一致
 > - **安装 / 译名 / 升级说明**：见 [README.zh-CN.md](README.zh-CN.md)；同步机制与端到端数据流分析见 [docs/工作流程与信息同步报告.md](docs/工作流程与信息同步报告.md)
 >
 > 原插件无 LICENSE 文件，代码与英文文案版权归原作者；汉化版仅供个人使用与学习，如原作者有异议请开 Issue，会立即处理。
 >
-> English: this fork adds a Simplified Chinese localization (by 车长不二) on top of HeadHunter v0.3.1 by Vati (GudaAddons). Upstream: https://github.com/GudaAddons/HeadHunter · Everything below is the original documentation with a Chinese translation under each paragraph.
+> English: this fork tracks GudaAddons/HeadHunter (v0.3.6) with a Simplified Chinese localization (by 车长不二) contributed upstream as `Locales_zhCN.lua`. Upstream: https://github.com/GudaAddons/HeadHunter · Everything below is the original documentation with a Chinese translation under each paragraph.
 
 ---
 
@@ -31,7 +31,7 @@ See the WANTED board, the best duelists and the top hunters on **[headhunterwow.
 
 在 **[headhunterwow.com](https://headhunterwow.com)** 查看通缉榜、最强决斗者与顶级猎人。
 
-![The WANTED list: outlaws of both factions with their rank, kills, last kill and badges](Assets/1.png)
+![The WANTED list: outlaws with their rank, kills, last kill and badges, gold bounties on top](Assets/2.jpg)
 
 ## How it works · 工作原理
 
@@ -91,7 +91,7 @@ If your own group was in the fight, the kill shows as a **group fight** (for exa
 - Bring down a bully, or a Deadbeat of the other faction, and you get **+3 bounty**, once per player per hour. They stay on the list.
   - 击倒一名欺凌者或对方阵营的老赖，可获得 **+3 赏金**（每人每小时一次），他们仍会留在名单上。
 
-![The Hall of Shame: every known bully, WANTED or not](Assets/5.png)
+![The Hall of Shame: every known bully, WANTED or not](Assets/3.jpg)
 
 ### Alerts · 提醒
 
@@ -138,11 +138,21 @@ Type `/hh` or click the minimap button:
 - **My bounty**: the bounty you collected and your hunter rank.
   - **我的赏金**：你积累的赏金与猎人等级。
 
-Hover a name for details, or click it to open the outlaw's **poster**: race and class, rank, badges, recent kills, posse, gold bounties and the **Join the posse** and **Post a bounty** buttons.
+On **Hall of Shame**, **Duels** and **My deaths**, a search box finds a player by name. Each tab keeps its own search.
 
-鼠标悬停名字查看详情，点击可打开该犯的**通缉令**：种族与职业、等级、徽章、近期击杀、追捕队、金币悬赏，以及**加入追捕队**和**发布悬赏**按钮。
+在**耻辱柱**、**决斗**与**我的死亡**页签中，可用搜索框按名字查找玩家，每个页签单独保留自己的搜索词。
 
-![My deaths, with the details of a killer on hover](Assets/4.png)
+The window has the same look as the website. Too big or too small for your screen? Change **Window size** in the options (90% to 130%).
+
+窗口外观与官网一致。在屏幕上显得太大或太小？可在选项中调整**窗口大小**（90% 至 130%）。
+
+Hover a name for details, or click it to open their **WANTED poster** in the middle of the window: an old paper poster with a black and white picture of their race, their name, rank, kills, badges and the gold on their head. Next to it: their history, recent kills, the posse, gold bounties and the **Join the posse** and **Post a bounty** buttons.
+
+鼠标悬停名字查看详情，点击可在窗口中央打开其**通缉令**：一张复古纸质海报，印有种族黑白画像、名字、等级、击杀数、徽章与头顶悬赏金额；旁边列出其历史记录、近期击杀、追捕队、金币悬赏，以及**加入追捕队**和**发布悬赏**按钮。
+
+![The WANTED poster of an outlaw, with their recent kills next to it](Assets/1.jpg)
+
+![My deaths: who killed you, when, where and how fair it was](Assets/5.jpg)
 
 ### Enemy tooltips · 敌人鼠标提示
 
@@ -161,7 +171,7 @@ Mouse over an enemy player to see if they are WANTED, their rank, kills and badg
 - Hunter ranks: **Tracker**, **Bounty Hunter**, **Manhunter**, **Headhunter** and **Reaper**.
   - 猎人等级：**追踪者（Tracker）** → **赏金猎人（Bounty Hunter）** → **追猎者（Manhunter）** → **猎头者（Headhunter）** → **死神（Reaper）**。
 
-![My bounty: what earned or cost bounty, and your hunter rank](Assets/3.jpg)
+![My bounty: what earned or cost bounty, and your hunter rank](Assets/6.jpg)
 
 ### Gold bounties · 金币悬赏
 
@@ -220,7 +230,7 @@ Type `/hh online` to see how many HeadHunters are online right now, how many are
 - The #1 of each faction is the **Top Gun**, once they are 5 or more wins ahead (Sharpshooter) and nobody else at the top has the same record. A Greenhorn cannot be Top Gun.
   - 每个阵营的第一名是**王牌（Top Gun）**，条件是领先第二名至少 5 个净胜场（达到神射手标准）且榜首没有相同战绩者；新手不能成为王牌。
 
-![Duels: the Horde list with its Top Gun and records](Assets/2.jpg)
+![Duels: the Horde list with ranks and records, a player's duels on hover](Assets/4.jpg)
 
 ## Website and the HeadHunter Sync app · 网站与 HeadHunter Sync 应用
 
@@ -273,7 +283,7 @@ Good to know about the app:
 | `/hh map on/off` | PvP areas and skulls on the world map<br>世界地图上的 PvP 区域与骷髅标记开关 |
 | `/hh tooltip on/off` | WANTED line on enemy tooltips<br>敌人鼠标提示上的通缉行开关 |
 | `/hh minimap` | Show or hide the minimap button<br>显示或隐藏小地图按钮 |
-| `/hh claim` | Announce your gold bounty claim to all HeadHunter (Classic Era)<br>向所有 HeadHunter 宣告你领取了金币悬赏（Classic Era） |
+| `/hh claim` | Announce your gold bounty claim to all HeadHunters (Classic Era)<br>向所有 HeadHunter 宣告你领取了金币悬赏（Classic Era） |
 | `/hh catchup` | Ask other HeadHunters what you missed<br>向其他 HeadHunter 索取你错过的内容 |
 | `/hh online` | How many HeadHunters are online, per faction<br>在线的 HeadHunter 数量（按阵营） |
 

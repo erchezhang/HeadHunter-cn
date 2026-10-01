@@ -76,6 +76,57 @@ return function(T, H)
         T.eq(rows[1].zone, "Elwynn Forest", "zone")
     end)
 
+    T.case("My deaths and bounty posting: only the character we play", function()
+        local ns = H.Boot({ client = "era" })
+        local function Death(victim, killer, t)
+            ns.db.deaths[#ns.db.deaths + 1] = { id = victim .. ":" .. t, t = t, victim = { key = victim },
+                killer = { key = killer, name = killer, level = 30, class = "ROGUE", race = "Orc" },
+                assists = {}, mapID = 1429, confidence = "exact" }
+        end
+        Death("Vati-Firemaw", "Brute-Stonespine", H.serverTime - 120)
+        Death("Tovik-Firemaw", "Sneak-Firemaw", H.serverTime - 60)
+        T.eq(Names(ns.MainWindow.Rows("deaths")), "Brute", "our deaths only")
+        T.eq(#ns.Bounties:PostableTargets(), 1, "bounty only on our own killers")
+        H.units.player.name = "Tovik"
+        T.eq(Names(ns.MainWindow.Rows("deaths")), "Sneak", "the other character's deaths")
+        T.eq(#ns.Bounties:PostableTargets(), 1, "and its own killers")
+        T.noErrors()
+    end)
+
+    T.case("search on Hall of Shame and My deaths, one search per tab", function()
+        local ns = H.Boot({ client = "era" })
+        Spree(ns, "Bully-Stonespine", 5, { victimLevel = 20 })
+        Spree(ns, "Sneak-Stonespine", 2, { victimLevel = 20 })
+        H.Slash("sim death Older-Stonespine 60 ROGUE Orc")
+        H.serverTime = H.serverTime + 120
+        H.Slash("sim death Newer-Stonespine 60 WARRIOR Troll")
+        Settle()
+        local M = ns.MainWindow
+        T.eq(Names(M.Rows("shame", nil, nil, nil, "SNE")), "Sneak", "Hall of Shame, any case")
+        T.eq(Names(M.Rows("deaths", nil, nil, nil, "old")), "Older", "My deaths: by the killer")
+        T.eq(#M.Rows("wanted", "rank", nil, nil, "zzz"), 1, "WANTED has no search")
+
+        M:Toggle()
+        M:SelectTab("shame")
+        T.ok(_G.HeadHunterMainFrame.search:IsShown(), "box on Hall of Shame")
+        M:SetSearch("bul")
+        T.eq(Names(M.shownRows), "Bully", "filtered")
+        M:SelectTab("deaths")
+        T.ok(_G.HeadHunterMainFrame.search:IsShown(), "box on My deaths")
+        T.eq(M:Search(), nil, "My deaths has its own, empty search")
+        T.eq(#M.shownRows, 2, "all deaths")
+        M:SetSearch("zzz")
+        T.eq(_G.HeadHunterMainFrame.empty.shownText, "Nobody called zzz", "nobody")
+        M:SelectTab("shame")
+        T.eq(M:Search(), "bul", "Hall of Shame kept its search")
+        T.eq(_G.HeadHunterMainFrame.search.shownText, "bul", "and the box shows it")
+        M:SelectTab("marks")
+        T.ok(not _G.HeadHunterMainFrame.search:IsShown(), "no box on My bounty")
+        M:SetSearch("x")
+        T.eq(M:Search(), nil, "no search there")
+        T.noErrors()
+    end)
+
     T.case("My deaths: a 3 vs 1 shows as Gang, even if saved as fair before", function()
         local ns = H.Boot({ client = "era" })
         table.insert(ns.db.deaths, { id = "Vati-Firemaw:1", t = H.serverTime - 60, classification = "fair",
@@ -99,26 +150,26 @@ return function(T, H)
         T.noErrors()
     end)
 
-    T.case("the Tournaments tab: hidden while under development, /hh debug tours on|off", function()
-        local ns = H.Boot({ client = "forever" })
+    T.case("four sections with their own sub-tabs; a section opens on its last view", function()
+        local ns = H.Boot({ client = "era" })
         local M = ns.MainWindow
         H.Slash("")
-        local tab = _G.HeadHunterMainFrame.toursTab
-        T.eq(tab.id, "tours", "the tab")
-        T.ok(not M.ToursEnabled(), "off by default")
+        local f = _G.HeadHunterMainFrame
+        local ids = {}
+        for i, tab in ipairs(f.tabs.buttons) do ids[i] = tab.id end
+        T.eq(table.concat(ids, ","), "board,duels,events,me", "the top tabs")
+        T.ok(f.subtabs.board:IsShown(), "WANTED and Hall of Shame under the board")
+        T.ok(not f.subtabs.events:IsShown(), "only the section's own sub-tabs")
+        M:SelectSection("me")
+        T.eq(select(1, M:Current()), "deaths", "Me opens on My deaths")
+        M:SelectTab("marks")
+        M:SelectSection("events")
+        T.eq(select(1, M:Current()), "ongoing", "Events opens on Ongoing")
+        T.ok(f.subtabs.events:IsShown(), "Ongoing and Upcoming")
+        M:SelectSection("me")
+        T.eq(select(1, M:Current()), "marks", "back on the view last shown")
         M:SelectTab("tours")
-        T.eq(select(1, M:Current()), "wanted", "a hidden tab cannot be selected")
-
-        H.Slash("debug tours on")
-        T.ok(H.Printed("Tournaments tab shown"), "told")
-        T.ok(tab:IsShown(), "shown")
-        M:SelectTab("tours")
-        T.eq(select(1, M:Current()), "tours", "selectable")
-
-        H.Slash("debug tours off")
-        T.ok(not tab:IsShown(), "hidden")
-        T.eq(select(1, M:Current()), "wanted", "back to WANTED")
-        T.eq(ns.db.settings.devTournaments, nil, "setting cleared")
+        T.eq(select(1, M:Current()), "ongoing", "the old Tournaments tab is the Events tab")
         T.noErrors()
     end)
 
@@ -136,9 +187,9 @@ return function(T, H)
         M:SelectTab("deaths")
         T.eq(select(1, M:Current()), "deaths", "tab")
         local tabs = _G.HeadHunterMainFrame.tabs.buttons
-        T.eq(#tabs, 6, "six bottom tabs")
-        T.ok(tabs[4].selected and not tabs[1].selected, "the selected tab is drawn selected")
-        T.eq(tabs[1].point[1], "BOTTOMLEFT", "hanging from the bottom edge")
+        T.eq(#tabs, 4, "four sections")
+        T.ok(tabs[4].selected and not tabs[1].selected, "My deaths: the Me section drawn selected")
+        T.eq(tabs[1].point[2], _G.HeadHunterMainFrame.header, "in the header, like the website's menu")
         T.eq(#M.shownRows, 0, "no deaths of ours")
         M:SelectTab("wanted")
         M:SetSort("kills")
@@ -146,6 +197,9 @@ return function(T, H)
 
         M:OnRowClick(M.shownRows[1])
         T.eq(ns.Poster:ShownId(), "Gank-Stonespine", "the row opened the poster")
+        local at = _G.HeadHunterPosterFrame.point
+        T.ok(at[1] == "CENTER" and at[2] == _G.HeadHunterMainFrame and at[3] == "CENTER",
+            "in the middle of the main window")
         H.Slash("")
         T.ok(not M:IsShown(), "closed")
         T.noErrors()

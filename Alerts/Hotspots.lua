@@ -90,8 +90,7 @@ function Hotspots:EnemyNames(zone, now)
     local parts = {}
     for i = 1, math.min(#list, ns.Protocol.MAX_PING_NAMES) do
         local e = list[i]
-        local class = e.class and ((LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[e.class])
-            or e.class:sub(1, 1) .. e.class:sub(2):lower())
+        local class = ns.Utils.ClassName(e.class)
         local about = {}
         if e.level then about[#about + 1] = e.level == -1 and "??" or tostring(e.level) end
         if class then about[#about + 1] = class end
@@ -101,7 +100,8 @@ function Hotspots:EnemyNames(zone, now)
 end
 
 -- HeadHunters of our faction fighting in the zone, newest first (not us): "Brakka, Zulgar"
-function Hotspots:FighterNames(zone, now)
+-- links: the names as chat links, to whisper them with a click (our faction only)
+function Hotspots:FighterNames(zone, now, links)
     local data = zones[zone]
     if not data then return nil end
     local U = ns.Utils
@@ -115,7 +115,8 @@ function Hotspots:FighterNames(zone, now)
     table.sort(list, function(a, b) return a.t > b.t end)
     local parts = {}
     for i = 1, math.min(#list, ns.Protocol.MAX_PING_NAMES) do
-        parts[i] = U.DisplayName(U.PlayerKey(list[i].sender)) or list[i].sender
+        local key = U.PlayerKey(list[i].sender)
+        parts[i] = (links and U.PlayerLink(key)) or U.DisplayName(key) or list[i].sender
     end
     return table.concat(parts, ", ")
 end
@@ -265,8 +266,8 @@ Hotspots.Fire = Fire
 
 local function EnemyFaction()
     local mine = ns.Utils.UnitFaction("player")
-    if mine == "Alliance" then return FACTION_HORDE or "Horde" end
-    if mine == "Horde" then return FACTION_ALLIANCE or "Alliance" end
+    if mine == "Alliance" then return ns.Utils.FactionName("Horde") end
+    if mine == "Horde" then return ns.Utils.FactionName("Alliance") end
     return L.ENEMIES
 end
 Hotspots.EnemyFaction = EnemyFaction
@@ -275,8 +276,7 @@ Hotspots.EnemyFaction = EnemyFaction
 -- (only they send pings), so it is a lower bound.
 local function OwnFaction()
     local mine = ns.Utils.UnitFaction("player")
-    if mine == "Alliance" then return FACTION_ALLIANCE or "Alliance" end
-    if mine == "Horde" then return FACTION_HORDE or "Horde" end
+    if mine == "Alliance" or mine == "Horde" then return ns.Utils.FactionName(mine) end
     return L.HEADHUNTERS
 end
 Hotspots.OwnFaction = OwnFaction
@@ -344,7 +344,8 @@ function Hotspots:OnHelp(record, sender)
     local data = zone and zones[zone]
     local mine = data and data.fighters[U.CompactName(U.UnitKey("player"))]
     if not mine or now - mine.t > self.FIGHT_RECENT * 4 then return end
-    local name = U.DisplayName(U.PlayerKey(sender)) or tostring(sender)
+    -- A link: a click whispers them (the helper is on our faction)
+    local name = U.PlayerLink(U.PlayerKey(sender)) or tostring(sender)
     ns.Alerts:Show({
         key = "help:" .. tostring(U.CompactName(sender)),
         throttle = self.HELP_NOTE_THROTTLE,
@@ -381,12 +382,17 @@ function Hotspots:Evaluate(zone)
     local line = string.format(L.HOTSPOT_LINE, Fire(level), title, zoneName, Hotspots.Describe(a, e, d))
     local names = self:EnemyNames(zone, now)
     if names then line = line .. string.format(L.HOTSPOT_NAMES, names) end
+    -- The chat line names our fighters as links to whisper; the popup cannot be clicked
+    local chat = line
     local fighters = self:FighterNames(zone, now)
-    if fighters then line = line .. string.format(L.HOTSPOT_FIGHTING, fighters) end
+    if fighters then
+        line = line .. string.format(L.HOTSPOT_FIGHTING, fighters)
+        chat = chat .. string.format(L.HOTSPOT_FIGHTING, self:FighterNames(zone, now, true))
+    end
     local alert = {
         key = "hot:" .. zone .. ":" .. level,
         throttle = self.LEVEL_THROTTLE,
-        chat = line,
+        chat = chat,
     }
     local loneOutlaw = self:IsLoneOutlaw(zone, a, e)
     if level >= 2 and not loneOutlaw then

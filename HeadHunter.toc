@@ -3,16 +3,43 @@
 ## Notes: Track gankers, post WANTED bounties and hunt them down with your faction.
 ## Title-zhCN: HeadHunter - 通缉：生死不论
 ## Notes-zhCN: 记录偷袭你的人，发布 WANTED 通缉令，与阵营同伴一起将他们绳之以法。
+## Title-zhTW: HeadHunter - 通緝：生死不論
+## Notes-zhTW: 記錄偷襲你的人，發布 WANTED 通緝令，與陣營同伴一起將他們繩之以法。
+## Title-koKR: HeadHunter - 현상수배: 생사불문
+## Notes-koKR: 갱커를 기록하고, 현상수배를 걸고, 진영 동료들과 함께 사냥하세요.
+## Title-ruRU: HeadHunter - Разыскивается живым или мёртвым
+## Notes-ruRU: Отслеживайте ганкеров, объявляйте их в РОЗЫСК и охотьтесь на них вместе со своей фракцией.
+## Title-ptBR: HeadHunter - Procurado: Vivo ou Morto
+## Notes-ptBR: Registre os gankers, coloque cartazes de PROCURADO e cace-os junto com sua facção.
+## Title-esES: HeadHunter - Se busca: vivo o muerto
+## Notes-esES: Registra a los gankers, pon carteles de SE BUSCA y cázalos junto a tu facción.
+## Title-esMX: HeadHunter - Se busca: vivo o muerto
+## Notes-esMX: Registra a los gankers, pon carteles de SE BUSCA y cázalos junto a tu facción.
+## Title-frFR: HeadHunter - Recherché : mort ou vif
+## Notes-frFR: Notez les gankers, placardez des affiches RECHERCHÉ et traquez-les avec votre faction.
+## Title-deDE: HeadHunter - Gesucht: tot oder lebendig
+## Notes-deDE: Erfasse Ganker, hänge GESUCHT-Steckbriefe aus und jage sie mit deiner Fraktion.
+## Title-itIT: HeadHunter - Ricercato: vivo o morto
+## Notes-itIT: Registra i ganker, appendi manifesti RICERCATO e dagli la caccia insieme alla tua fazione.
 ## Author: Vati
-## X-Translated-By: 车长不二
-## Version: 0.3.1
+## X-Translated-By: 车长不二 (zhCN, zhTW)
+## Version: 0.3.6
 ## SavedVariables: HeadHunter_DB
-## OptionalDeps: HeadHunter_Data
+## OptionalDeps: HeadHunter_Data, HeadHunter_Dev
 ## IconTexture: Interface\Icons\INV_Misc_Head_Human_01
 ## X-Category: PvP
 
 # Localization (load first)
 Locales.lua
+Locales_zhCN.lua
+Locales_zhTW.lua
+Locales_koKR.lua
+Locales_ruRU.lua
+Locales_ptBR.lua
+Locales_esES.lua
+Locales_frFR.lua
+Locales_deDE.lua
+Locales_itIT.lua
 
 # Core (load order matters)
 Core\Init.lua
@@ -20,6 +47,7 @@ Core\Expansion.lua
 Core\Events.lua
 Core\Utils.lua
 Core\Log.lua
+Core\Dev.lua
 Core\Database.lua
 Core\Guards.lua
 Core\SlashCommands.lua
@@ -58,12 +86,15 @@ Rules\HighNoon.lua
 Tournament\Arena.lua
 Tournament\Brackets.lua
 Tournament\Tournaments.lua
+Tournament\Organizers.lua
+Tournament\Matches.lua
 
 # Alerts (M4)
 Alerts\Alerts.lua
 Alerts\Zones.lua
 Alerts\Posse.lua
 Alerts\Sighting.lua
+Alerts\Spotted.lua
 Alerts\Activity.lua
 Alerts\Hotspots.lua
 Alerts\Justice.lua
@@ -74,9 +105,10 @@ UI\Select.lua
 UI\MapMarkers.lua
 UI\MainWindow.lua
 UI\Poster.lua
-UI\TournamentDialog.lua
 UI\BountyDialog.lua
+UI\ResultDialog.lua
 UI\MinimapButton.lua
+UI\Nameplates.lua
 UI\TooltipLine.lua
 UI\SettingsPanel.lua
 

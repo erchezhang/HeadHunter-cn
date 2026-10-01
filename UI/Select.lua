@@ -37,11 +37,19 @@ function Select.Create(parent, config)
         local dropdown = CreateFrame("DropdownButton", nil, container, "WowStyle1DropdownTemplate")
         dropdown:SetPoint("LEFT", container, "LEFT", 0, 0)
         dropdown:SetWidth(config.width or 160)
-        local entries = {}
-        for i, opt in ipairs(options) do entries[i] = { opt.label, opt.value } end
-        MenuUtil.CreateRadioMenu(dropdown, function(value) return config.get() == value end,
-            function(value) config.set(value) end, unpack(entries))
-        function container:Refresh() dropdown:GenerateMenu() end
+        -- Built from the options as they are now: a dialog may fill them after creating it
+        -- (UI/ResultDialog.lua), so Refresh builds the menu again
+        local function Setup()
+            local entries = {}
+            for i, opt in ipairs(options) do entries[i] = { opt.label, opt.value } end
+            MenuUtil.CreateRadioMenu(dropdown, function(value) return config.get() == value end,
+                function(value) config.set(value) end, unpack(entries))
+        end
+        Setup()
+        function container:Refresh()
+            Setup()
+            dropdown:GenerateMenu()
+        end
         container.dropdown = dropdown
         return container
     end
