@@ -31,7 +31,7 @@ See the WANTED board, the best duelists and the top hunters on **[headhunterwow.
 
 在 **[headhunterwow.com](https://headhunterwow.com)** 查看通缉榜、最强决斗者与顶级猎人。
 
-![The WANTED list: outlaws with their rank, kills, last kill and badges, gold bounties on top](Assets/2.jpg)
+![The WANTED list: outlaws with their rank, kills, last kill and badges, gold bounties on top](https://headhunterwow.com/images/screenshots/wanted.webp)
 
 ## How it works · 工作原理
 
@@ -39,8 +39,8 @@ See the WANTED board, the best duelists and the top hunters on **[headhunterwow.
    - **敌方玩家击杀了你。** HeadHunter 记录下凶手：名字、等级、职业、种族与所在区域；如果有多名玩家攻击你，会全部记录。
 2. **Your report is shared** with every HeadHunter player of your faction.
    - **你的报告会自动共享**给你阵营的每一位 HeadHunter 玩家。
-3. **Gankers become WANTED.** An enemy who kills 4 players within 20 minutes gets a WANTED poster. Every HeadHunter sees the same list.
-   - **偷袭者会被通缉。** 敌人在 20 分钟内击杀 4 名玩家就会获得通缉令，所有 HeadHunter 看到的是同一份名单。
+3. **Gankers become WANTED.** An enemy who kills 5 players within 20 minutes gets a WANTED poster. Every HeadHunter sees the same list.
+   - **偷袭者会被通缉。** 敌人在 20 分钟内击杀 5 名玩家就会获得通缉令，所有 HeadHunter 看到的是同一份名单。
 4. **Hunt them down.** You get an alert when a WANTED outlaw kills someone near you. Join the posse and go after them.
    - **追杀他们。** 当通缉犯在你附近击杀玩家时你会收到提醒，加入追捕队一同出击。
 5. **Justice served.** When a HeadHunter, or anyone in their group, kills a WANTED outlaw, the outlaw is no longer WANTED for everyone.
@@ -80,18 +80,17 @@ If your own group was in the fight, the kill shows as a **group fight** (for exa
 
 如果你自己的队伍也参与了战斗，该击杀会显示为**团战**（例如 4 打 3），不会获得"二打一"或"群殴"徽章，但仍计入通缉统计。
 
-### Hall of Shame · 耻辱柱
-
+### Bullies and Deadbeats · 欺凌者与老赖
 - **Bullies**: every enemy with the Bully badge, WANTED or not. They stay as long as HeadHunter knows one of their lowbie kills (30 days). With the HeadHunter Sync app you also get the website's bullies of both factions, so your list matches the website.
   - **欺凌者**：每一个带"欺凌者"徽章的敌人，无论是否被通缉。只要 HeadHunter 还知道他的一次低级击杀（30 天），就会留在名单上。配合 HeadHunter Sync 应用，还能看到官网记录的双方阵营欺凌者，与官网名单保持一致。
 - **Deadbeats**: players who did not pay a gold bounty they posted (see *Gold bounties*). They are listed for 30 days, and they cannot post bounties during that time.
   - **老赖（Deadbeat）**：发布了金币悬赏却不支付的玩家（见*金币悬赏*）。名单保留 30 天，期间他们无法发布悬赏。
-- You get an alert when a bully or a Deadbeat is near. Turn it off in the options (**Hall of Shame alerts**).
-  - 欺凌者或老赖靠近时你会收到提醒，可在选项中关闭（**耻辱柱提醒**）。
+- You get an alert when a bully or a Deadbeat is near. Turn it off in the options (**Bully and Deadbeat alerts**).
+  - 欺凌者或老赖靠近时你会收到提醒，可在选项中关闭（**欺凌者与老赖提醒**）。
 - Bring down a bully, or a Deadbeat of the other faction, and you get **+3 bounty**, once per player per hour. They stay on the list.
   - 击倒一名欺凌者或对方阵营的老赖，可获得 **+3 赏金**（每人每小时一次），他们仍会留在名单上。
 
-![The Hall of Shame: every known bully, WANTED or not](Assets/3.jpg)
+![Bullies: every known bully, WANTED or not](https://headhunterwow.com/images/screenshots/bullies.webp)
 
 ### Alerts · 提醒
 
@@ -105,8 +104,8 @@ If your own group was in the fight, the kill shows as a **group fight** (for exa
   - **赏金目击**：身上有金币悬赏的玩家出现时提示"赏金：X 出现了！"。
 - **Your bounty is claimed**: a message when a HeadHunter brings down the player you put gold on.
   - **你的悬赏被领取**：HeadHunter 击倒了你挂了金的玩家时的消息。
-- **Hall of Shame**: "BULLY: X is here!" or "DEADBEAT: X is here!", at most once every 10 minutes per player.
-  - **耻辱柱**："欺凌者：X 出现了！"或"老赖：X 出现了！"，每人每 10 分钟至多一次。
+- **Bullies and Deadbeats**: "BULLY: X is here!" or "DEADBEAT: X is here!", at most once every 10 minutes per player.
+  - **欺凌者与老赖**："欺凌者：X 出现了！"或"老赖：X 出现了！"，每人每 10 分钟至多一次。
 - **You are WANTED**: with the HeadHunter Sync app, HeadHunter tells you at login when the other faction has you on its WANTED list.
   - **你被通缉了**：配合 HeadHunter Sync 应用，登录时若对方阵营的通缉名单上有你，HeadHunter 会提醒你。
 - **PvP hotspots**: Skirmish, Battle or Warzone when a big fight happens near you. The popup names the enemies in the fight and the HeadHunters of your side fighting there. Click **Help** to get the way to the fight: the HeadHunters fighting there see that you are coming, and if they are on another layer, one of them is asked for a group invite.
@@ -119,7 +118,7 @@ If your own group was in the fight, the kill shows as a **group fight** (for exa
 - A **skull** shows where a WANTED outlaw made their last kill (for 10 minutes). The map shows the 10 biggest fights and the 10 highest ranked outlaws.
   - **骷髅**标记通缉犯最近一次击杀的位置（保留 10 分钟）。地图最多显示 10 处最大规模的战斗和 10 名等级最高的通缉犯。
 
-![A PvP area on the world map](Assets/screenshot-map.png)
+![A PvP area on the world map](https://headhunterwow.com/images/screenshots/map.webp)
 
 ### HeadHunter window · HeadHunter 窗口
 
@@ -129,8 +128,10 @@ Type `/hh` or click the minimap button:
 
 - **WANTED**: everyone who is WANTED now, sorted by rank, kills or last kill, with a switch between the Alliance and Horde lists (the enemy list opens first). Gold bounties are listed on top. While few outlaws are WANTED, the list fills up to 25 with outlaws **at large**: their WANTED time ran out, but nobody caught them. You get the same alert when you meet one, and catching one still pays their bounty.
   - **通缉**：当前所有被通缉的人，可按等级、击杀数或最近击杀排序，左上角可切换联盟/部落名单（默认先开敌方名单）。金币悬赏排在最前；通缉犯较少时，名单会用最多 25 名**在逃**犯补满——他们的通缉时间已过但从未落网。遇到在逃犯同样会收到提醒，抓到他们照样有赏金。
-- **Hall of Shame**: every known bully, and the Deadbeats.
-  - **耻辱柱**：所有已知的欺凌者与老赖。
+- **Bullies**: every known bully, WANTED or not.
+  - **欺凌者**：所有已知的欺凌者，无论是否被通缉。
+- **Deadbeats**: players who did not pay their bounties, how many hunters they did not pay, and how many days they cannot post bounties.
+  - **老赖**：未支付悬赏的玩家，列出欠了多少名猎人、还有多少天不能发布悬赏。
 - **Duels**: the best duelists, with a switch between the Alliance and Horde lists.
   - **决斗**：最强的决斗者，可切换联盟/部落名单。
 - **My deaths**: who killed you, when and where.
@@ -138,7 +139,7 @@ Type `/hh` or click the minimap button:
 - **My bounty**: the bounty you collected and your hunter rank.
   - **我的赏金**：你积累的赏金与猎人等级。
 
-On **Hall of Shame**, **Duels** and **My deaths**, a search box finds a player by name. Each tab keeps its own search.
+On **WANTED**, **Bullies**, **Deadbeats**, **Duels** and **My deaths**, a search box finds a player by name. Each tab keeps its own search.
 
 在**耻辱柱**、**决斗**与**我的死亡**页签中，可用搜索框按名字查找玩家，每个页签单独保留自己的搜索词。
 
@@ -150,9 +151,8 @@ Hover a name for details, or click it to open their **WANTED poster** in the mid
 
 鼠标悬停名字查看详情，点击可在窗口中央打开其**通缉令**：一张复古纸质海报，印有种族黑白画像、名字、等级、击杀数、徽章与头顶悬赏金额；旁边列出其历史记录、近期击杀、追捕队、金币悬赏，以及**加入追捕队**和**发布悬赏**按钮。
 
-![The WANTED poster of an outlaw, with their recent kills next to it](Assets/1.jpg)
-
-![My deaths: who killed you, when, where and how fair it was](Assets/5.jpg)
+![The WANTED poster of an outlaw, with their recent kills next to it](https://headhunterwow.com/images/screenshots/poster.webp)
+![My deaths: who killed you, when, where and how fair it was](https://headhunterwow.com/images/screenshots/deaths.webp)
 
 ### Enemy tooltips · 敌人鼠标提示
 
@@ -171,7 +171,7 @@ Mouse over an enemy player to see if they are WANTED, their rank, kills and badg
 - Hunter ranks: **Tracker**, **Bounty Hunter**, **Manhunter**, **Headhunter** and **Reaper**.
   - 猎人等级：**追踪者（Tracker）** → **赏金猎人（Bounty Hunter）** → **追猎者（Manhunter）** → **猎头者（Headhunter）** → **死神（Reaper）**。
 
-![My bounty: what earned or cost bounty, and your hunter rank](Assets/6.jpg)
+![My bounty: what earned or cost bounty, and your hunter rank](https://headhunterwow.com/images/screenshots/bounty.webp)
 
 ### Gold bounties · 金币悬赏
 
@@ -187,8 +187,8 @@ Got ganked? Put gold on your killer's head.
   - 造成致命一击的 HeadHunter 获得金币，所有看到这一幕的人 +5 赏金。猎杀低 10 级以上的玩家没有金币；一次击杀只领取一份悬赏（金额最大的那份），其余仍保持有效；同一名猎人 7 天内不能对同一玩家再次领取。
 - You get a message when your bounty is claimed. At your next mailbox, HeadHunter asks you to send the gold, and one click writes the mail. HeadHunter never sends gold without your click, and never more than you posted.
   - 悬赏被领取时你会收到消息。到达下一个邮箱时，HeadHunter 会提示你寄出金币，点击一次即可写好邮件；未经你点击，HeadHunter 绝不寄钱，也绝不会超过你发布的金额。
-- The hunter's HeadHunter sees your mail and marks you as **pays up**. Not paid after 3 days, the claim is unpaid. If you do not pay, you are a **Deadbeat**: no bounties for 30 days and your name in the Hall of Shame. Paying late gets you out.
-  - 猎人一方的 HeadHunter 会看到你的邮件并把你标记为**已付清**。3 天内不付即视为赖账；不付就是**老赖**：30 天内不能发布悬赏，名字进耻辱柱；补交会解除。
+- The hunter's HeadHunter sees your mail and marks you as **pays up**. Not paid after 3 days, the claim is unpaid. If you do not pay, you are a **Deadbeat**: no bounties for 30 days and your name on the Deadbeats list. Paying late gets you out.
+  - 猎人一方的 HeadHunter 会看到你的邮件并把你标记为**已付清**。3 天内不付即视为赖账；不付就是**老赖**：30 天内不能发布悬赏，名字进老赖名单；补交会解除。
 - If the same hunter claimed on that player before, the mail window warns you that it may be an alt. You can refuse that one without becoming a **Deadbeat**.
   - 如果同一名猎人此前就对该玩家领取过悬赏，邮件窗口会警告你对方可能是小号；这种情况你可以拒绝支付而不会变成**老赖**。
 - **Classic Era:** after claiming, click **Announce** (or type `/hh claim`) so the owner hears about it, even outside your guild and group.
@@ -230,11 +230,13 @@ Type `/hh online` to see how many HeadHunters are online right now, how many are
 - The #1 of each faction is the **Top Gun**, once they are 5 or more wins ahead (Sharpshooter) and nobody else at the top has the same record. A Greenhorn cannot be Top Gun.
   - 每个阵营的第一名是**王牌（Top Gun）**，条件是领先第二名至少 5 个净胜场（达到神射手标准）且榜首没有相同战绩者；新手不能成为王牌。
 
-![Duels: the Horde list with ranks and records, a player's duels on hover](Assets/4.jpg)
+![Duels: every duelist with their rank and record](https://headhunterwow.com/images/screenshots/duels.webp)
 
 ## Website and the HeadHunter Sync app · 网站与 HeadHunter Sync 应用
 
-**[headhunterwow.com](https://headhunterwow.com)** is the bounty board of every HeadHunter player: WANTED posters, the best duelists, the top hunters and the Hall of Shame, for each game and realm. Sign in with Battle.net, Discord, Google or email to see your own characters.
+**[headhunterwow.com](https://headhunterwow.com)** is the bounty board of every HeadHunter player: WANTED posters, the best duelists, the top hunters, the bullies and the Deadbeats, for each game and realm. Sign in with Battle.net, Discord, Google or email to see your own characters.
+
+![The WANTED board on the website: every outlaw with their rank, kills, badges and reward](https://headhunterwow.com/images/screenshots/site-wanted.webp)
 
 **[headhunterwow.com](https://headhunterwow.com)** 是所有 HeadHunter 玩家的悬赏公告板：按游戏与服务器列出通缉令、最强决斗者、顶级猎人与耻辱柱。用 Battle.net、Discord、Google 或邮箱登录即可看到自己的角色。
 

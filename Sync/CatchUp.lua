@@ -6,14 +6,15 @@
 --   1. hello   we -> automatic routes   Q "h<since>"  "I missed everything after <since>"
 --   2. offer   peer -> us (whisper)     O "<count>"   after a random delay, only if it
 --                                                     has records newer than <since>
---   3. pull    us -> best peer (whisper) Q "p<since>" the peer with the most records
+--   3. pull    us -> two best peers     Q "p<since>" the peers with the most records
 --   4. data    peer -> us (whisper)     S "D<death>" / "K<catch>" / "U<duel>" ... then "E<count>"
 --
--- Offers are tiny, and only one peer sends data, so a busy realm does not flood a
+-- Offers are tiny, and only SOURCES peers send data, so a busy realm does not flood a
 -- player who logs in. With many online only about OFFER_TARGET peers offer (HH-116);
 -- a hello nobody offered to goes out once more. <since> is our last logout minus MARGIN (the SavedVariables
 -- time); without saved data it is the report lifetime (30 days). Relayed records are
--- taken on the relaying peer's word (origin "relay"); the time checks still apply.
+-- stored with origin "relay" (the time checks still apply) and count only once a
+-- second source has them (HH-121, Sync/Relay.lua): that is why we pull from two.
 -- Era: the automatic hello reaches guild and group only (its channel refuses addon
 -- messages). After 15+ minutes away a [Catch up] popup sends it realm-wide as
 -- channel text (the click allows that), and so does a typed /hh catchup. Offers,
@@ -41,11 +42,13 @@ CatchUp.ANSWER_COOLDOWN = 300 -- one answer per requester per 5 minutes
 CatchUp.OFFER_TARGET = 5     -- about this many peers offer, however many are online
 CatchUp.PROMPT_AWAY = 900    -- Era: offer the realm-wide catch-up after 15 min away
 CatchUp.FRESH = 300          -- no automatic hello when our data is newer than this (HH-116)
+CatchUp.SOURCES = 2          -- peers we pull from: a relayed record needs two (HH-121)
 
 local state = "idle"         -- idle | asking | pulling | done
 local since
 local offers = {}            -- array of { sender, count }
-local source                 -- the peer we pull from
+local sources = {}           -- the peers we pull from
+local pending = {}           -- compact source -> true until its "E" arrives
 local received = { reports = 0, catches = 0 }
 local answered = {}          -- compact requester -> GetTime() of our last answer
 local attempt = 0
@@ -108,7 +111,7 @@ function CatchUp:Start(realmWide)
     end
     local auto = #Transport:AutoRoutes() > 0
     if not auto and not canRealm then return false end
-    state, offers, source = "asking", {}, nil
+    state, offers, sources, pending = "asking", {}, {}, {}
     received = { reports = 0, catches = 0 }
     helloRetried = false
     if auto then Transport:Queue(ns.Protocol.TYPES.QUERY, hello, Transport.PRIORITY.alert, "Q:hello") end
@@ -135,10 +138,16 @@ end
 local function Choose()
     if state ~= "asking" or #offers == 0 then return end
     table.sort(offers, function(a, b) return a.count > b.count end)
-    source = offers[1].sender
+    for _, offer in ipairs(offers) do
+        local id = ns.Utils.CompactName(offer.sender)
+        if #sources < CatchUp.SOURCES and id and not pending[id] then
+            sources[#sources + 1] = offer.sender
+            pending[id] = true
+            ns.Transport:SendDirect(ns.Protocol.TYPES.QUERY, { "p" .. B36(since) }, offer.sender)
+            ns:Debug("Catch-up: pulling", offer.count, "record(s) from", offer.sender)
+        end
+    end
     state = "pulling"
-    ns.Transport:SendDirect(ns.Protocol.TYPES.QUERY, { "p" .. B36(since) }, source)
-    ns:Debug("Catch-up: pulling", offers[1].count, "record(s) from", source)
     C_Timer.After(CatchUp.GIVE_UP, function()
         if state == "pulling" then CatchUp:Finish("timeout") end
     end)
@@ -153,13 +162,20 @@ end
 
 function CatchUp:Finish(reason)
     state = "done"
-    CatchUp.last = { reports = received.reports, catches = received.catches, from = source, reason = reason }
+    CatchUp.last = { reports = received.reports, catches = received.catches, from = sources[1], sources = sources,
+        reason = reason }
     ns:Debug("Catch-up done (" .. tostring(reason) .. "):", received.reports, "report(s),",
-        received.catches, "catch(es) from", tostring(source))
+        received.catches, "catch(es) from", table.concat(sources, ", "))
+end
+
+-- One of the peers we pull from, still sending
+local function Pulling(sender)
+    local id = ns.Utils.CompactName(sender)
+    return id ~= nil and pending[id] == true
 end
 
 function CatchUp:OnData(record, sender)
-    if state ~= "pulling" or not ns.Utils.SameCharacter(sender, source) then return end
+    if state ~= "pulling" or not Pulling(sender) then return end
     local kind, body = record:sub(1, 1), record:sub(2)
     if kind == "D" then
         if ns.Reports:AddRelayed(body, sender) then received.reports = received.reports + 1 end
@@ -170,9 +186,14 @@ function CatchUp:OnData(record, sender)
     elseif kind == "W" then
         ns.Bounties:AddRelayedPoster(body, sender)
     elseif kind == "R" then
-        ns.Bounties:AddRelayedPayment(body)
+        ns.Bounties:AddRelayedPayment(body, sender)
+    elseif kind == "X" then
+        ns.Witness:AddRelayed(body, sender)
+    elseif kind == "Y" then
+        ns.Evidence:AddRelayed(body, sender)
     elseif kind == "E" then
-        self:Finish("complete")
+        pending[ns.Utils.CompactName(sender)] = nil
+        if next(pending) == nil then self:Finish("complete") end
     end
 end
 
@@ -195,6 +216,9 @@ function CatchUp.Records(sinceTime)
     end
     -- Player bounties (HH-118) after the reports they rest on
     for _, record in ipairs(ns.Bounties:Records(sinceTime)) do records[#records + 1] = record end
+    -- Witness records (HH-121): the evidence for those bounties
+    for _, w in ipairs(ns.Witness:Since(sinceTime)) do records[#records + 1] = "X" .. Protocol.EncodeWitness(w) end
+    for _, record in ipairs(ns.Evidence:Records(sinceTime)) do records[#records + 1] = record end
     -- High Noon duels (HH-091) after the reports: they matter less
     for _, duel in ipairs(ns.Duels:Since(sinceTime, CatchUp.MAX_DUELS)) do
         if #records >= CatchUp.MAX_RECORDS + CatchUp.MAX_DUELS then break end

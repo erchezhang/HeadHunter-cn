@@ -174,7 +174,7 @@ return function(T, H)
 
     T.case("WANTED outlaw: skull pin at the last kill, no fire pin for a lone ganker", function()
         local ns = H.Boot({ client = "era" })
-        for i = 1, 3 do Kill(ns, 1436, 60 + i * 30) end
+        for i = 1, 4 do Kill(ns, 1436, 60 + i * 30) end
         Kill(ns, 1436, 30, nil, 0.3, 0.7)
         Settle()
         T.eq(#ns.Wanted:List(), 1, "Gank is WANTED")
@@ -186,7 +186,7 @@ return function(T, H)
         near(pin.y, 0.7, "last kill y")
         T.eq(pin.hunted, false, "not hunting yet")
         T.ok(Find("WANTED", pin.lines) and Find("Gank", pin.lines), "title")
-        T.ok(Find("4 kills · until caught", pin.lines), "rank, kills, until caught")
+        T.ok(Find("5 kills · until caught", pin.lines), "rank, kills, until caught")
         T.ok(Find("Last kill just now in Westfall", pin.lines), "last kill")
         T.ok(not Find("Click", pin.lines), "no click action (author, 2026-09-23)")
         T.noErrors()
@@ -194,7 +194,7 @@ return function(T, H)
 
     T.case("a skull shows for 10 min after the last kill; a new kill brings it back", function()
         local ns = H.Boot({ client = "era" })
-        for i = 1, 4 do Kill(ns, 1436, i * 30) end
+        for i = 1, 5 do Kill(ns, 1436, i * 30) end
         Settle()
         T.eq(#ns.MapMarkers:PinsFor(1436), 1, "fresh kill: skull")
         H.serverTime = H.serverTime + 9 * 60
@@ -212,9 +212,9 @@ return function(T, H)
         local ns = H.Boot({ client = "era" })
         for n = 1, 12 do
             local killer = "Gank" .. string.char(64 + n) .. "-Stonespine"
-            for i = 1, 4 + n do Kill(ns, 1436, i * 10, killer) end
+            for i = 1, 5 + n do Kill(ns, 1436, i * 10, killer) end
         end
-        for i = 1, 4 do Kill(ns, 1436, 300 + i * 10, "Lowly-Stonespine") end
+        for i = 1, 5 do Kill(ns, 1436, 300 + i * 10, "Lowly-Stonespine") end
         Settle()
         T.eq(#ns.Wanted:List(), 13, "13 WANTED")
         -- Skulls only (so many kills also make a PvP area)
@@ -240,7 +240,7 @@ return function(T, H)
 
     T.case("the outlaw our posse hunts is marked and shows the posse", function()
         local ns = H.Boot({ client = "era" })
-        for i = 1, 4 do Kill(ns, 1436, i * 30) end
+        for i = 1, 5 do Kill(ns, 1436, i * 30) end
         Settle()
         local entry = ns.Wanted:List()[1]
         ns.Posse:Join(entry, { mapID = 1436, x = 0.5, y = 0.25 })
@@ -274,7 +274,7 @@ return function(T, H)
     T.case("Join the posse gives coordinates without game waypoints", function()
         local ns = H.Boot({ client = "era" })
         H.noWaypoints = true
-        for i = 1, 4 do Kill(ns, 1436, i * 30, nil, 0.3, 0.7) end
+        for i = 1, 5 do Kill(ns, 1436, i * 30, nil, 0.3, 0.7) end
         Settle()
         local entry = ns.Wanted:List()[1]
         ns.Posse:Join(entry, { mapID = 1436, x = 0.3, y = 0.7 })
@@ -311,6 +311,7 @@ return function(T, H)
         T.eq(inner.color[4], M.AREA_ALPHA[2], "Battle shade in the middle")
         T.ok(drawn.discs[1].color[4] < inner.color[4], "lighter at the edge")
         T.eq(drawn.label.text.shownText, "PVP", "PVP in the middle")
+        T.eq(rawget(drawn.label.icon, "texture"), M.SWORDS_ICON, "under crossed swords")
         T.eq(drawn.label.data.kind, "hotspot", "label carries tooltip and click")
 
         canvas.scale = 2 -- zoom in

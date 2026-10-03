@@ -36,6 +36,7 @@ Protocol.TYPES = {
     MATCH = "M",    -- a tournament match: call, ready, game, result (Tournament/Matches.lua)
     POSTER = "W",   -- HH-118: a player's bounty poster on their killer
     PAYMENT = "R",  -- HH-118: a bounty claimed, paid or unpaid (sent by the hunter)
+    WITNESS = "X",  -- HH-121: a hunted player died near the sender (Sync/Witness.lua)
 }
 
 local FACTION_CODE = { Alliance = "A", Horde = "H" }
@@ -533,6 +534,28 @@ function Protocol.DecodeSpotted(s)
     local mapID, t = Protocol.FromB36(f[2]), Protocol.FromB36(f[3])
     if not mapID or not t then return nil end
     return f[1], mapID, t, DecodeCoord(f[4]), DecodeCoord(f[5])
+end
+
+-------------------------------------------------
+-- Witness (HH-121): outlaw ; mapID ; t ; x ; y ; killer ; by
+-- A hunted player died near `by`; killer is empty when the witness could not tell
+-- (WoW Forever has no combat log). Numbers base 36, coordinates 0..999.
+-------------------------------------------------
+
+function Protocol.EncodeWitness(w)
+    return table.concat({ w.outlaw, Protocol.ToB36(w.mapID), Protocol.ToB36(w.t), EncodeCoord(w.x), EncodeCoord(w.y),
+        w.killer or "", w.by }, ";")
+end
+
+-- Returns { outlaw, mapID, t, x, y, killer, by } or nil
+function Protocol.DecodeWitness(s)
+    if type(s) ~= "string" then return nil end
+    local f = Split(s, ";")
+    if #f ~= 7 or Blank(f[1]) or Blank(f[7]) then return nil end
+    local mapID, t = Protocol.FromB36(f[2]), Protocol.FromB36(f[3])
+    if not mapID or not t then return nil end
+    return { outlaw = f[1], mapID = mapID, t = t, x = DecodeCoord(f[4]), y = DecodeCoord(f[5]),
+        killer = not Blank(f[6]) and f[6] or nil, by = f[7] }
 end
 
 -------------------------------------------------

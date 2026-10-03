@@ -132,8 +132,8 @@ return function(T, H)
         local entry = ns.Wanted:ByKey("Stranger-Firemaw")
         T.ok(entry ~= nil and entry.badges.coward, "in the Hall of Shame")
         local names = {}
-        for _, row in ipairs(ns.MainWindow.Rows("shame")) do names[#names + 1] = row.name end
-        T.ok(table.concat(names, " "):find("Stranger", 1, true) ~= nil, "in the Hall of Shame tab")
+        for _, row in ipairs(ns.MainWindow.Rows("bullies")) do names[#names + 1] = row.name end
+        T.ok(table.concat(names, " "):find("Stranger", 1, true) ~= nil, "in the Bullies tab")
         T.ok(Shown(plate, "shame"), "the feather")
         H.Slash("dev wanted")
         Settle()

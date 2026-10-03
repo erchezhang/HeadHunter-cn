@@ -142,4 +142,38 @@ return function(T, H)
         T.eq(open[2], "Grim Reaper", "unterminated quote")
         T.eq(#U.Tokenize("   "), 0, "blank")
     end)
+
+    -------------------------------------------------
+    -- Distances in yards (HH-121 step 2)
+    -------------------------------------------------
+
+    T.case("map positions become world yards; distances only on one continent", function()
+        local U = H.Boot({ client = "forever" }).Utils
+        -- Made-up maps: 1 and 2 on continent 0 (a zone and its city), 3 on continent 1,
+        -- each 1000 x 1000 yards, the city map starting 500 yards east of the zone
+        local origins = { [1] = { 0, 0, 0 }, [2] = { 0, 500, 0 }, [3] = { 1, 0, 0 } }
+        _G.CreateVector2D = function(x, y) return { x = x, y = y } end
+        _G.C_Map.GetWorldPosFromMapPos = function(mapID, v)
+            local o = origins[mapID]
+            if not o then return nil end
+            return o[1], { GetXY = function() return o[2] + v.x * 1000, o[3] + v.y * 1000 end }
+        end
+
+        local zone = U.WorldPos(1, 0.5, 0.5)
+        T.eq(zone.continent, 0, "continent")
+        T.eq(zone.x, 500, "x in yards")
+        local city = U.WorldPos(2, 0.03, 0.54)
+        T.eq(U.Yards(zone, city), 50, "a city map and its zone compare directly")
+        local far = U.WorldPos(3, 0.5, 0.5)
+        T.eq(U.Yards(zone, far), nil, "no distance across continents")
+        T.eq(U.WorldPos(99, 0.5, 0.5), nil, "unknown map")
+        T.eq(U.WorldPos(1, nil, 0.5), nil, "no position")
+
+        T.eq(U.TooFar(zone, U.WorldPos(1, 0.6, 0.5), 0), false, "100 yards at once: within the margin")
+        T.eq(U.TooFar(zone, U.WorldPos(1, 0.9, 0.5), 10), true, "400 yards in 10 s: too far")
+        T.eq(U.TooFar(zone, U.WorldPos(1, 0.9, 0.5), 30), false, "400 yards in 30 s: a fast mount")
+        T.eq(U.TooFar(zone, far, 0), false, "another continent is never too far")
+        T.eq(U.TooFar(zone, nil, 0), false, "an unknown place is never too far")
+        _G.CreateVector2D = nil
+    end)
 end

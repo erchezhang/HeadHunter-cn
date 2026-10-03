@@ -453,9 +453,10 @@ function Transport:Receive(message, chatType, sender)
     end
     -- Other-faction traffic can share a custom channel; it is never ours to trust,
     -- except duel records (High Noon lists both factions; they never touch WANTED),
-    -- pings (the manual test, HH-100: does anything cross factions?), presence
-    -- (HH-110: the online count per faction) and bounty payments (HH-118: their
-    -- Deadbeats are ours to hunt; Sync/Bounties.lua keeps only unpaid and paid)
+    -- pings (the manual test, HH-100: does anything cross factions?) and presence
+    -- (HH-110: the online count per faction). Their bounty payments are not taken any
+    -- more (HH-121, author 2026-10-02): a Deadbeat needs a verified claim, and their
+    -- posters and witnesses never reach us; their Deadbeats come from the website.
     local TYPES = ns.Protocol.TYPES
     -- HH-110: any message shows its sender is online, not only a presence one
     ns.Presence:Heard(sender, faction, typeCode == TYPES.PRESENCE and records[1] or nil)
@@ -463,8 +464,7 @@ function Transport:Receive(message, chatType, sender)
         self.stats.crossFaction = (self.stats.crossFaction or 0) + 1
         ns:Debug("Other faction (" .. faction .. ") message from", tostring(sender), "via", tostring(chatType),
             "type", tostring(typeCode))
-        if typeCode ~= TYPES.DUEL and typeCode ~= TYPES.PING and typeCode ~= TYPES.PRESENCE
-                and typeCode ~= TYPES.PAYMENT then
+        if typeCode ~= TYPES.DUEL and typeCode ~= TYPES.PING and typeCode ~= TYPES.PRESENCE then
             self.diag.lastIgnored = "other faction (" .. faction .. ") from " .. tostring(sender)
             return
         end

@@ -190,7 +190,8 @@ end
 -- (Tournament/Tournaments.lua lists them, Tournament/Organizers.lua marks their hosts)
 -- { id, name, venue, teamSize, bestOf, finalBestOf, thirdPlace, bracketSeed, faction,
 --   minLevel, maxLevel, places, entrants (count), drawn (entrant ids), people, results,
---   url, startsAt, days, locksAt, signupsClosed, host = key, organizers = { key ... } }
+--   url, startsAt, days, locksAt, signupsClosed, finished, ended, host = key,
+--   hostInfo = { class, race, sex, faction }, organizers = { key ... } }
 function SiteData.Tournament(t)
     local id, startsAt = Text(t.id), Number(t.starts_at)
     if not id or not startsAt then return nil end
@@ -216,11 +217,11 @@ function SiteData.Tournament(t)
         if entrant and (not places or i <= places) then
             if teams then
                 if type(e.members) == "table" and #e.members >= teamSize then drawn[#drawn + 1] = entrant end
-                people[entrant] = { name = Text(e.name) or entrant, team = true }
+                people[entrant] = { name = Text(e.name) or entrant, team = true, faction = SiteData.Faction(e.faction) }
             else
                 drawn[#drawn + 1] = entrant
                 people[entrant] = { name = Text(e.name) or entrant, key = SiteData.Key(e), class = SiteData.Class(e.class),
-                    race = SiteData.Race(e.race), sex = Number(e.sex) }
+                    race = SiteData.Race(e.race), sex = Number(e.sex), faction = SiteData.Faction(e.faction) }
             end
         end
     end
@@ -246,7 +247,10 @@ function SiteData.Tournament(t)
         url = Text(t.url),
         startsAt = startsAt, days = days, locksAt = Number(t.locks_at) or startsAt - 3600,
         signupsClosed = t.signups_closed == true,
+        finished = t.finished == true, ended = t.ended == true,
         host = SiteData.Key(t.host), organizers = organizers,
+        hostInfo = type(t.host) == "table" and { class = SiteData.Class(t.host.class), race = SiteData.Race(t.host.race),
+            sex = Number(t.host.sex), faction = SiteData.Faction(t.host.faction) } or {},
     }
 end
 

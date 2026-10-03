@@ -62,7 +62,7 @@ return function(T, H)
 
     T.case("the posse shows under the WANTED line; caught outlaws say so", function()
         local ns = H.Boot({ client = "era", tooltip = "script" })
-        Spree(ns, "Gank-Stonespine", 4)
+        Spree(ns, "Gank-Stonespine", 5)
         Settle()
         ns.Posse:Join(ns.Wanted:ByKey("Gank-Stonespine"), { mapID = 1436, x = 0.5, y = 0.5 })
         Enemy("Gank", "Stonespine")

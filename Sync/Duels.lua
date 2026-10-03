@@ -24,7 +24,8 @@
 -- Duels happen inside one faction; the record says which. Other-faction HeadHunters'
 -- duel records are accepted too (Transport lets only this type through), rate limited,
 -- so High Noon can list both factions. Shared on the automatic routes and by login
--- catch-up (Sync/CatchUp.lua). Fires HH_DUEL_ADDED(duel).
+-- catch-up (Sync/CatchUp.lua). Fires HH_DUEL_ADDED(duel), and HH_DUEL_UPDATED(duel) when a
+-- relayed duel gets its second source (HH-121).
 
 local addonName, ns = ...
 local L = ns.L
@@ -637,8 +638,21 @@ function Duels:OnRecord(record, sender, origin)
     if not (duel.winner and duel.loser) then return nil end
     local now = U.ServerTime()
     if duel.t > now + self.MAX_SKEW or duel.t < now - self.MAX_AGE then return nil end
+    -- A copy of a duel we have: a second source for a relayed one (HH-121)
+    local have = Store() and Store()[duel.winner .. ">" .. duel.loser .. ":" .. duel.t]
+    if have then
+        if origin ~= "relay" then HeardFromPeer(duel) end
+        local counts = origin == "relay" and ns.Relay.Vouch(have, sender, have.winner, have.loser)
+            or origin ~= "relay" and ns.Relay.Confirm(have, origin or "peer", sender)
+        if counts then ns.Events:Fire("HH_DUEL_UPDATED", have) end
+        return nil
+    end
     if origin ~= "relay" and not UnderRateLimit(sender) then return nil end
     if origin ~= "relay" then HeardFromPeer(duel) end
+    if origin == "relay" then
+        duel.origin = "relay"
+        ns.Relay.Vouch(duel, sender, duel.winner, duel.loser)
+    end
     return self:Add(duel, origin or "peer", sender)
 end
 

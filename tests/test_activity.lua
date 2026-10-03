@@ -32,9 +32,9 @@ return function(T, H)
         }, "peer", victim)
     end
 
-    -- Gank becomes WANTED with 4 kills; the newest one on mapID
+    -- Gank becomes WANTED with 5 kills; the newest one on mapID
     local function WantedSpree(ns, mapID, ago)
-        for i = 1, 3 do Kill(ns, 1429, 600 + i * 30) end
+        for i = 1, 4 do Kill(ns, 1429, 600 + i * 30) end
         Kill(ns, mapID, ago or 30)
         Flow()
     end
@@ -252,7 +252,7 @@ return function(T, H)
 
     T.case("a spree simulated with /hh spree triggers the popup too", function()
         local ns = H.Boot({ client = "era" })
-        H.Slash("spree Gank 4 60")
+        H.Slash("spree Gank 5 60")
         Flow()
         T.eq(WantedPopups(), 1, "popup for simulated reports")
         T.noErrors()

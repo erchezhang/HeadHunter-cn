@@ -10,7 +10,7 @@ return function(T, H)
 
     -- Make an outlaw WANTED with a fresh kill in the player's zone and open its popup
     local function WantedPopup(ns, name)
-        H.Slash("spree " .. name .. " 4 60")
+        H.Slash("spree " .. name .. " 5 60")
         Flow()
         return _G.StaticPopupDialogs.HEADHUNTER_ALERT
     end
@@ -172,7 +172,7 @@ return function(T, H)
         NewKill(ns, 1429)
         T.eq(AlertPopups(), popups, "no popup after decline")
         T.ok(H.Printed("killed Late"), "chat line")
-        H.Slash("spree Rakkar 4 60")
+        H.Slash("spree Rakkar 5 60")
         Flow()
         T.eq(AlertPopups(), popups, "another outlaw: no popup either")
         T.ok(H.Printed("Rakkar"), "its chat line")
@@ -203,12 +203,12 @@ return function(T, H)
         WantedPopup(ns, "Gank").OnAccept()
         T.eq(ns.Posse:Hunting(), true, "hunting")
         local popups = AlertPopups()
-        -- Four peer kills by one outlaw in mapID, the newest now
+        -- Five peer kills by one outlaw in mapID, the newest now
         local function Spree(killer, mapID)
-            for i = 1, 4 do
+            for i = 1, 5 do
                 extra = extra + 1
                 local victim = "Late" .. extra .. "-Firemaw"
-                local t = H.serverTime - (4 - i) * 60
+                local t = H.serverTime - (5 - i) * 60
                 ns.Reports:Add({
                     id = victim .. ":" .. t, t = t, victim = { key = victim, level = 40 },
                     killer = { key = killer, name = killer, level = 40, class = "ROGUE", race = "Orc" },
@@ -250,7 +250,7 @@ return function(T, H)
 
     T.case("a reload keeps our posse: no second Join button, no second bounty", function()
         local ns = H.Boot({ client = "era" })
-        H.Slash("spree Gank 4 60")
+        H.Slash("spree Gank 5 60")
         for _ = 1, 3 do H.Advance(1) for _ = 1, 10 do H.Advance(0) end end
         local entry = ns.Wanted:ByKey("Gank-Firemaw")
         T.ok(ns.Posse:Join(entry, { mapID = 1436, x = 0.5, y = 0.5 }), "joined")

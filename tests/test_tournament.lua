@@ -227,6 +227,138 @@ return function(T, H)
         T.noErrors()
     end)
 
+    T.case("a player in an event: faction crest, race icon, the name in class color, class icon", function()
+        local ns = H.Boot({ client = "era", siteData = Data({ Tournament({
+            faction = false,
+            players = { { entrant = "p1", name = "Grimtusk", faction = "horde", race = "orc", class = "rogue", sex = 2 },
+                { entrant = "p2", name = "Marla" } },
+        }) }) })
+        local TN = ns.Tournaments
+        local t = TN:Get("gatebrawl")
+        local label = TN.SideLabel(t, "p1")
+        T.ok(label:find("^|TInterface\\TargetingFrame\\UI%-PVP%-Horde") ~= nil, "Horde crest first: " .. label)
+        T.ok(label:find("|t|A:raceicon%-orc%-male") ~= nil, "then the race: " .. label)
+        T.ok(label:find("|a |c%x+Grimtusk|r |TInterface\\WorldStateFrame\\ICONS%-CLASSES") ~= nil,
+            "then the name in class color and the class icon: " .. label)
+        T.eq(TN.SideLabel(t, "p2"), "Marla", "nothing known: the name alone")
+        T.noErrors()
+    end)
+
+    local function Four(overrides)
+        local base = {
+            starts_at = H.serverTime - 600, locks_at = H.serverTime - 4200, best_of = 1,
+            players = { { entrant = "p1", name = "Grimtusk", realm = "Firemaw" }, { entrant = "p2", name = "Marla", realm = "Firemaw" },
+                { entrant = "p3", name = "Tovik", realm = "Firemaw" }, { entrant = "p4", name = "Ashfang", realm = "Firemaw" } },
+        }
+        for k, v in pairs(overrides or {}) do base[k] = v end
+        return Tournament(base)
+    end
+
+    -- Plays every match of the bracket with side a winning, up to and with the round given
+    local function PlayUpTo(TN, t, lastRound)
+        t.results = {}
+        for round = 1, lastRound do
+            for _, m in ipairs(TN.Bracket(t)[round].matches) do
+                if not m.bye and m.a and m.b then
+                    t.results[#t.results + 1] = { round = round, match = m.match, a = m.a, b = m.b, winsA = 1, winsB = 0 }
+                end
+            end
+        end
+    end
+
+    T.case("a tournament is finished once its final has a result: Finished tab, places, Change still there", function()
+        local ns = H.Boot({ client = "era", siteData = Data({ Four({ host = { name = "Vati", realm = "Firemaw" } }) }) })
+        local M, TN = ns.MainWindow, ns.Tournaments
+        local t = TN:Get("gatebrawl")
+        PlayUpTo(TN, t, 1)
+        T.eq(TN.State(t, H.serverTime), "running", "semifinals played: still running")
+        T.eq(TN.Places(t), nil, "no places yet")
+
+        PlayUpTo(TN, t, 2)
+        T.eq(TN.State(t, H.serverTime), "finished", "the final decides")
+        T.eq(#M.Rows("ongoing"), 0, "not ongoing any more")
+        T.eq(M.Rows("finished")[1].event, "gatebrawl", "in the Finished tab")
+        T.ok(M.Rows("finished")[1].status:find("Finished", 1, true) ~= nil, "says so")
+        local final = TN.Bracket(t)[2].matches[1]
+        local places = TN.Places(t)
+        T.eq(places.first, final.a, "1st: the final's winner")
+        T.eq(places.second, final.b, "2nd: its loser")
+        T.eq(#places.third, 2, "the semifinal losers share 3rd")
+        local line = M.PlacesLine(t)
+        T.ok(line:find("1st", 1, true) ~= nil and line:find("3rd", 1, true) ~= nil, "the places line: " .. line)
+        local change
+        for _, action in ipairs(M.MatchRows(t, 2)[1].actions or {}) do
+            if action.kind == "set" then change = action end
+        end
+        T.ok(change ~= nil, "the organizer can still correct the final")
+
+        H.Slash("")
+        M:SelectSection("events")
+        M:SelectTab("finished")
+        M:OnRowClick(M.Rows("finished")[1])
+        T.ok(_G.HeadHunterMainFrame.eventPlaces:IsShown(), "the places over the matches")
+        T.noErrors()
+    end)
+
+    T.case("with a match for 3rd place it waits for that one too, whose winner is 3rd alone", function()
+        local ns = H.Boot({ client = "era", siteData = Data({ Four({ third_place_match = true }) }) })
+        local TN = ns.Tournaments
+        local t = TN:Get("gatebrawl")
+        PlayUpTo(TN, t, 1)
+        local final = TN.Bracket(t)[2].matches[1]
+        t.results[#t.results + 1] = { round = 2, match = 1, a = final.a, b = final.b, winsA = 1, winsB = 0 }
+        T.eq(TN.State(t, H.serverTime), "running", "the match for 3rd place is still to play")
+        PlayUpTo(TN, t, 2)
+        T.eq(TN.State(t, H.serverTime), "finished", "both played")
+        T.eq(#TN.Places(t).third, 1, "one 3rd")
+    end)
+
+    T.case("the website's word: finished, or ended by the host with no winner", function()
+        local ns = H.Boot({ client = "era", siteData = Data({
+            Four({ id = "done", finished = true }),
+            Four({ id = "stopped", finished = true, ended = true }),
+        }) })
+        local M, TN = ns.MainWindow, ns.Tournaments
+        T.eq(TN.State(TN:Get("done"), H.serverTime), "finished", "finished on the website")
+        local stopped = TN:Get("stopped")
+        T.eq(TN.State(stopped, H.serverTime), "ended", "ended by the host")
+        T.eq(#M.Rows("finished"), 2, "both in the Finished tab")
+        T.ok(M.PlacesLine(stopped):find("no winner", 1, true) ~= nil, "no places, says why")
+        local organizer = false
+        for _, row in ipairs(M.MatchRows(stopped, 1)) do
+            if row.actions and #row.actions > 0 then organizer = true end
+        end
+        T.ok(not organizer, "no buttons once the host ended it")
+    end)
+
+    T.case("the Events list shows the host in class color, with icons in the tooltip", function()
+        local ns = H.Boot({ client = "era", siteData = Data({ Tournament({
+            host = { name = "Tovik", realm = "Firemaw", class = "rogue", race = "orc", sex = 2, faction = "horde" },
+        }) }) })
+        local row = ns.MainWindow.Rows("upcoming")[1]
+        T.ok(row.organizer:find("^|c%x+Tovik|r$") ~= nil, "Host column in class color: " .. row.organizer)
+        local tip = table.concat(row.tooltip, "\n")
+        T.ok(tip:find("UI-PVP-Horde", 1, true) ~= nil and tip:find("raceicon-orc", 1, true) ~= nil
+            and tip:find("ICONS-CLASSES", 1, true) ~= nil, "the tooltip with faction, race and class icons")
+    end)
+
+    T.case("a team in an event: its faction crest before its name", function()
+        local ns = H.Boot({ client = "era", siteData = Data({ Tournament({
+            venue = "gurubashi", format = "2v2", faction = false, players = {},
+            teams = {
+                { entrant = "t1", name = "Blood Pact", faction = "horde", members = {} },
+                { entrant = "t2", name = "Lion Guard", faction = "alliance", members = {} },
+            },
+        }) }) })
+        local TN = ns.Tournaments
+        local t = TN:Get("gatebrawl")
+        T.ok(TN.SideLabel(t, "t1"):find("^|TInterface\\TargetingFrame\\UI%-PVP%-Horde.-|t Blood Pact$") ~= nil, "Horde crest: " .. TN.SideLabel(t, "t1"))
+        T.ok(TN.SideLabel(t, "t2"):find("UI%-PVP%-Alliance.-|t Lion Guard$") ~= nil, "Alliance crest: " .. TN.SideLabel(t, "t2"))
+        T.ok(TN.SideLabel(t, "t2", true):find("UI%-PVP%-Alliance.-|t |cff808080Lion Guard|r$") ~= nil,
+            "a team that did not come: grey, the crest kept: " .. TN.SideLabel(t, "t2", true))
+        T.noErrors()
+    end)
+
     T.case("the Events list: events are made on the website, Create an event copies its link", function()
         local ns = H.Boot({ client = "era" })
         local M = ns.MainWindow

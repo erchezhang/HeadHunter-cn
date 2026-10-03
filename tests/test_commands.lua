@@ -79,6 +79,11 @@ return function(T, H)
                 local _, count = text:gsub("witness dead unit nameplate1", "")
                 T.eq(count, 1, "a dead nameplate, logged once")
             end
+            H.units.target = { name = "Alive", realm = "Walker", level = 20, class = "ROGUE", race = "Orc",
+                faction = "Horde", isPlayer = true, guid = "Player-7" }
+            H.Fire("PLAYER_TARGET_CHANGED")
+            T.ok(table.concat(ns.Log:Lines(), "\n"):find("witness target Alive[^\n]* player: true dead: false") ~= nil,
+                "a targeted player says what we see, dead or not")
             H.Slash("probe witness")
             T.eq(ns.Probe.witnessing, false, "witness off")
             T.noErrors()

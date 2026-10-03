@@ -1,4 +1,4 @@
--- HH-060: main window (WANTED, Hall of Shame, My deaths) and the minimap button.
+-- HH-060: main window (WANTED, Bullies, My deaths) and the minimap button.
 
 return function(T, H)
     local serial = 0
@@ -26,8 +26,9 @@ return function(T, H)
     local function Names(rows)
         local names = {}
         for i, row in ipairs(rows) do
-            -- Race icon and colors off, and the realm (other realms keep it in the name)
-            names[i] = row.name:gsub("|A.-|a ", ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("%-%a+$", "")
+            -- Icons and colors off, and the realm (other realms keep it in the name)
+            names[i] = row.name:gsub("^|T.-|t", ""):gsub("|A.-|a", ""):gsub(" |T.-|t$", ""):gsub("^ ", "")
+                :gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("%-%a+$", "")
         end
         return table.concat(names, ",")
     end
@@ -50,13 +51,13 @@ return function(T, H)
         T.ok(rows[2].name:find("|c", 1, true) ~= nil, "class colored name")
     end)
 
-    T.case("Hall of Shame: every coward, WANTED or not, most coward kills first", function()
+    T.case("Bullies: every coward, WANTED or not, most coward kills first", function()
         local ns = H.Boot({ client = "era" })
         Spree(ns, "Bully-Stonespine", 5, { victimLevel = 20 })       -- WANTED coward
         Spree(ns, "Sneak-Stonespine", 2, { victimLevel = 20 })       -- coward, not WANTED
         Spree(ns, "Fair-Stonespine", 5, { victimLevel = 60 })        -- WANTED, fair fights
         Settle()
-        local rows = ns.MainWindow.Rows("shame")
+        local rows = ns.MainWindow.Rows("bullies")
         T.eq(Names(rows), "Bully,Sneak", "cowards only")
         T.eq(rows[1].coward, "5", "coward kills")
         T.ok(rows[1].status:find("WANTED", 1, true) ~= nil, "WANTED now")
@@ -93,7 +94,7 @@ return function(T, H)
         T.noErrors()
     end)
 
-    T.case("search on Hall of Shame and My deaths, one search per tab", function()
+    T.case("search on WANTED, Bullies and My deaths, one search per tab", function()
         local ns = H.Boot({ client = "era" })
         Spree(ns, "Bully-Stonespine", 5, { victimLevel = 20 })
         Spree(ns, "Sneak-Stonespine", 2, { victimLevel = 20 })
@@ -102,13 +103,14 @@ return function(T, H)
         H.Slash("sim death Newer-Stonespine 60 WARRIOR Troll")
         Settle()
         local M = ns.MainWindow
-        T.eq(Names(M.Rows("shame", nil, nil, nil, "SNE")), "Sneak", "Hall of Shame, any case")
+        T.eq(Names(M.Rows("bullies", nil, nil, nil, "SNE")), "Sneak", "Bullies, any case")
         T.eq(Names(M.Rows("deaths", nil, nil, nil, "old")), "Older", "My deaths: by the killer")
-        T.eq(#M.Rows("wanted", "rank", nil, nil, "zzz"), 1, "WANTED has no search")
+        T.eq(Names(M.Rows("wanted", "rank", nil, nil, "BUL")), "Bully", "WANTED, any case")
+        T.eq(#M.Rows("wanted", "rank", nil, nil, "zzz"), 0, "WANTED: nobody by that name")
 
         M:Toggle()
-        M:SelectTab("shame")
-        T.ok(_G.HeadHunterMainFrame.search:IsShown(), "box on Hall of Shame")
+        M:SelectTab("bullies")
+        T.ok(_G.HeadHunterMainFrame.search:IsShown(), "box on Bullies")
         M:SetSearch("bul")
         T.eq(Names(M.shownRows), "Bully", "filtered")
         M:SelectTab("deaths")
@@ -117,9 +119,16 @@ return function(T, H)
         T.eq(#M.shownRows, 2, "all deaths")
         M:SetSearch("zzz")
         T.eq(_G.HeadHunterMainFrame.empty.shownText, "Nobody called zzz", "nobody")
-        M:SelectTab("shame")
-        T.eq(M:Search(), "bul", "Hall of Shame kept its search")
-        T.eq(_G.HeadHunterMainFrame.search.shownText, "bul", "and the box shows it")
+        M:SelectTab("bullies")
+        local box = _G.HeadHunterMainFrame.search
+        T.eq(M:Search(), "bul", "Bullies kept its search")
+        T.eq(box.shownText, "bul", "and the box shows it")
+        T.eq(box.clear.shown, true, "with the x to clear it")
+        box.clear.scripts.OnClick(box.clear)
+        T.eq(M:Search(), nil, "the x clears the search")
+        T.eq(box.shownText, "", "and the box")
+        T.eq(box.clear.shown, false, "the x goes")
+        T.eq(#M.shownRows, #M.Rows("bullies"), "everyone again")
         M:SelectTab("marks")
         T.ok(not _G.HeadHunterMainFrame.search:IsShown(), "no box on My bounty")
         M:SetSearch("x")
@@ -158,7 +167,7 @@ return function(T, H)
         local ids = {}
         for i, tab in ipairs(f.tabs.buttons) do ids[i] = tab.id end
         T.eq(table.concat(ids, ","), "board,duels,events,me", "the top tabs")
-        T.ok(f.subtabs.board:IsShown(), "WANTED and Hall of Shame under the board")
+        T.ok(f.subtabs.board:IsShown(), "WANTED and Bullies under the board")
         T.ok(not f.subtabs.events:IsShown(), "only the section's own sub-tabs")
         M:SelectSection("me")
         T.eq(select(1, M:Current()), "deaths", "Me opens on My deaths")
@@ -179,7 +188,7 @@ return function(T, H)
         H.Slash("")
         T.ok(M:IsShown(), "open")
         T.eq(#M.shownRows, 0, "empty")
-        Spree(ns, "Gank-Stonespine", 4)
+        Spree(ns, "Gank-Stonespine", 5)
         Settle()
         H.Advance(0.2)
         T.eq(#M.shownRows, 1, "refreshed when the WANTED list changed")
@@ -207,9 +216,9 @@ return function(T, H)
 
     T.case("WANTED tab: one list per faction, no race counts as the enemy", function()
         local ns = H.Boot({ client = "era" })
-        Spree(ns, "Grubnak-Stonespine", 4)
-        Spree(ns, "Brenna-Stonespine", 4, { race = "Dwarf" })
-        Spree(ns, "Nameless-Stonespine", 4, { race = false })
+        Spree(ns, "Grubnak-Stonespine", 5)
+        Spree(ns, "Brenna-Stonespine", 5, { race = "Dwarf" })
+        Spree(ns, "Nameless-Stonespine", 5, { race = false })
         Settle()
         local M = ns.MainWindow
         T.eq(Names(M.Rows("wanted", "rank", nil, "Horde")), "Nameless,Grubnak", "Horde list, newest kill first")
@@ -220,9 +229,9 @@ return function(T, H)
     T.case("WANTED tab: WANTED first, then outlaws at large until the list has 25 rows", function()
         local ns = H.Boot({ client = "era" })
         local DAY = 86400
-        Spree(ns, "Fresh-Stonespine", 4)
-        Spree(ns, "Older-Stonespine", 4, { ago = 9 * DAY })
-        Spree(ns, "Oldest-Stonespine", 4, { ago = 12 * DAY })
+        Spree(ns, "Fresh-Stonespine", 5)
+        Spree(ns, "Older-Stonespine", 5, { ago = 9 * DAY })
+        Spree(ns, "Oldest-Stonespine", 5, { ago = 12 * DAY })
         Settle()
         local M = ns.MainWindow
         local rows = M.Rows("wanted", "rank", nil, "Horde")
@@ -234,31 +243,83 @@ return function(T, H)
         M.BOARD_MIN = 2
         T.eq(Names(M.Rows("wanted", "rank", nil, "Horde")), "Fresh,Older", "filled up to the minimum only")
         M.BOARD_MIN = 1
-        Spree(ns, "Second-Stonespine", 4)
+        Spree(ns, "Second-Stonespine", 5)
         Settle()
         T.eq(#M.Rows("wanted", "rank", nil, "Horde"), 2, "more WANTED than the minimum: all of them, no at large")
     end)
 
-    T.case("WANTED tab opens on the enemy faction; its switch leaves the Duels one alone", function()
+    T.case("Bounty board and Duels open on All; WANTED and Bullies share a choice, Duels has its own", function()
         local ns = H.Boot({ client = "era" })
         local M = ns.MainWindow
         M:Toggle()
-        T.eq(M:ListFaction(), "Horde", "Alliance player: the Horde list first")
+        local board = _G.HeadHunterMainFrame.faction
+        T.eq(#board.buttons, 3, "All, Alliance and Horde")
+        T.eq(board.value, M.ALL, "All lit")
+        T.eq(M:ListFaction(), nil, "All: both factions")
         M:SwitchFaction()
-        T.eq(M:WantedFaction(), "Alliance", "switched")
-        T.eq(M:DuelFaction(), "Alliance", "Duels keeps our faction")
+        T.eq(M:BoardFaction(), "Alliance", "switched to Alliance")
+        M:SelectTab("bullies")
+        T.eq(board.shown, true, "the switch stays on Bullies")
+        T.eq(_G.HeadHunterMainFrame.search.point[2], board, "the search left of it")
+        T.eq(M:ListFaction(), "Alliance", "Bullies keeps the board's faction")
+        M:SwitchFaction()
+        T.eq(M:BoardFaction(), "Horde", "then Horde")
+        M:SwitchFaction()
+        T.eq(M:BoardFaction(), M.ALL, "then All again")
+        M:SwitchFaction()
         M:SelectTab("duels")
-        T.eq(M:ListFaction(), "Alliance", "Duels list")
+        T.eq(board.value, M.ALL, "Duels has its own choice")
+        T.eq(M:ListFaction(), nil, "Duels: All")
         M:SwitchFaction()
-        T.eq(M:DuelFaction(), "Horde", "Duels switched")
-        T.eq(M:WantedFaction(), "Alliance", "WANTED unchanged")
-        M:SelectTab("shame")
+        T.eq(M:DuelFaction(), "Alliance", "Duels switched")
+        T.eq(M:BoardFaction(), "Alliance", "the board unchanged")
+        M:SelectTab("deaths")
         T.eq(M:ListFaction(), nil, "no list on other tabs")
+        M:SelectTab("shame")
+        T.eq((M:Current()), "bullies", "the old Hall of Shame tab opens Bullies")
         T.noErrors()
+    end)
 
-        local horde = H.Boot({ client = "era" })
-        H.units.player.race, H.units.player.faction = "Orc", "Horde"
-        T.eq(horde.MainWindow:WantedFaction(), "Alliance", "Horde player: the Alliance list first")
+    T.case("Bounty board sub-tabs: what each one lists, on hover", function()
+        local ns = H.Boot({ client = "era", tooltip = "script" })
+        local M = ns.MainWindow
+        M:Toggle()
+        local buttons = _G.HeadHunterMainFrame.subtabs.board.buttons
+        T.eq(#buttons, 3, "WANTED, Bullies and Deadbeats")
+        for i, view in ipairs({ "wanted", "bullies", "deadbeats" }) do
+            H.tooltipLines = {}
+            buttons[i].scripts.OnEnter(buttons[i])
+            T.eq(H.tooltipLines[1], ns.L[M.TAB_TIPS[view]], view .. " explained")
+        end
+        T.ok(ns.L.TIP_TAB_WANTED:find("small on purpose", 1, true) ~= nil, "WANTED: why a gold bounty is small")
+        T.noErrors()
+    end)
+
+    T.case("Bullies: one faction's bullies, or both", function()
+        local ns = H.Boot({ client = "era" })
+        Spree(ns, "Grubnak-Stonespine", 5)
+        Spree(ns, "Brenna-Stonespine", 5, { race = "Dwarf" })
+        Settle()
+        for _, id in ipairs({ "Grubnak-Stonespine", "Brenna-Stonespine" }) do
+            local entry = ns.Wanted:Get(id)
+            entry.badges = entry.badges or {}
+            entry.badges.coward = true
+        end
+        local M = ns.MainWindow
+        T.eq(#M.Rows("bullies"), 2, "both factions")
+        T.eq(#M.Rows("bullies", nil, nil, "Alliance"), 1, "Alliance only")
+        T.ok(M.Rows("bullies", nil, nil, "Horde")[1].plain:find("Grubnak", 1, true) ~= nil, "Horde only")
+    end)
+
+    T.case("a name in the lists: faction crest, race icon, the name, then the class icon", function()
+        local M = H.Boot({ client = "era" }).MainWindow
+        local named = M.Named("Sneak", { race = "Orc", sex = 2, class = "ROGUE" })
+        T.ok(named:find("^|TInterface\\TargetingFrame\\UI%-PVP%-Horde:14:14:0:0:64:64:2:40:1:40|t|A:raceicon%-orc%-male") ~= nil,
+            "Horde crest, then the race: " .. named)
+        T.ok(named:find("|a |c%x+Sneak|r |TInterface\\WorldStateFrame\\ICONS%-CLASSES") ~= nil,
+            "then the name in class color and the class icon: " .. named)
+        T.ok(M.Named("Knight", { race = "Human", faction = "Horde" }):find("UI%-PVP%-Horde") ~= nil, "its own faction first")
+        T.ok(M.Named("Nameless", {}):find("UI%-PVP%-Horde") ~= nil, "no race: the enemy's crest")
     end)
 
     T.case("race icons: atlas per client, gender, Undead's atlas name, unknown race", function()
@@ -274,12 +335,13 @@ return function(T, H)
         T.eq(U.RaceIcon("Orc", 2), "|A:raceicon128-orc-male:14:14|a", "forever: larger art")
     end)
 
-    T.case("rows start with the race icon; hovering shows the outlaw's details", function()
+    T.case("rows start with the faction and race icons; hovering shows the outlaw's details", function()
         local ns = H.Boot({ client = "era" })
         Spree(ns, "Gank-Stonespine", 5)
         Settle()
         local row = ns.MainWindow.Rows("wanted", "rank")[1]
-        T.ok(row.name:find("|A:raceicon-orc-male", 1, true) == 1, "icon first: " .. row.name)
+        T.ok(row.name:find("|TInterface\\TargetingFrame\\UI-PVP-Horde", 1, true) == 1, "faction crest first: " .. row.name)
+        T.ok(row.name:find("|t|A:raceicon-orc-male", 1, true) ~= nil, "then the race: " .. row.name)
         local tip = table.concat(row.tooltip, "\n")
         T.ok(row.tooltip[1]:find("raceicon", 1, true) ~= nil, "title with icon")
         T.ok(tip:find("60 Orc Rogue", 1, true) ~= nil, "who")

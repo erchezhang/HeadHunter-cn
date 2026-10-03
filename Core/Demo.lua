@@ -74,7 +74,7 @@ Demo.OUTLAWS = {
     { name = "Hyperstorm", kills = 23, endedAgo = 90, gap = 5, victims = { 57, 60 } }, -- Desperado, Gunslinger
     { name = "Molt", kills = 14, endedAgo = 140, gap = 4, victims = { 30, 44 }, helpers = { "Hakkaki" } }, -- Outlaw pair, Duo
     { name = "Qurdi", kills = 9, endedAgo = 70, gap = 3, victims = { 25, 38 } },       -- Ganker, Coward, Serial Killer
-    { name = "Monaspa", kills = 7, endedAgo = 200, gap = 6, victims = { 55, 60 }, helpers = { "Vieta", "Jinzz" } }, -- Gang
+    { name = "Monaspa", kills = 7, endedAgo = 200, gap = 5, victims = { 55, 60 }, helpers = { "Vieta", "Jinzz" } }, -- Gang
     { name = "Aldex", kills = 5, endedAgo = 260, gap = 5, victims = { 57, 60 }, level = 52 }, -- Giant Slayer
     { name = "Zulgar", kills = 3, endedAgo = 26 * 60, gap = 180, victims = { 20, 30 } }, -- Coward, never WANTED
     { name = "Brakka", kills = 8, endedAgo = 3 * 24 * 60, gap = 3, victims = { 25, 35 }, caught = 40 }, -- caught
@@ -85,8 +85,8 @@ Demo.OUTLAWS = {
     { name = "Brightmane", kills = 18, endedAgo = 100, gap = 5, victims = { 56, 60 } }, -- Outlaw, Gunslinger
     { name = "Sylvaria", kills = 11, endedAgo = 160, gap = 4, victims = { 57, 60 }, helpers = { "Thorgrim" } }, -- Duo
     { name = "Duskblade", kills = 6, endedAgo = 30, gap = 3, victims = { 30, 40 } },   -- Ganker, Coward, Serial Killer
-    { name = "Morwenna", kills = 5, endedAgo = 220, gap = 6, victims = { 52, 58 }, helpers = { "Bramble", "Fizzwick" } }, -- Gang
-    { name = "Aldric", kills = 4, endedAgo = 300, gap = 5, victims = { 55, 58 }, level = 50 }, -- Giant Slayer
+    { name = "Morwenna", kills = 5, endedAgo = 220, gap = 5, victims = { 52, 58 }, helpers = { "Bramble", "Fizzwick" } }, -- Gang
+    { name = "Aldric", kills = 5, endedAgo = 300, gap = 5, victims = { 55, 58 }, level = 50 }, -- Giant Slayer
     { name = "Tinkle", kills = 4, endedAgo = 20 * 60, gap = 300, victims = { 22, 32 } }, -- Coward, too slow for WANTED
     { name = "Ironvein", kills = 7, endedAgo = 4 * 24 * 60, gap = 3, victims = { 28, 38 }, caught = 25 }, -- caught
     { name = "Seraphine", kills = 3, endedAgo = 30 * 60, gap = 200, victims = { 24, 30 } }, -- Coward

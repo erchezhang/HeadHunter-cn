@@ -12,6 +12,11 @@
 --              the alerts.
 -- Protocol type L (Sync/Protocol.lua EncodeSpotted), on the automatic routes: Forever
 -- the hidden channel, Era guild and group.
+-- Remembered (HH-121 step 3): the last KEEP sightings of each outlaw, ours and the
+-- peers' (at most SENDER_LIMIT per sender per SENDER_WINDOW), with the place in yards,
+-- in memory only. They tell where an outlaw was (the map skull, the posse waypoint)
+-- and, later, whether a bounty claim on them was possible. Fires
+-- HH_OUTLAW_SPOTTED(outlawId, sighting); never the WANTED recompute.
 
 local addonName, ns = ...
 local L = ns.L
@@ -26,14 +31,64 @@ Spotted.SEND_DELAY_MIN = 1
 Spotted.SEND_DELAY_MAX = 3
 Spotted.MAX_PER_MINUTE = 3
 Spotted.MAX_SKEW = 300
+Spotted.KEEP = 10            -- sightings remembered per outlaw
+Spotted.SENDER_LIMIT = 10    -- sightings kept from one sender per window
+Spotted.SENDER_WINDOW = 600
 
 local lastSpot = {}  -- outlaw id -> Now() of the last spot anyone sent (ours or a peer's)
 local seenByUs = {}  -- outlaw id -> Now() we saw them ourselves
 local shown = {}     -- Now() of each spotted line shown, for the per-minute cap
 local told = {}      -- outlaw id -> { at = Now(), zone } of the last line we showed
+local sightings = {} -- outlaw id -> { t, mapID, x, y, pos, by }, oldest first
+local senderLog = {} -- compact sender -> Now() of each sighting kept
 
 local function Recent(at, window)
     return at ~= nil and ns.Utils.Now() - at < window
+end
+
+local function UnderRateLimit(sender)
+    local id = ns.Utils.CompactName(sender)
+    if not id then return false end
+    local now = ns.Utils.Now()
+    local recent = {}
+    for _, at in ipairs(senderLog[id] or {}) do
+        if now - at < Spotted.SENDER_WINDOW then recent[#recent + 1] = at end
+    end
+    senderLog[id] = recent
+    if #recent >= Spotted.SENDER_LIMIT then return false end
+    recent[#recent + 1] = now
+    return true
+end
+
+-- by: the spotter's key (ours too). Returns the new sighting, or nil for a copy.
+local function Remember(outlaw, t, mapID, x, y, by)
+    local list = sightings[outlaw] or {}
+    for _, s in ipairs(list) do
+        if s.t == t and s.mapID == mapID then return nil end
+    end
+    local sighting = { t = t, mapID = mapID, x = x, y = y, pos = ns.Utils.WorldPos(mapID, x, y), by = by }
+    list[#list + 1] = sighting
+    table.sort(list, function(a, b) return a.t < b.t end)
+    while #list > Spotted.KEEP do table.remove(list, 1) end
+    sightings[outlaw] = list
+    ns.Events:Fire("HH_OUTLAW_SPOTTED", outlaw, sighting)
+    return sighting
+end
+
+-- The remembered sightings of one outlaw, oldest first
+function Spotted:Sightings(outlaw)
+    return sightings[outlaw] or {}
+end
+
+-- The newest sighting of one outlaw, or nil
+function Spotted:Latest(outlaw)
+    local list = sightings[outlaw]
+    return list and list[#list] or nil
+end
+
+-- Forget everything (tests)
+function Spotted:Reset()
+    lastSpot, seenByUs, shown, told, sightings, senderLog = {}, {}, {}, {}, {}, {}
 end
 
 local function Watched(entry)
@@ -45,11 +100,13 @@ end
 function Spotted:OnSeen(entry)
     local U = ns.Utils
     seenByUs[entry.id] = U.Now()
-    if Recent(lastSpot[entry.id], self.EVERY) then return end
     local mapID = U.PlayerMapID()
     local zone, x, y = ns.Zones.ToZone(mapID, U.PlayerPosition(mapID))
     if not zone then return end
     local t = U.ServerTime()
+    -- Our own sighting is remembered every time; the others hear at most once per EVERY
+    Remember(entry.id, t, zone, x, y, U.UnitKey("player"))
+    if Recent(lastSpot[entry.id], self.EVERY) then return end
     local wait = self.SEND_DELAY_MIN + math.random() * (self.SEND_DELAY_MAX - self.SEND_DELAY_MIN)
     C_Timer.After(wait, function()
         -- Someone else spoke first
@@ -84,6 +141,9 @@ function Spotted:OnPeer(record, sender)
     if t > serverNow + self.MAX_SKEW or t < serverNow - self.EVERY then return end
     -- A peer spoke: we keep quiet about this outlaw
     lastSpot[outlaw] = U.Now()
+    if UnderRateLimit(sender) then Remember(outlaw, t, mapID, x, y, U.PlayerKey(sender) or sender) end
+    -- Posse members hear it from the posse, with the waypoint (Alerts/Posse.lua)
+    if ns.Posse:IsMember(outlaw) then return end
     if Recent(seenByUs[outlaw], self.EVERY) then return end
     -- The same outlaw again: a new zone after EVERY, the same zone after SAME_ZONE_EVERY
     local last = told[outlaw]

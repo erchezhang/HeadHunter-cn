@@ -25,10 +25,10 @@ return function(T, H)
         local ns = H.Boot({ client = "era" })
         H.inGuild = true
         H.playerMap, H.playerX, H.playerY = 1436, 0.45, 0.6 -- Westfall
-        Spree(ns, "Gank-Stonespine", 4)
-        Spree(ns, "Other-Stonespine", 4)
-        Spree(ns, "Third-Stonespine", 4)
-        Spree(ns, "Fourth-Stonespine", 4)
+        Spree(ns, "Gank-Stonespine", 5)
+        Spree(ns, "Other-Stonespine", 5)
+        Spree(ns, "Third-Stonespine", 5)
+        Spree(ns, "Fourth-Stonespine", 5)
         Settle()
         return ns
     end
@@ -74,7 +74,7 @@ return function(T, H)
     T.case("others nearby get one line, with where, when and who, and a link to whisper the spotter", function()
         local ns = Boot()
         Spot(ns, "Gank-Stonespine", 1436, "Scout-Firemaw", 60)
-        T.ok(H.Printed("SPOTTED.*Gank.*in Westfall %(30%.0, 70%.0%), 1 min ago, by |Hplayer:Scout|h%[Scout%]|h"), "the line")
+        T.ok(H.Printed("SPOTTED.*Gank.*in Westfall %(30%.0, 70%.0%), 1 min ago, by |cffff7fff|Hplayer:Scout|h%[Scout%]|h|r"), "the line")
         H.printed = {}
         H.Advance(400)
         Spot(ns, "Gank-Stonespine", 1436, "Other-Firemaw")
@@ -102,6 +102,46 @@ return function(T, H)
             if line:find("SPOTTED") then lines = lines + 1 end
         end
         T.ok(lines <= 3, "at most 3 a minute: " .. lines)
+        T.noErrors()
+    end)
+
+    T.case("sightings are remembered: ours and the peers', the last 10, at most 10 per sender in 10 minutes", function()
+        local ns = Boot()
+        Seen(ns, "Gank-Stonespine")
+        local mine = ns.Spotted:Latest("Gank-Stonespine")
+        T.eq(mine.by, "Vati-Firemaw", "our own sighting")
+        T.eq(mine.mapID, 1436, "where we were")
+        Spot(ns, "Gank-Stonespine", 1429, "Scout-Firemaw", 30)
+        T.eq(#ns.Spotted:Sightings("Gank-Stonespine"), 2, "and a peer's")
+        T.eq(ns.Spotted:Latest("Gank-Stonespine").by, "Vati-Firemaw", "the newest is last")
+        Spot(ns, "Gank-Stonespine", 1429, "Copy-Firemaw", 30)
+        T.eq(#ns.Spotted:Sightings("Gank-Stonespine"), 2, "the same sighting again is kept once")
+
+        for i = 1, 12 do Spot(ns, "Other-Stonespine", 1436, "Flood-Firemaw", 100 + i) end
+        T.eq(#ns.Spotted:Sightings("Other-Stonespine"), 10, "one sender: at most 10 in 10 minutes")
+        for i = 1, 5 do Spot(ns, "Other-Stonespine", 1436, "Scout" .. i .. "-Firemaw", i) end
+        local list = ns.Spotted:Sightings("Other-Stonespine")
+        T.eq(#list, 10, "the last 10 kept")
+        T.eq(list[#list].t, H.serverTime - 1, "newest last")
+        T.noErrors()
+    end)
+
+    T.case("a posse member hears a sighting from the posse, and the map skull moves there", function()
+        local ns = Boot()
+        local entry = ns.Wanted:ByKey("Gank-Stonespine")
+        ns.Posse:Join(entry, { mapID = 1436, x = 0.5, y = 0.5 })
+        H.printed = {}
+        Spot(ns, "Gank-Stonespine", 1436, "Scout-Firemaw", 10)
+        T.ok(H.Printed("Posse: .*Gank.* seen in Westfall by Scout%. The waypoint moved there%."), "the posse line")
+        T.ok(not H.Printed("SPOTTED"), "not the general line as well")
+
+        local skull
+        for _, pin in ipairs(ns.MapMarkers:PinsFor(1436, H.serverTime)) do
+            if pin.id == "wanted:Gank-Stonespine" then skull = pin end
+        end
+        T.ok(skull ~= nil, "a skull")
+        T.ok(table.concat(skull.lines, " "):find("Seen just now in Westfall", 1, true) ~= nil,
+            "at the sighting, newer than the last kill")
         T.noErrors()
     end)
 

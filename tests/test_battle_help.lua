@@ -94,7 +94,7 @@ return function(T, H)
 
         ns.Hotspots:AddFighter(1436, U.CompactName(U.UnitKey("player")), H.serverTime, 0.4, 0.6, {})
         H.Deliver(help, "Iron-Firemaw")
-        T.ok(H.Printed("|Hplayer:Iron|h%[Iron%]|h is coming to the fight in Westfall"), "fighting there: told, a click whispers them")
+        T.ok(H.Printed("|cffff7fff|Hplayer:Iron|h%[Iron%]|h|r is coming to the fight in Westfall"), "fighting there: told, a click whispers them")
         H.printed = {}
         H.Deliver(help, "Iron-Firemaw")
         T.ok(not H.Printed("is coming to the fight"), "once a minute per helper")
@@ -153,7 +153,7 @@ return function(T, H)
         ns.MainWindow:OnRowClick(fern)
         T.eq(told, "Fernwick-Gehennas", "another realm keeps it")
 
-        ns.MainWindow:SwitchFaction()
+        ns.MainWindow:SetFaction("Horde")
         for _, row in ipairs(ns.MainWindow.shownRows) do
             T.eq(row.whisper, nil, "the other faction cannot be whispered")
         end

@@ -1,7 +1,7 @@
 -- HH-043: a WANTED outlaw just killed someone near you.
 --
 --   WANTED · Ganker Wiadro (?? Dwarf Rogue) killed Headhunta in Elwynn Forest, 1 min ago
---   4 kills · WANTED until caught · Coward
+--   5 kills · WANTED until caught · Coward
 --   [Join the posse] [Decline]
 --
 -- Triggered by new reports (HH_REPORT_ADDED) from other players (or simulated ones).

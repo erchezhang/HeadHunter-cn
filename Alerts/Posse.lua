@@ -214,6 +214,19 @@ function Posse:Refresh(entry, report)
         Transport.PRIORITY.posse, "J:" .. entry.id)
 end
 
+-- Another HeadHunter saw an outlaw we hunt (HH-121 step 3, Alerts/Spotted.lua): the
+-- waypoint follows, and a posse line takes the place of the general spotted line
+function Posse:OnSpotted(outlawId, sighting)
+    local U = ns.Utils
+    if not self:IsMember(outlawId) or U.SameCharacter(sighting.by, U.UnitKey("player")) then return end
+    local entry = ns.Wanted:Get(outlawId)
+    local name = entry and (entry.key and U.DisplayName(entry.key) or entry.name) or outlawId
+    local zone = U.MapName(sighting.mapID) or L.UNKNOWN_ZONE
+    local spotter = U.DisplayName(sighting.by) or sighting.by
+    ns.MapMarkers.GuideAndTell(sighting.mapID, sighting.x, sighting.y,
+        string.format(L.POSSE_SPOTTED, name, zone, spotter), string.format(L.POSSE_SPOTTED_PIN, name, zone, spotter))
+end
+
 -------------------------------------------------
 -- Receiving
 -------------------------------------------------
@@ -235,6 +248,8 @@ end
 ns.Events:Register("HH_INITIALIZED", function()
     Posse:Restore()
     ns.Transport:RegisterHandler(ns.Protocol.TYPES.POSSE, function(record, sender) Posse:OnPeerJoin(record, sender) end)
+    ns.Events:Register("HH_OUTLAW_SPOTTED", function(_, outlawId, sighting) Posse:OnSpotted(outlawId, sighting) end,
+        OWNER)
 end, OWNER)
 
 ns.SlashCommands:Register("posse", function()

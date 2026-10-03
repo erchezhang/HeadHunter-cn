@@ -6,7 +6,7 @@
 -- still send them (type V), and nobody handles those any more.
 --
 -- Tournaments:List(now) -> the website's tournaments not over yet, soonest first
--- Tournaments.State(t, now) -> "open" | "closed" | "locked" | "running"
+-- Tournaments.State(t, now) -> "open" | "closed" | "locked" | "running" | "finished" | "ended"
 -- Tournaments.Bracket(t) -> the rounds as the website builds them (Brackets.Build)
 
 local addonName, ns = ...
@@ -22,8 +22,14 @@ function Tournaments.LastStart(t)
     return t.days[#t.days]
 end
 
+-- Started: running until the final is decided ("finished", also from the results
+-- confirmed in game, so it shows at once) or the host ends it early ("ended", website)
 function Tournaments.State(t, now)
-    if now >= t.startsAt then return "running" end
+    if now >= t.startsAt then
+        if t.ended then return "ended" end
+        if Tournaments.Finished(t) then return "finished" end
+        return "running"
+    end
     if now >= t.locksAt then return "locked" end
     if t.signupsClosed then return "closed" end
     return "open"
@@ -49,9 +55,47 @@ function Tournaments:Get(id, now)
     return nil
 end
 
--- Events tab (author, 2026-10-01): being played now, or still to come
+-- Events tab (author, 2026-10-01): being played now, still to come, or over
 function Tournaments.Ongoing(t, now)
     return Tournaments.State(t, now) == "running"
+end
+
+function Tournaments.Over(t, now)
+    local state = Tournaments.State(t, now)
+    return state == "finished" or state == "ended"
+end
+
+-- The website says it is over, or the final (and the match for 3rd place when it is
+-- on) has a result here (author, 2026-10-01)
+function Tournaments.Finished(t)
+    if t.finished or t.ended then return true end
+    local rounds = Tournaments.Bracket(t)
+    local last = rounds[#rounds]
+    if not last or #last.matches == 0 then return false end
+    for _, m in ipairs(last.matches) do
+        if m.bye or not m.winner then return false end
+    end
+    return true
+end
+
+-- 1st, 2nd and 3rd as entrant ids: { first, second, third = {...} }, or nil while the
+-- final has no result. Without a match for 3rd place both semifinal losers share it.
+function Tournaments.Places(t)
+    local rounds = Tournaments.Bracket(t)
+    local last = rounds[#rounds]
+    local final = last and last.matches[1]
+    if not final or final.bye or not final.winner then return nil end
+    local function Loser(m) return m.winner == "a" and m.b or m.a end
+    local places = { first = final[final.winner], second = Loser(final), third = {} }
+    local third = last.matches[2]
+    if third and third.thirdPlace then
+        if third.winner then places.third[1] = third[third.winner] end
+    elseif #rounds > 1 then
+        for _, m in ipairs(rounds[#rounds - 1].matches) do
+            if m.winner and not m.bye then places.third[#places.third + 1] = Loser(m) end
+        end
+    end
+    return places
 end
 
 -- The bracket as the website builds it (Brackets.Build), with the website's results and
@@ -92,15 +136,19 @@ function Tournaments.SideName(t, entrant)
     return person.key and ns.Utils.DisplayName(person.key) or person.name
 end
 
--- A side as the event view shows it (author, 2026-10-01): race and class icons, the
--- name in its class color; a team's name as it is
-function Tournaments.SideLabel(t, entrant)
+-- A side as the event view shows it (author, 2026-10-01): like the other lists, faction
+-- crest, race icon, the name in its class color, class icon; a team's name after its
+-- faction crest. muted: the name in grey with the icons kept (a side that did not come)
+function Tournaments.SideLabel(t, entrant, muted)
     local name = Tournaments.SideName(t, entrant)
     local person = name and t.people[entrant]
-    if not person or person.team then return name end
-    local U = ns.Utils
-    local icons = U.RaceIcon(person.race, person.sex) .. U.ClassIcon(person.class)
-    return (icons ~= "" and (icons .. " ") or "") .. ns.MainWindow.ClassColored(name, person.class)
+    if not person then return name and muted and ("|cff808080" .. name .. "|r") or name end
+    if person.team then
+        local crest = ns.MainWindow.FactionIcon(person.faction or t.faction)
+        return (crest ~= "" and (crest .. " ") or "") .. (muted and ("|cff808080" .. name .. "|r") or name)
+    end
+    local faction = person.faction or ns.Utils.RaceFaction(person.race) or t.faction
+    return ns.MainWindow.Labeled(name, person, faction, muted)
 end
 
 -- "Best of 3" or "Best of 3, final Best of 5"

@@ -117,8 +117,8 @@ return function(T, H)
         T.eq(ns.Wanted:ByKey("Broken-Firemaw"), nil, "no bully kills: left out")
 
         local names = {}
-        for _, row in ipairs(ns.MainWindow.Rows("shame")) do names[#names + 1] = row.name .. ":" .. row.coward end
-        T.ok(table.concat(names, " "):find("Greystomp.*:4") ~= nil, "in the Hall of Shame tab")
+        for _, row in ipairs(ns.MainWindow.Rows("bullies")) do names[#names + 1] = row.name .. ":" .. row.coward end
+        T.ok(table.concat(names, " "):find("Greystomp.*:4") ~= nil, "in the Bullies tab")
 
         ns.Sighting:OnEnemySeen({ key = "Greystomp-Firemaw", level = 40, class = "WARRIOR", race = "Orc" }, "target")
         T.ok(H.Printed("BULLY.*Greystomp.*4 kills of lowbies"), "the bully alert")

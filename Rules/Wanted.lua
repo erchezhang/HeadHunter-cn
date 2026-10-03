@@ -218,7 +218,10 @@ end
 -- Synchronous recompute (tests, and the coroutine body)
 function Wanted:ComputeNow(yield)
     local reports = {}
-    for _, report in ns.Reports:All() do reports[#reports + 1] = report end
+    -- A relayed report counts only once a second source has it (HH-121)
+    for _, report in ns.Reports:All() do
+        if ns.Relay.Counts(report) then reports[#reports + 1] = report end
+    end
     local now = ns.Utils.ServerTime()
     local catches = ns.Justice:CatchesByOutlaw()
     local result = ns.RulesEngine.Compute(reports, now,
@@ -298,6 +301,7 @@ ns.Events:Register("HH_INITIALIZED", function()
     ns.Events:Register("HH_REPORT_ADDED", request, OWNER)
     ns.Events:Register("HH_REPORT_UPDATED", request, OWNER)
     ns.Events:Register("HH_JUSTICE_ADDED", request, OWNER)
+    ns.Events:Register("HH_JUSTICE_UPDATED", request, OWNER)
     ns.Events:Register("HH_SETTING_CHANGED", function(_, path)
         if path == "serialKillerWindowMin" or path == "testWantedKills" then request() end
     end, OWNER)

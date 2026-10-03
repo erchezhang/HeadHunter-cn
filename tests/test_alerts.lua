@@ -158,7 +158,7 @@ return function(T, H)
     -------------------------------------------------
 
     local function WantedGank(ns)
-        H.Slash("spree Gank 4 60 60 40")
+        H.Slash("spree Gank 5 60 60 40")
         Settle()
         T.eq(ns.Wanted:ByKey("Gank-Firemaw").wanted, true, "precondition: Gank is WANTED")
     end
@@ -246,7 +246,7 @@ return function(T, H)
 
     T.case("forever: an outlaw known only by GUID is recognised when seen", function()
         local ns = H.Boot({ client = "forever" })
-        for i = 1, 4 do
+        for i = 1, 5 do
             ns.Reports:Add({
                 id = "Victim Number" .. i .. ":" .. (H.serverTime - i * 60),
                 t = H.serverTime - i * 60,

@@ -93,9 +93,13 @@ return function(T, H)
         local text = _G.StaticPopupDialogs.HEADHUNTER_HOTSPOT.text
         T.ok(text:find("Fighting: Bravo, Alpha", 1, true) ~= nil, "newest first: " .. text)
         -- The chat line: links to whisper them with a click; the popup cannot be clicked
-        T.ok(H.Printed("Fighting: |Hplayer:Bravo|h%[Bravo%]|h, |Hplayer:Alpha|h%[Alpha%]|h"), "names to click in chat")
+        T.ok(H.Printed("Fighting: |cffff7fff|Hplayer:Bravo|h%[Bravo%]|h|r, |cffff7fff|Hplayer:Alpha|h%[Alpha%]|h|r"), "names to click in chat")
         T.ok(not text:find("|Hplayer:", 1, true), "plain names in the popup")
-        T.eq(ns.Utils.PlayerLink("Iron-Stonespine"), "|Hplayer:Iron-Stonespine|h[Iron-Stonespine]|h", "another realm keeps it")
+        T.eq(ns.Utils.PlayerLink("Iron-Stonespine"), "|cffff7fff|Hplayer:Iron-Stonespine|h[Iron-Stonespine]|h|r",
+            "another realm keeps it, in the whisper color")
+        _G.ChatTypeInfo.WHISPER = { r = 0, g = 1, b = 0 }
+        T.eq(ns.Utils.PlayerLink("Iron"), "|cff00ff00|Hplayer:Iron|h[Iron]|h|r", "the player's own whisper color")
+        _G.ChatTypeInfo.WHISPER = nil
         T.noErrors()
     end)
 

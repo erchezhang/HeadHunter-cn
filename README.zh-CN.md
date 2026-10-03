@@ -2,7 +2,7 @@
 
 给 [HeadHunter - Wanted: Dead or Alive](https://headhunterwow.com) 插件做的简体中文本地化版本。
 
-- **原始项目地址**：https://github.com/GudaAddons/HeadHunter（原作者 Vati / GudaAddons，当前 **v0.3.6**，官网 [headhunterwow.com](https://headhunterwow.com)）
+- **原始项目地址**：https://github.com/GudaAddons/HeadHunter（原作者 Vati / GudaAddons，当前 **v0.3.8**，官网 [headhunterwow.com](https://headhunterwow.com)）
 - **汉化分支地址**：https://github.com/erchezhang/HeadHunter-cn
 - **汉化：车长不二 完成**
 - 适用客户端：Classic Era（Interface 11509）与 WoW Forever（Interface 16001）
@@ -36,6 +36,7 @@
 | bounty(积分) | 赏金 | Deadbeat | 老赖 |
 | At large | 在逃 | Justice served | 正法 |
 | Ganker → Dead or Alive | 偷袭者 → 生死不论 | Tracker → Reaper | 追踪者 → 死神 |
+| Bullies（页签） | 欺凌者 | Deadbeats（页签） | 老赖 |
 
 ## 安装
 
@@ -51,8 +52,8 @@
 
 | 检查 | 结果 |
 |---|---|
-| 官方离线测试套件（Lua 5.1，45 个套件，v0.3.6） | **524 通过 / 0 失败**（含上游 `test_locales`：每个键 zhCN 必须存在且格式符/颜色码一致） |
-| zhCN 键覆盖 | enUS 528 键 / zhCN 538 键，缺失 0 |
+| 官方离线测试套件（Lua 5.1，48 个套件，v0.3.8） | **558 通过 / 0 失败**（含上游 `test_locales`：每个键 zhCN 必须存在且格式符/颜色码一致） |
+| zhCN 键覆盖 | enUS 561 键 / zhCN 571 键，缺失 0（0.3.7/0.3.8 新增 46 键均已翻译） |
 | README 中英对照完整性 | 上游英文行 100% 保留，每段均配中文译文 |
 
 同步机制与端到端数据流的分析见 [`docs/工作流程与信息同步报告.md`](docs/工作流程与信息同步报告.md)。

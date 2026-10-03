@@ -235,7 +235,7 @@ function Theme.Button(parent, text, variant, width, height)
 end
 
 -- Choices side by side in one frame, the chosen one gold (the website's filter tabs).
--- options = { { value, label, icon = texture, coords = { l, r, t, b } } }
+-- options = { { value, label, icon = texture, coords = { l, r, t, b }, tip = hover text } }
 -- Returns the frame; frame:Select(value) marks one without calling onSelect.
 function Theme.Segmented(parent, options, onSelect, segmentWidth, height)
     local C = Theme.COLORS
@@ -281,8 +281,19 @@ function Theme.Segmented(parent, options, onSelect, segmentWidth, height)
         button:SetScript("OnClick", function()
             if set.value ~= option.value then onSelect(option.value) end
         end)
-        button:SetScript("OnEnter", function(self) Paint(self, true) end)
-        button:SetScript("OnLeave", function(self) Paint(self, false) end)
+        button:SetScript("OnEnter", function(self)
+            Paint(self, true)
+            if option.tip and GameTooltip then
+                GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+                GameTooltip:SetText(option.label)
+                GameTooltip:AddLine(option.tip, 1, 1, 1, true)
+                GameTooltip:Show()
+            end
+        end)
+        button:SetScript("OnLeave", function(self)
+            Paint(self, false)
+            if option.tip and GameTooltip then GameTooltip:Hide() end
+        end)
         set.buttons[i] = button
     end
     Theme.Border(set, 0.5)

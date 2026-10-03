@@ -52,7 +52,7 @@ return function(T, H)
     T.case("rank thresholds", function()
         local E = Engine()
         local CASES = {
-            { 3, nil }, { 3.5, nil }, { 4, "ganker" }, { 9, "ganker" }, { 10, "outlaw" }, { 19, "outlaw" },
+            { 4, nil }, { 4.5, nil }, { 5, "ganker" }, { 9, "ganker" }, { 10, "outlaw" }, { 19, "outlaw" },
             { 20, "desperado" }, { 29, "desperado" }, { 30, "mostwanted" }, { 49, "mostwanted" },
             { 50, "deadoralive" }, { 500, "deadoralive" },
         }
@@ -61,40 +61,40 @@ return function(T, H)
         end
     end)
 
-    T.case("3 kills in 20 min is not WANTED; the 4th makes a Ganker", function()
-        local three = { Report(0, "A"), Report(5, "B"), Report(10, "C") }
-        local e = Compute(three, 11)
-        T.eq(e.wanted, false, "3 kills")
-        T.eq(e.killCount, 3, "kills known")
+    T.case("4 kills in 20 min is not WANTED; the 5th makes a Ganker", function()
+        local four = { Report(0, "A"), Report(5, "B"), Report(10, "C"), Report(15, "D") }
+        local e = Compute(four, 16)
+        T.eq(e.wanted, false, "4 kills")
+        T.eq(e.killCount, 4, "kills known")
 
-        local four = { Report(0, "A"), Report(5, "B"), Report(10, "C"), Report(19, "D") }
-        e = Compute(four, 20)
-        T.eq(e.wanted, true, "4 kills")
-        T.eq(e.kills, 4, "count")
+        local five = { Report(0, "A"), Report(5, "B"), Report(10, "C"), Report(15, "D"), Report(19, "E") }
+        e = Compute(five, 20)
+        T.eq(e.wanted, true, "5 kills")
+        T.eq(e.kills, 5, "count")
         T.eq(e.rank, "ganker", "rank")
         T.eq(e.wantedUntil, T0 + 19 * MIN + 7 * DAY, "until caught, or 7 days without a kill")
         T.eq(e.timesWanted, 1, "times wanted")
     end)
 
-    T.case("the same victim killed 4 times also counts", function()
-        local e = Compute({ Report(0, "A"), Report(3, "A"), Report(6, "A"), Report(9, "A") }, 10)
+    T.case("the same victim killed 5 times also counts", function()
+        local e = Compute({ Report(0, "A"), Report(3, "A"), Report(6, "A"), Report(9, "A"), Report(12, "A") }, 13)
         T.eq(e.wanted, true, "wanted")
     end)
 
-    T.case("4 kills spread over more than 20 minutes are not enough", function()
-        local e = Compute({ Report(0, "A"), Report(7, "B"), Report(14, "C"), Report(21, "D") }, 22)
+    T.case("5 kills spread over more than 20 minutes are not enough", function()
+        local e = Compute({ Report(0, "A"), Report(6, "B"), Report(12, "C"), Report(18, "D"), Report(24, "E") }, 25)
         T.eq(e.wanted, false, "window")
     end)
 
     T.case("inferred kills weigh half", function()
         local inferred = { confidence = "inferred" }
         local reports = {}
-        for i = 1, 7 do reports[i] = Report(i, "V" .. i, inferred) end
-        T.eq(Compute(reports, 8).wanted, false, "7 x 0.5 = 3.5")
-        reports[8] = Report(8, "V8", inferred)
-        local e = Compute(reports, 9)
-        T.eq(e.wanted, true, "8 x 0.5 = 4")
-        T.eq(e.kills, 4, "weighted count")
+        for i = 1, 9 do reports[i] = Report(i, "V" .. i, inferred) end
+        T.eq(Compute(reports, 10).wanted, false, "9 x 0.5 = 4.5")
+        reports[10] = Report(10, "V10", inferred)
+        local e = Compute(reports, 11)
+        T.eq(e.wanted, true, "10 x 0.5 = 5")
+        T.eq(e.kills, 5, "weighted count")
     end)
 
     T.case("kills while WANTED raise the count and the rank follows", function()
@@ -108,35 +108,37 @@ return function(T, H)
     end)
 
     T.case("7 days without a kill: the status ends and the count resets", function()
-        local reports = { Report(0, "A"), Report(1, "B"), Report(2, "C"), Report(3, "D") }
-        local e = Compute(reports, 3 + 7 * 24 * 60 - 1)
+        local reports = { Report(0, "A"), Report(1, "B"), Report(2, "C"), Report(3, "D"), Report(4, "E") }
+        local e = Compute(reports, 4 + 7 * 24 * 60 - 1)
         T.eq(e.wanted, true, "a minute before 7 days")
-        e = Compute(reports, 3 + 7 * 24 * 60 + 1)
+        e = Compute(reports, 4 + 7 * 24 * 60 + 1)
         T.eq(e.wanted, false, "expired")
         T.eq(e.expired, true, "flag")
         T.eq(e.kills, 0, "no current count")
 
         -- Two more kills later: count restarted, not WANTED
         local later = 8 * 24 * 60
-        reports[5] = Report(later, "E")
-        reports[6] = Report(later + 1, "F")
+        reports[6] = Report(later, "F")
+        reports[7] = Report(later + 1, "G")
         e = Compute(reports, later + 2)
         T.eq(e.wanted, false, "count reset")
 
-        -- Two more in the same window: WANTED again, second time
-        reports[7] = Report(later + 2, "G")
-        reports[8] = Report(later + 3, "H")
-        e = Compute(reports, later + 4)
+        -- Three more in the same window: WANTED again, second time
+        reports[8] = Report(later + 2, "H")
+        reports[9] = Report(later + 3, "I")
+        reports[10] = Report(later + 4, "J")
+        e = Compute(reports, later + 5)
         T.eq(e.wanted, true, "wanted again")
-        T.eq(e.kills, 4, "fresh count")
+        T.eq(e.kills, 5, "fresh count")
         T.eq(e.timesWanted, 2, "second time")
     end)
 
     T.case("each kill while WANTED restarts the 7 days", function()
-        local reports = { Report(0, "A"), Report(1, "B"), Report(2, "C"), Report(3, "D"), Report(6 * 24 * 60, "E") }
+        local reports = { Report(0, "A"), Report(1, "B"), Report(2, "C"), Report(3, "D"), Report(4, "E"),
+            Report(6 * 24 * 60, "F") }
         local e = Compute(reports, 12 * 24 * 60)
-        T.eq(e.wanted, true, "6 days after the 5th kill")
-        T.eq(e.kills, 5, "5")
+        T.eq(e.wanted, true, "6 days after the 6th kill")
+        T.eq(e.kills, 6, "6")
     end)
 
     -------------------------------------------------
@@ -154,42 +156,42 @@ return function(T, H)
         T.eq(e.killCount, 6, "history kept")
     end)
 
-    T.case("after a catch, kills before it never count: 4 fresh kills are needed", function()
-        -- WANTED at minute 3, caught at 10, then 3 kills within 20 min of the old ones
-        local reports = Join(Spree(0, 5), Spree(11, 3, "W"))
-        local e = Compute(reports, 14, Caught(10))
-        T.eq(e.wanted, false, "3 fresh kills are not enough")
-        reports = Join(reports, { Report(14, "W4") })
-        e = Compute(reports, 15, Caught(10))
-        T.eq(e.wanted, true, "the 4th fresh kill")
-        T.eq(e.kills, 4, "fresh count")
+    T.case("after a catch, kills before it never count: 5 fresh kills are needed", function()
+        -- WANTED at minute 4, caught at 10, then 4 kills within 20 min of the old ones
+        local reports = Join(Spree(0, 5), Spree(11, 4, "W"))
+        local e = Compute(reports, 15, Caught(10))
+        T.eq(e.wanted, false, "4 fresh kills are not enough")
+        reports = Join(reports, { Report(15, "W5") })
+        e = Compute(reports, 16, Caught(10))
+        T.eq(e.wanted, true, "the 5th fresh kill")
+        T.eq(e.kills, 5, "fresh count")
         T.eq(e.timesWanted, 2, "second time")
         T.eq(e.timesCaught, 1, "caught once")
     end)
 
     T.case("a catch while not WANTED is no catch, but still resets the count", function()
-        local reports = Join(Spree(0, 3), { Report(5, "Z") })
+        local reports = Join(Spree(0, 4), { Report(5, "Z") })
         local e = Compute(reports, 6, Caught(4))
-        T.eq(e.wanted, false, "3 kills + catch + 1 kill")
+        T.eq(e.wanted, false, "4 kills + catch + 1 kill")
         T.eq(e.timesCaught, 0, "not WANTED at the time: not counted")
     end)
 
     T.case("a catch after the 7 days ran out is not counted", function()
-        local e = Compute(Spree(0, 4), 8 * 24 * 60, Caught(7 * 24 * 60 + 10))
+        local e = Compute(Spree(0, 5), 8 * 24 * 60, Caught(7 * 24 * 60 + 10))
         T.eq(e.timesCaught, 0, "already expired")
         T.eq(e.expired, true, "expired")
     end)
 
     T.case("a kill in the same second as a catch came first; a future catch waits", function()
-        local e = Compute(Spree(0, 4), 5, Caught(3))
-        T.eq(e.wanted, false, "the 4th kill at minute 3, then the catch at minute 3")
+        local e = Compute(Spree(0, 5), 5, Caught(4))
+        T.eq(e.wanted, false, "the 5th kill at minute 4, then the catch at minute 4")
         T.eq(e.timesCaught, 1, "caught")
-        e = Compute(Spree(0, 4), 5, Caught(60))
+        e = Compute(Spree(0, 5), 5, Caught(60))
         T.eq(e.wanted, true, "a catch in the future does nothing yet")
     end)
 
     T.case("catches in any order give the same result", function()
-        local reports = Join(Join(Spree(0, 4), Spree(30, 4, "W")), Spree(60, 4, "X"))
+        local reports = Join(Join(Spree(0, 5), Spree(30, 5, "W")), Spree(60, 5, "X"))
         local a = Compute(reports, 70, Caught(10, 40))
         local b = Compute(reports, 70, Caught(40, 10))
         T.eq(a.wanted, b.wanted, "wanted")
@@ -215,12 +217,12 @@ return function(T, H)
 
     T.case("a group fight (the victim had group members in it): no Gang, still counts toward WANTED", function()
         local reports = {}
-        for i = 1, 4 do
+        for i = 1, 5 do
             reports[i] = Report(i, "V" .. i, { killerLevel = 40, assists = {
                 { key = "Pal-Stonespine", level = 40 }, { key = "Buddy-Stonespine", level = 40 } } })
             reports[i].helpers = 2
         end
-        local e = Compute(reports, 5)
+        local e = Compute(reports, 6)
         T.eq(e.badges.gang, nil, "not Gang")
         T.eq(e.gangKills, 0, "no gang kills")
         T.eq(e.badges.gunslinger, nil, "not one on one")
@@ -321,10 +323,10 @@ return function(T, H)
         T.eq(e.caughtAtLarge, T0 + DAYS8 * MIN, "when")
         T.eq(e.timesCaught, 0, "not a WANTED catch")
 
-        e = Compute(Spree(0, 4), 10, Caught(5))
+        e = Compute(Spree(0, 5), 10, Caught(5))
         T.eq(e.atLarge, nil, "caught while WANTED: never at large")
 
-        e = Compute(Join(Spree(0, 4), Spree(DAYS8, 4, "W")), DAYS8 + 5)
+        e = Compute(Join(Spree(0, 5), Spree(DAYS8, 5, "W")), DAYS8 + 5)
         T.eq(e.wanted, true, "WANTED again")
         T.eq(e.atLarge, nil, "not at large")
     end)

@@ -190,7 +190,12 @@ function Reports:OnPeerDeath(record, sender)
         Reject("test data from", sender)
         return
     end
-    if self:Get(report.id) then return end
+    local have = self:Get(report.id)
+    if have then
+        -- The victim's own copy of a report we only had relayed (HH-121)
+        if ns.Relay.Confirm(have, "peer", sender) then ns.Events:Fire("HH_REPORT_UPDATED", have) end
+        return
+    end
     if not UnderRateLimit(sender) then
         Reject("rate limit for", sender)
         return
@@ -202,13 +207,20 @@ end
 -- not from the victim, so it is taken on the relaying peer's word; the time checks
 -- still apply. Returns the added report, or nil. relayedBy is kept apart from
 -- report.sender, which is always the victim (the posse whisper goes there).
+-- It counts for WANTED only once a second source has it (HH-121, Sync/Relay.lua).
 function Reports:AddRelayed(record, relayedBy)
     local report = ns.Protocol.DecodeDeath(record)
     if not report or not Canonical(report) then return nil end
     local now = ns.Utils.ServerTime()
     if report.t > now + self.MAX_SKEW or report.t < now - self.MAX_AGE then return nil end
     if Reports.IsForeignTest(report, relayedBy) then return nil end
-    report.relayedBy = relayedBy
+    local have = self:Get(report.id)
+    if have then
+        if ns.Relay.Vouch(have, relayedBy, have.victim.key) then ns.Events:Fire("HH_REPORT_UPDATED", have) end
+        return nil
+    end
+    report.relayedBy, report.origin = relayedBy, "relay"
+    ns.Relay.Vouch(report, relayedBy, report.victim.key)
     return self:Add(report, "relay")
 end
 

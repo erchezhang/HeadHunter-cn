@@ -272,13 +272,20 @@ end
 
 local deadSeen = {}
 
-local function CheckDead(unit)
+-- reason: "target" when we just targeted the unit: then say what we see, even when
+-- nothing is dead, so a quiet log never leaves the question open
+local function CheckDead(unit, reason)
     local U = ns.Utils
     if not (unit == "target" or unit:find("^nameplate")) then return end
-    if U.SafeCall(UnitIsPlayer, unit) ~= true then return end
+    local isPlayer = U.SafeCall(UnitIsPlayer, unit)
     local guid = U.UnitGUID(unit)
-    if not guid then return end
     local dead = U.SafeCall(UnitIsDead, unit)
+    if reason == "target" and guid then
+        Write("witness target", Show(U.UnitKey(unit)), "player:", Show(U.Accessible(isPlayer)),
+            "dead:", Show(U.Accessible(dead)), "dead secret:", Show(dead ~= nil and U.Accessible(dead) == nil),
+            "enemy:", Show(U.UnitIsEnemyPlayer(unit)), "at", date("%H:%M:%S"))
+    end
+    if U.Accessible(isPlayer) ~= true or not guid then return end
     if U.Accessible(dead) == true then
         if not deadSeen[guid] then
             deadSeen[guid] = true
@@ -296,7 +303,7 @@ local WITNESS = {
     COMBAT_LOG_EVENT_UNFILTERED = OnWitnessCombatLog,
     UNIT_HEALTH = function(_, unit) CheckDead(unit) end,
     NAME_PLATE_UNIT_ADDED = function(_, unit) CheckDead(unit) end,
-    PLAYER_TARGET_CHANGED = function() CheckDead("target") end,
+    PLAYER_TARGET_CHANGED = function() CheckDead("target", "target") end,
 }
 
 function Probe:SetWitness(on)

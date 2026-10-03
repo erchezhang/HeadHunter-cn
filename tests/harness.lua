@@ -42,6 +42,7 @@ local function NewFrame(name)
     function frame:Show() self.shown = true end
     function frame:Hide() self.shown = false end
     function frame:IsShown() return self.shown end
+    function frame:SetShown(shown) self.shown = shown and true or false end
     function frame:CreateFontString() return NewFrame() end
     function frame:CreateTexture() return NewFrame() end
     function frame:SetFrameLevel(level) self.frameLevel = level end

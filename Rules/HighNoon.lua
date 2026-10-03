@@ -173,7 +173,10 @@ local scheduled = false
 
 function HighNoon:Recompute()
     local duels = {}
-    for _, duel in ns.Duels:All() do duels[#duels + 1] = duel end
+    -- A relayed duel counts only once a second source has it (HH-121)
+    for _, duel in ns.Duels:All() do
+        if ns.Relay.Counts(duel) then duels[#duels + 1] = duel end
+    end
     local site = ns.SiteData:Duelists()
     if site then
         players = HighNoon.Merge(site, duels, ns.SiteData:GeneratedAt() or 0)
@@ -247,6 +250,7 @@ end
 
 ns.Events:Register("HH_INITIALIZED", function()
     ns.Events:Register("HH_DUEL_ADDED", function() HighNoon:RequestRecompute() end, OWNER)
+    ns.Events:Register("HH_DUEL_UPDATED", function() HighNoon:RequestRecompute() end, OWNER)
     HighNoon:RequestRecompute() -- duels restored from SavedVariables
 end, OWNER)
 

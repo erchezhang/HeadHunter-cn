@@ -57,17 +57,24 @@ return function(T, H)
         local ns = H.Boot({ client = "forever" })
         H.Advance(ns.Presence.FIRST_DELAY)
         H.Advance(ns.Transport.FLUSH_INTERVAL)
-        T.eq(SentPresence(ns), 1, "here after login")
+        -- The catch-up hello counts as being here (HH-116): when it went out first, the
+        -- first presence is skipped on purpose; which one goes out first is timing
+        local hello = 0
+        for _, m in ipairs(H.sent) do
+            if m.message:find("^%d%a" .. ns.Protocol.TYPES.QUERY .. ":h") then hello = hello + 1 end
+        end
+        local first = SentPresence(ns)
+        T.eq(first + math.min(hello, 1) >= 1, true, "here after login (presence or the catch-up hello)")
 
         H.Deliver(Here(ns, "A"), "Iron Maple")
         H.Advance(ns.Presence.ANSWER_DELAY)
         H.Advance(ns.Transport.FLUSH_INTERVAL)
-        T.eq(SentPresence(ns), 2, "answered the newcomer")
+        T.eq(SentPresence(ns), first + 1, "answered the newcomer")
 
         H.Deliver(Here(ns, "H"), "Grim Tusk")
         H.Advance(ns.Presence.ANSWER_DELAY)
         H.Advance(ns.Transport.FLUSH_INTERVAL)
-        T.eq(SentPresence(ns), 2, "no second answer within the cooldown")
+        T.eq(SentPresence(ns), first + 1, "no second answer within the cooldown")
         T.noErrors()
     end)
 

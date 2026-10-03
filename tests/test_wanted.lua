@@ -18,8 +18,8 @@ return function(T, H)
     T.case("a simulated spree makes a Ganker, announced once", function()
         local ns = H.Boot({ client = "forever" })
         local events = Track(ns)
-        H.Slash('spree "Grim Reaper" 4 60')
-        T.ok(H.Printed("Simulated 4 kills by Grim Reaper"), "spree done")
+        H.Slash('spree "Grim Reaper" 5 60')
+        T.ok(H.Printed("Simulated 5 kills by Grim Reaper"), "spree done")
         T.eq(#ns.Wanted:List(), 0, "not recomputed inside the command")
         Settle()
         local list = ns.Wanted:List()
@@ -34,10 +34,10 @@ return function(T, H)
     T.case("more kills raise the rank; the event says from what to what", function()
         local ns = H.Boot({ client = "era" })
         local events = Track(ns)
-        H.Slash("spree Gank 4 60")
+        H.Slash("spree Gank 5 60")
         Settle()
         H.serverTime = H.serverTime + 300
-        H.Slash("spree Gank 8 30")
+        H.Slash("spree Gank 7 30")
         Settle()
         T.eq(ns.Wanted:ByKey("Gank-Firemaw").rank, "outlaw", "12 kills = outlaw")
         T.eq(events.rank[1], "ganker>outlaw", "rank event")
@@ -46,7 +46,7 @@ return function(T, H)
     T.case("the expiry ticker ends WANTED after 7 days without a kill", function()
         local ns = H.Boot({ client = "era" })
         local events = Track(ns)
-        H.Slash("spree Gank 4 60")
+        H.Slash("spree Gank 5 60")
         Settle()
         T.eq(#ns.Wanted:List(), 1, "wanted")
         H.serverTime = H.serverTime + 6 * 86400
@@ -62,9 +62,9 @@ return function(T, H)
 
     T.case("reports from other players feed the rules", function()
         local ns = H.Boot({ client = "era" })
-        for i = 1, 4 do
+        for i = 1, 5 do
             local report = {
-                t = H.serverTime - (5 - i) * 60,
+                t = H.serverTime - (6 - i) * 60,
                 victim = { key = "Victim" .. i .. "-Firemaw", level = 30, class = "MAGE", race = "Gnome" },
                 killer = { key = "Gank-Stonespine", name = "Gank-Stonespine", level = 60, class = "ROGUE", race = "Orc" },
                 assists = {}, mapID = 1434, confidence = "exact",
@@ -74,7 +74,7 @@ return function(T, H)
         end
         Settle()
         local entry = ns.Wanted:ByKey("Gank-Stonespine")
-        T.eq(entry and entry.wanted, true, "WANTED from 4 different reporters")
+        T.eq(entry and entry.wanted, true, "WANTED from 5 different reporters")
         T.eq(entry.badges.coward, true, "60 on 30 is a coward")
     end)
 
@@ -111,7 +111,7 @@ return function(T, H)
         T.noErrors()
     end)
 
-    T.case("/hh debug wanted 3 lowers the threshold for testing; off restores 4", function()
+    T.case("/hh debug wanted 3 lowers the threshold for testing; off restores 5", function()
         local ns = H.Boot({ client = "era" })
         H.Slash("spree Gank 3 60")
         Settle()

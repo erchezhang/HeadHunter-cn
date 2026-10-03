@@ -21,6 +21,10 @@ local OWNER = "MapMarkers"
 MapMarkers.SKULL_ICON = "Interface\\TargetingFrame\\UI-TargetingFrame-Skull"
 MapMarkers.CIRCLE = "Interface\\CHARACTERFRAME\\TempPortraitAlphaMask" -- white disc
 MapMarkers.AREA_COLOR = { 1, 0.1, 0.05 }
+-- The PvP mark in the middle of an area: crossed swords over a small "PVP" in gold
+MapMarkers.SWORDS_ICON = "Interface\\AddOns\\HeadHunter\\Assets\\Textures\\swords"
+MapMarkers.SWORDS_SIZE = 18
+MapMarkers.LABEL_COLOR = { 1, 0.82, 0.4 }
 MapMarkers.AREA_ALPHA = { 0.22, 0.36, 0.52 } -- by fire level: darker = more PvP
 MapMarkers.AREA_WIDTH = 0.10               -- diameter, as a share of the zone's width
 MapMarkers.AREA_MIN_PX = 32                -- never smaller on screen (continent view)
@@ -91,9 +95,13 @@ end
 
 local function WantedPin(entry, mapID, now)
     local kill = entry.lastKill
-    -- Only where the outlaw is now: an old kill says little about where they are
-    if not kill or now - kill.t > MapMarkers.WANTED_MAP_TIME then return nil end
-    local zone, zx, zy = ns.Zones.ToZone(kill.mapID, kill.x, kill.y)
+    -- The newest place: the last kill, or a later sighting (HH-121 step 3, Alerts/Spotted.lua)
+    local seen = ns.Spotted:Latest(entry.id)
+    local place = kill
+    if seen and seen.x and (not kill or seen.t > kill.t) then place = seen end
+    -- Only where the outlaw is now: an old place says little about where they are
+    if not place or now - place.t > MapMarkers.WANTED_MAP_TIME then return nil end
+    local zone, zx, zy = ns.Zones.ToZone(place.mapID, place.x, place.y)
     local x, y = MapMarkers.Project(zone, zx, zy, mapID)
     if not x then return nil end
     local zoneName = ns.Utils.MapName(zone) or L.UNKNOWN_ZONE
@@ -103,7 +111,8 @@ local function WantedPin(entry, mapID, now)
     }
     local badges = ns.Wanted.BadgeNames(entry)
     if badges ~= "" then lines[#lines + 1] = badges end
-    lines[#lines + 1] = string.format(L.MAP_WANTED_LAST_KILL, ns.Utils.Ago(math.max(0, now - kill.t)), zoneName)
+    lines[#lines + 1] = string.format(place == seen and L.MAP_WANTED_SEEN or L.MAP_WANTED_LAST_KILL,
+        ns.Utils.Ago(math.max(0, now - place.t)), zoneName)
     local posse = ns.Posse:Summary(entry.id)
     if posse then lines[#lines + 1] = posse end
     return {
@@ -282,8 +291,9 @@ local function NewSkull()
 end
 
 -- PvP area: stacked translucent red discs (darker towards the middle) that cover a
--- patch of the map and zoom with it, plus a "PVP" label of fixed size on screen.
--- Only the label takes the mouse, so the area never blocks clicks on the map.
+-- patch of the map and zoom with it, plus crossed swords over a small "PVP" of fixed
+-- size on screen. Only that mark takes the mouse, so the area never blocks clicks on
+-- the map.
 local DISCS = { { size = 1, alpha = 0.45 }, { size = 0.66, alpha = 0.7 }, { size = 0.33, alpha = 1 } }
 
 local function NewArea()
@@ -298,11 +308,17 @@ local function NewArea()
     end
     local label = CreateFrame("Button", nil, pin)
     label:SetPoint("CENTER", pin, "CENTER")
-    label:SetSize(40, 18)
-    label.text = label:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    label.text:SetPoint("CENTER", label, "CENTER")
+    label:SetSize(32, MapMarkers.SWORDS_SIZE + 12)
+    label.icon = label:CreateTexture(nil, "OVERLAY")
+    label.icon:SetTexture(MapMarkers.SWORDS_ICON)
+    label.icon:SetSize(MapMarkers.SWORDS_SIZE, MapMarkers.SWORDS_SIZE)
+    label.icon:SetPoint("TOP", label, "TOP")
+    label.text = label:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    label.text:SetPoint("TOP", label.icon, "BOTTOM", 0, 1)
     label.text:SetText(L.MAP_PVP)
-    label.text:SetTextColor(1, 0.9, 0.8)
+    label.text:SetTextColor(unpack(MapMarkers.LABEL_COLOR))
+    label.text:SetShadowColor(0, 0, 0, 1)
+    label.text:SetShadowOffset(1, -1)
     MakeInteractive(label)
     pin.label = label
     return pin
@@ -445,7 +461,7 @@ ns.Events:Register("HH_INITIALIZED", function()
         end, OWNER)
     end
     local request = function() MapMarkers:RequestRefresh() end
-    for _, event in ipairs({ "HH_WANTED_UPDATED", "HH_HOTSPOT_CHANGED", "HH_POSSE_CHANGED" }) do
+    for _, event in ipairs({ "HH_WANTED_UPDATED", "HH_HOTSPOT_CHANGED", "HH_POSSE_CHANGED", "HH_OUTLAW_SPOTTED" }) do
         ns.Events:Register(event, request, OWNER)
     end
     ns.Events:Register("HH_SETTING_CHANGED", function(_, path)

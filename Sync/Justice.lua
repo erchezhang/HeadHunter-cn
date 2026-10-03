@@ -20,7 +20,8 @@
 -- Sync: the automatic routes. On Era the realm-wide channel needs a click, so the
 -- hunter gets [Announce] (a typed /hh justice works too).
 -- Peer catches are accepted with a plausible time, under a per-sender rate limit.
--- Fires HH_JUSTICE_ADDED(record), and HH_CATCH_WITNESSED(entry, how) when we saw the kill.
+-- Fires HH_JUSTICE_ADDED(record), HH_JUSTICE_UPDATED(record) when a relayed catch
+-- gets its second source (HH-121), and HH_CATCH_WITNESSED(entry, how) when we saw the kill.
 
 local addonName, ns = ...
 local L = ns.L
@@ -62,12 +63,15 @@ function Justice:All()
     return pairs(Store() or {})
 end
 
--- enemy id -> array of catch times, for the rules
+-- enemy id -> array of catch times, for the rules; a relayed catch only once a
+-- second source has it (HH-121)
 function Justice:CatchesByOutlaw()
     local result = {}
     for _, record in self:All() do
-        result[record.outlaw] = result[record.outlaw] or {}
-        table.insert(result[record.outlaw], record.t)
+        if ns.Relay.Counts(record) then
+            result[record.outlaw] = result[record.outlaw] or {}
+            table.insert(result[record.outlaw], record.t)
+        end
     end
     return result
 end
@@ -111,7 +115,11 @@ function Justice:Record(entry, how, killer)
     local U = ns.Utils
     local now = U.ServerTime()
     local latest = self:Latest(entry.id)
-    if latest and math.abs(now - latest.t) < self.DEDUPE then return nil end
+    if latest and math.abs(now - latest.t) < self.DEDUPE then
+        -- A group member's catch came first: we were there, so we are a witness (HH-121)
+        if latest.origin ~= "local" then ns.Witness:Saw(entry.id, now, killer) end
+        return nil
+    end
     local me = U.UnitKey("player")
     local record = {
         id = entry.id .. ":" .. now, outlaw = entry.id, t = now,
@@ -294,14 +302,21 @@ function Justice:OnPeer(record, sender)
     end
     local now = U.ServerTime()
     if t > now + self.MAX_SKEW or t < now - ns.Reports.MAX_AGE then return end
-    if self:Get(outlaw .. ":" .. t) or not UnderRateLimit(sender) then return end
+    local have = self:Get(outlaw .. ":" .. t)
+    if have then
+        -- The hunter's own copy of a catch we only had relayed (HH-121)
+        if ns.Relay.Confirm(have, "peer", sender) then ns.Events:Fire("HH_JUSTICE_UPDATED", have) end
+        return
+    end
+    if not UnderRateLimit(sender) then return end
     self:Add({ id = outlaw .. ":" .. t, outlaw = outlaw, t = t, mapID = mapID,
         killer = killer and U.PlayerKey(killer) or U.PlayerKey(sender), hunter = U.PlayerKey(sender) or sender },
         "peer", sender)
 end
 
 -- A catch passed on by another HeadHunter during login catch-up (HH-023): no rate
--- limit (one pull brings many), the time checks still apply
+-- limit (one pull brings many), the time checks still apply. It ends WANTED only
+-- once a second source has it (HH-121, Sync/Relay.lua).
 function Justice:AddRelayed(record, sender)
     local outlaw, t, mapID, killer = ns.Protocol.DecodeJustice(record)
     if not outlaw then return nil end
@@ -312,8 +327,16 @@ function Justice:AddRelayed(record, sender)
     end
     local now = U.ServerTime()
     if t > now + self.MAX_SKEW or t < now - ns.Reports.MAX_AGE then return nil end
-    return self:Add({ id = outlaw .. ":" .. t, outlaw = outlaw, t = t, mapID = mapID,
-        killer = killer and U.PlayerKey(killer), hunter = killer and U.PlayerKey(killer) }, "relay", sender)
+    killer = killer and U.PlayerKey(killer)
+    local have = self:Get(outlaw .. ":" .. t)
+    if have then
+        if ns.Relay.Vouch(have, sender, have.killer) then ns.Events:Fire("HH_JUSTICE_UPDATED", have) end
+        return nil
+    end
+    local catch = { id = outlaw .. ":" .. t, outlaw = outlaw, t = t, mapID = mapID, killer = killer, hunter = killer,
+        origin = "relay" }
+    ns.Relay.Vouch(catch, sender, killer)
+    return self:Add(catch, "relay", sender)
 end
 
 -- Catches to hand to a peer who missed them, newest first

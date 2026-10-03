@@ -51,6 +51,14 @@ return function(T, H)
         H.Deliver(ns.Protocol.Pack("A", "R", { record }), sender or hunter)
     end
 
+    -- Another player saw `target` die at `at`: the claim then is verified (HH-121 step 7)
+    local function Witnessed(ns, target, at, by)
+        local P = ns.Protocol
+        by = by or "Eye-Firemaw"
+        H.Deliver(P.Pack("A", "X", { P.EncodeWitness({ outlaw = target, mapID = 1436, t = at, x = 0.5, y = 0.5,
+            by = by }) }), by)
+    end
+
     -- PARTY_KILL of `victimName` by `sourceName` (us unless given)
     local function PartyKill(victimName, sourceName)
         H.FireCLEU(H.serverTime, "PARTY_KILL", false, "Player-1-00000001", sourceName or "Vati",
@@ -306,30 +314,14 @@ return function(T, H)
         T.noErrors()
     end)
 
-    T.case("forever: the other faction's Deadbeat is ours to hunt for 30 days", function()
+    T.case("forever: the other faction's payment records are not ours; their Deadbeats come from the website", function()
         local ns = H.Boot({ client = "forever" })
         local P = ns.Protocol
-        local function Unpaid(posterId, hunter, status, at)
-            H.Deliver(P.Pack("H", "R", { P.EncodePayment({ posterId = posterId, hunter = hunter, status = status or "unpaid",
-                claimedAt = at or H.serverTime - 100, t = H.serverTime - 10 }) }), hunter)
-        end
-        Unpaid("Grunt Axe:" .. (H.serverTime - 90000), "Bow Maker", "claimed")
-        T.eq(ns.Bounties:Payment("Grunt Axe:" .. (H.serverTime - 90000)), nil, "their claims stay theirs")
-        Unpaid("Grunt Axe:" .. (H.serverTime - 90000), "Bow Maker")
-        Unpaid("Grunt Axe:" .. (H.serverTime - 80000), "Axe Thrower")
-        T.eq(ns.Bounties:IsBlocked("Grunt Axe"), true, "a Horde Deadbeat, known on our side")
-
-        local shame = ns.MainWindow.Rows("shame")
-        T.eq(shame[#shame].name, "Grunt Axe", "in our Hall of Shame")
-
-        ns.Sighting:OnEnemySeen({ key = "Grunt Axe", level = 30, class = "WARRIOR", race = "Orc" }, "nameplate")
-        T.ok(H.Printed("DEADBEAT.*Grunt Axe.*bring them down for bounty points"), "alert when seen")
-
-        ns.Justice:OnEnemyKilled("Grunt Axe", nil, "target")
-        T.eq(ns.Marks:Total(), 3, "+3 bounty points")
-        T.ok(H.Printed("brought down the Deadbeat Grunt Axe"), "said why")
-
-        T.eq(ns.Bounties:IsBlocked("Grunt Axe", H.serverTime + 30 * 86400 + 60), false, "only for 30 days")
+        local posterId = "Grunt Axe:" .. (H.serverTime - 90000)
+        H.Deliver(P.Pack("H", "R", { P.EncodePayment({ posterId = posterId, hunter = "Bow Maker", status = "unpaid",
+            claimedAt = H.serverTime - 100, t = H.serverTime - 10 }) }), "Bow Maker")
+        T.eq(ns.Bounties:Payment(posterId), nil, "not taken: their claims cannot be verified here (HH-121)")
+        T.eq(ns.Bounties:IsBlocked("Grunt Axe"), false, "no Deadbeat from them")
         T.noErrors()
     end)
 
@@ -343,9 +335,10 @@ return function(T, H)
         Settle()
         T.eq(ns.Bounties:IsBlocked("Miser-Firemaw"), true, "a Deadbeat from the website")
         T.eq(ns.Bounties:IsBlocked("Miser-Firemaw", H.serverTime + 11 * 86400), false, "until the website's date")
-        local shame = ns.MainWindow.Rows("shame")
-        T.eq(shame[#shame].name, "Miser", "in the Hall of Shame")
-        T.eq(shame[#shame].status, "3 unpaid · no bounties for 10 day(s)", "the website's count and days")
+        local deadbeats = ns.MainWindow.Rows("deadbeats")
+        T.eq(deadbeats[1].plain, "Miser", "on the Deadbeats tab")
+        T.eq(deadbeats[1].unpaid, "3", "the website's count")
+        T.eq(deadbeats[1].blocked, "10 day(s)", "and days")
         PartyKill("Miser")
         Settle()
         T.eq(ns.Marks:Total(), 3, "+3 bounty points for bringing them down")
@@ -354,14 +347,18 @@ return function(T, H)
 
     T.case("Hall of Shame alerts: a Deadbeat of our faction we target", function()
         local ns = H.Boot({ client = "era" })
-        Death(ns, "Tallon-Firemaw", "Grim-Stonespine", 600)
+        Death(ns, "Tallon-Firemaw", "Grim-Stonespine", 5000)
         Death(ns, "Tallon-Firemaw", "Moo-Stonespine", 600)
         Settle()
+        -- Both seen by another player, so both claims are verified (HH-121)
         local first = PeerPoster(ns, "Tallon-Firemaw", "Grim-Stonespine", 12, { t = H.serverTime - 4000 })
+        Witnessed(ns, "Grim-Stonespine", H.serverTime - 3000)
+        PeerPayment(ns, first, "Kestrel-Firemaw", "claimed", H.serverTime - 3000)
         local second = PeerPoster(ns, "Tallon-Firemaw", "Moo-Stonespine", 12, { t = H.serverTime - 100 })
+        Witnessed(ns, "Moo-Stonespine", H.serverTime - 50, "Other-Firemaw")
         PeerPayment(ns, first, "Kestrel-Firemaw", "unpaid", H.serverTime - 3000)
         PeerPayment(ns, second, "Rowena-Firemaw", "unpaid", H.serverTime - 50)
-        T.eq(ns.Bounties:IsBlocked("Tallon-Firemaw"), true, "a Deadbeat")
+        T.eq(ns.Bounties:IsBlocked("Tallon-Firemaw"), true, "a Deadbeat (both claims seen by another player)")
         H.units.target = { name = "Tallon", level = 30, class = "WARRIOR", race = "Human", guid = "Player-1-0000CAFE",
             faction = "Alliance", isPlayer = true }
         H.Fire("PLAYER_TARGET_CHANGED")
@@ -473,6 +470,7 @@ return function(T, H)
         Settle()
         local poster = ns.Bounties:Post("Grim-Stonespine", 1, 12, 3)
         local claimedAt = H.serverTime
+        Witnessed(ns, "Grim-Stonespine", claimedAt) -- the alt warning shows on a verified claim
         PeerPayment(ns, poster.id, "Kestrel-Firemaw", "claimed", claimedAt)
         T.ok(ns.Bounties:Payment(poster.id) ~= nil, "the claim stands")
         T.eq(ns.Bounties:LooksLikeAlt(poster.id), true, "maybe an alt")
@@ -538,10 +536,16 @@ return function(T, H)
         Settle()
         local mine = fresh.Bounties:Post("Grim-Stonespine", 1, 12, 3)
         H.centerTexts = {}
-        fresh.Bounties:AddRelayedPayment(fresh.Protocol.EncodePayment({ posterId = mine.id, hunter = "Kestrel-Firemaw",
-            status = "claimed", claimedAt = H.serverTime, t = H.serverTime }))
+        H.printed = {}
+        local relayed = fresh.Protocol.EncodePayment({ posterId = mine.id, hunter = "Kestrel-Firemaw",
+            status = "claimed", claimedAt = H.serverTime, t = H.serverTime })
+        fresh.Bounties:AddRelayedPayment(relayed, "Helper-Firemaw")
+        T.ok(not H.Printed("Your bounty is claimed"), "one relaying peer: not told yet")
+        T.eq(#fresh.Bounties:ToPay(), 0, "and not asked to pay")
+        fresh.Bounties:AddRelayedPayment(relayed, "Other-Firemaw")
         T.eq(#H.centerTexts, 0, "no center text for old news")
-        T.ok(H.Printed("Your bounty is claimed"), "the chat line")
+        T.ok(H.Printed("Your bounty is claimed"), "the chat line once a second peer has it")
+        T.eq(#fresh.Bounties:ToPay(), 1, "then asked to pay")
         T.noErrors()
     end)
 
@@ -554,6 +558,7 @@ return function(T, H)
         Death(ns, "Vati-Firemaw", "Grim-Stonespine", 600)
         Settle()
         local poster = ns.Bounties:Post("Grim-Stonespine", 1, 12, 3)
+        Witnessed(ns, "Grim-Stonespine", H.serverTime)
         PeerPayment(ns, poster.id, "Kestrel-Firemaw", "claimed", H.serverTime)
         T.eq(ns.Bounties:Payment(poster.id).hunter, "Kestrel-Firemaw", "claim arrived")
 
@@ -565,6 +570,7 @@ return function(T, H)
         local popup = Popup(ns.Bounties.PAY_POPUP)
         T.ok(popup ~= nil and popup.text:find("Kestrel brought down Grim", 1, true) ~= nil, "asked")
         T.ok(popup.text:find("Send 12g?", 1, true) ~= nil, "the amount")
+        T.ok(popup.text:find("Verified: Eye saw it.", 1, true) ~= nil, "who saw it (HH-121)")
         T.ok(popup.text:find("The first bounty claim by Kestrel", 1, true) ~= nil, "a first claim is named")
         _G.StaticPopupDialogs[ns.Bounties.PAY_POPUP].OnAccept()
         T.eq(mail.money, 120000, "exactly the posted gold")
@@ -623,24 +629,88 @@ return function(T, H)
         T.noErrors()
     end)
 
+    T.case("a claim nobody else saw: asked as not confirmed, and not paying makes no Deadbeat (HH-121)", function()
+        local ns = H.Boot({ client = "era" })
+        Death(ns, "Vati-Firemaw", "Grim-Stonespine", 600)
+        Settle()
+        local poster = ns.Bounties:Post("Grim-Stonespine", 1, 12, 3)
+        local claimedAt = H.serverTime
+        PeerPayment(ns, poster.id, "Kestrel-Firemaw", "claimed", claimedAt)
+        _G.GetMoney = function() return 1000000 end
+        H.Fire("MAIL_SHOW")
+        local popup = Popup(ns.Bounties.PAY_POPUP)
+        T.ok(popup.text:find("Not confirmed: nobody else saw it", 1, true) ~= nil, "not confirmed")
+        _G.StaticPopupDialogs[ns.Bounties.PAY_POPUP].OnCancel()
+        H.serverTime = H.serverTime + 3 * 86400 + 60
+        PeerPayment(ns, poster.id, "Kestrel-Firemaw", "unpaid", claimedAt)
+        T.eq(ns.Bounties:IsBlocked("Vati-Firemaw"), false, "no Deadbeat")
+
+        H.printed = {}
+        H.Slash("bounties")
+        T.ok(H.Printed("Grim.*12g.*Kestrel for Vati.*unpaid.*not confirmed"), "/hh bounties lists it")
+        _G.GetMoney = nil
+        T.noErrors()
+    end)
+
+    T.case("a rejected claim: the owner is told and not asked to pay", function()
+        local ns = H.Boot({ client = "era" })
+        local origins = { [1436] = 0, [1429] = 5000 }
+        _G.CreateVector2D = function(x, y) return { x = x, y = y } end
+        _G.C_Map.GetWorldPosFromMapPos = function(mapID, v)
+            return origins[mapID] and 0, origins[mapID] and { GetXY = function() return origins[mapID] + v.x * 1000, v.y * 1000 end }
+        end
+        Death(ns, "Vati-Firemaw", "Grim-Stonespine", 600)
+        Settle()
+        local poster = ns.Bounties:Post("Grim-Stonespine", 1, 12, 3)
+        local at = H.serverTime
+        local P = ns.Protocol
+        PeerPayment(ns, poster.id, "Kestrel-Firemaw", "claimed", at)
+        H.Deliver(P.Pack("A", "L", { P.EncodeSpotted("Grim-Stonespine", 1429, at - 20, 0.5, 0.5) }), "Scout-Firemaw")
+        H.printed = {}
+        H.Deliver(P.Pack("A", "X", { P.EncodeWitness({ outlaw = "Grim-Stonespine", mapID = 1436, t = at, x = 0.5, y = 0.5,
+            killer = "Kestrel-Firemaw", by = "Kestrel-Firemaw" }) }), "Kestrel-Firemaw")
+        T.eq(ns.Bounties:Verdict(poster.id), "rejected", "seen far away just before")
+        T.ok(H.Printed("claim by Kestrel on .*Grim.* is rejected: Scout saw them far away"), "the owner is told")
+        T.eq(#ns.Bounties:ToPay(), 0, "not asked to pay")
+        _G.CreateVector2D = nil
+        T.noErrors()
+    end)
+
+    T.case("our claim nobody else saw: we hear it after a while", function()
+        local ns = H.Boot({ client = "era" })
+        Death(ns, "Tallon-Firemaw", "Grim-Stonespine", 600)
+        Settle()
+        PeerPoster(ns, "Tallon-Firemaw", "Grim-Stonespine", 12)
+        PartyKill("Grim-Stonespine")
+        Settle()
+        H.printed = {}
+        H.Advance(ns.Bounties.CONFIRM_WAIT + 1)
+        T.ok(H.Printed("Nobody else saw your bounty claim on .*Grim"), "told")
+        T.noErrors()
+    end)
+
     T.case("3 days without the gold: unpaid, and one unpaid bounty makes a Deadbeat for 30 days", function()
         local ns = H.Boot({ client = "era" })
         Death(ns, "Tallon-Firemaw", "Grim-Stonespine", 600)
         Settle()
         local first = PeerPoster(ns, "Tallon-Firemaw", "Grim-Stonespine", 12)
+        Witnessed(ns, "Grim-Stonespine", H.serverTime)
         PartyKill("Grim-Stonespine")
         Settle()
         H.serverTime = H.serverTime + 3 * 86400 + 60
         ns.Bounties:CheckUnpaid()
         T.eq(ns.Bounties:Payment(first).status, "unpaid", "unpaid after 3 days")
         T.eq(ns.Bounties:IsBlocked("Tallon-Firemaw"), true, "one unpaid bounty: blocked")
-        local shame = ns.MainWindow.Rows("shame")
-        T.eq(shame[#shame].name, "Tallon", "in the Hall of Shame")
-        T.eq(shame[#shame].desc, "|cffff4040Deadbeat|r · did not pay a bounty", "as a Deadbeat")
-        T.eq(shame[#shame].status, "1 unpaid · no bounties for 30 day(s)", "for 30 days")
+        local deadbeats = ns.MainWindow.Rows("deadbeats")
+        T.eq(deadbeats[1].plain, "Tallon", "on the Deadbeats tab")
+        T.eq(deadbeats[1].unpaid, "1", "one hunter not paid")
+        T.eq(deadbeats[1].blocked, "30 day(s)", "for 30 days")
+        T.eq(#ns.MainWindow.Rows("deadbeats", nil, nil, nil, "TAL"), 1, "found by name")
+        T.eq(#ns.MainWindow.Rows("deadbeats", nil, nil, nil, "zzz"), 0, "nobody by that name")
+        T.eq(#ns.MainWindow.Rows("bullies"), 0, "not on the Bullies tab")
         T.eq(ns.Bounties:IsBlocked("Tallon-Firemaw", H.serverTime + 29 * 86400), true, "still blocked after 29 days")
         T.eq(ns.Bounties:IsBlocked("Tallon-Firemaw", H.serverTime + 30 * 86400 + 60), false, "free after 30 days")
-        T.eq(#ns.Bounties:Shamed(H.serverTime + 30 * 86400 + 60), 0, "and out of the Hall of Shame")
+        T.eq(#ns.Bounties:Shamed(H.serverTime + 30 * 86400 + 60), 0, "and off the Deadbeats tab")
 
         H.serverTime = H.serverTime + 3600
         Death(ns, "Tallon-Firemaw", "Hoof-Stonespine", 600)

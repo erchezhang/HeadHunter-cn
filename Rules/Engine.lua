@@ -6,12 +6,12 @@
 --   Kill        every enemy in a report (killer and each assist) gets one kill,
 --               weighted by confidence: exact 1, inferred 0.5, sim 1
 --   WANTED      enters at WANTED_KILLS weighted kills within WANTED_WINDOW
---               (4 in 20 min); each kill while WANTED adds to the count
+--               (5 in 20 min); each kill while WANTED adds to the count
 --   Ends        when a HeadHunter or their group kills the outlaw (a "catch",
 --               Sync/Justice.lua; author 2026-09-23), or after WANTED_IDLE (7 days)
 --               without a kill. Either way the count resets: the next WANTED
---               needs a fresh 4 kills in 20 min (kills before a catch never count)
---   Rank        Ganker 4-9, Outlaw 10-19, Desperado 20-29, Most Wanted 30-49,
+--               needs a fresh 5 kills in 20 min (kills before a catch never count)
+--   Rank        Ganker 5-9, Outlaw 10-19, Desperado 20-29, Most Wanted 30-49,
 --               Dead or Alive 50+
 --   Badges      Coward: any coward kill (skull or grey victim), with help or not
 --               Gang: any kill with 3+ attackers on one victim; Duo: with exactly 2
@@ -30,7 +30,7 @@ local Engine = ns:RegisterModule("RulesEngine", {})
 
 local MINUTE, DAY = 60, 86400
 
-Engine.WANTED_KILLS = 4
+Engine.WANTED_KILLS = 5
 Engine.WANTED_WINDOW = 20 * MINUTE
 Engine.ENGAGEMENT_GAP = 60
 Engine.SERIAL_VICTIMS = 5
@@ -50,7 +50,7 @@ Engine.RANKS = {
     { min = 30, id = "mostwanted" },
     { min = 20, id = "desperado" },
     { min = 10, id = "outlaw" },
-    { min = 4, id = "ganker" },
+    { min = 5, id = "ganker" },
 }
 local RANK_ORDER = { ganker = 1, outlaw = 2, desperado = 3, mostwanted = 4, deadoralive = 5 }
 Engine.RANK_ORDER = RANK_ORDER
