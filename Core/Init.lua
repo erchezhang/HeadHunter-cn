@@ -48,10 +48,17 @@ function ns:Debug(...)
 end
 
 -- Errors go to the client's error handler so BugGrabber/BugSack collect them
--- instead of spamming chat.
+-- instead of spamming chat. Only the first copy of an error is shown: a handler that
+-- fails on every UNIT_HEALTH would otherwise flood the screen. Repeats go to the log.
+local errorCounts = {}
+
 function ns:Error(err)
+    local text = tostring(err)
+    local count = (errorCounts[text] or 0) + 1
+    errorCounts[text] = count
     local log = self.Modules.Log
-    if log then log:Add("error", tostring(err)) end
+    if log then log:Add("error", count > 1 and (text .. " (x" .. count .. ")") or text) end
+    if count > 1 then return end
     local handler = geterrorhandler and geterrorhandler()
     if handler then
         handler(err)

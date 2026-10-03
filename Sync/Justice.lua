@@ -250,6 +250,7 @@ function Justice.HonorVictim(name)
 end
 
 function Justice:OnHonorGain(text)
+    if not ns.Guards:IsActive() then return nil end
     text = ns.Utils.AccessibleString(text)
     if not text then return nil end
     for _, pattern in ipairs(HonorPatterns()) do

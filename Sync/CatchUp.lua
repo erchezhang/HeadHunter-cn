@@ -53,6 +53,7 @@ local received = { reports = 0, catches = 0 }
 local answered = {}          -- compact requester -> GetTime() of our last answer
 local attempt = 0
 local helloRetried = false
+local loginGaveUp = false
 
 CatchUp.last = nil           -- summary of the last catch-up (tests, /hh sync)
 
@@ -312,7 +313,30 @@ local function TryStart()
     if attempt * CatchUp.RETRY < CatchUp.MAX_WAIT then
         C_Timer.After(CatchUp.RETRY, TryStart)
     else
+        loginGaveUp = true
         ns:Debug("Catch-up: no route (Classic Era: a guild, a group, or the Catch up click)")
+    end
+end
+
+-- Nothing is received inside an instance (Core/Guards.lua): after a long stay, ask
+-- for what came in meanwhile.
+local enteredAt
+
+function CatchUp:OnSuspendChanged(suspended, now)
+    now = now or ns.Utils.ServerTime()
+    if suspended then
+        enteredAt = now
+        return
+    end
+    local from = enteredAt
+    enteredAt = nil
+    if state == "done" then
+        if not from or now - from < self.FRESH then return end
+        since = from - self.MARGIN
+        self:Start()
+    elseif state == "idle" and loginGaveUp then
+        -- The login catch-up found no route inside: it goes now, with its own <since>
+        self:Start()
     end
 end
 
@@ -331,6 +355,7 @@ ns.Events:Register("HH_INITIALIZED", function()
     since = CatchUp.Since() -- before this session's logout time is written
     C_Timer.After(CatchUp.START_DELAY, TryStart)
     C_Timer.After(CatchUp.START_DELAY, function() TryOffer(1) end)
+    ns.Events:Register("HH_SUSPEND_CHANGED", function(_, suspended) CatchUp:OnSuspendChanged(suspended) end, OWNER)
 end, OWNER)
 
 -- A typed command is a hardware event: on Era the hello can go realm-wide

@@ -34,6 +34,46 @@ local function IsRestricted(event)
 end
 Events.IsRestricted = IsRestricted
 
+-- World events HeadHunter does not listen to inside an instance (features.md section 8):
+-- a battleground fires them for dozens of players, and nothing in there is ours.
+Events.WORLD_EVENTS = {
+    COMBAT_LOG_EVENT_UNFILTERED = true,
+    CHAT_MSG_COMBAT_HONOR_GAIN = true,
+    UNIT_HEALTH = true,
+    UNIT_TARGET = true,
+    NAME_PLATE_UNIT_ADDED = true,
+    NAME_PLATE_UNIT_REMOVED = true,
+    PLAYER_TARGET_CHANGED = true,
+    UPDATE_MOUSEOVER_UNIT = true,
+    PLAYER_FOCUS_CHANGED = true,
+    PLAYER_DEAD = true,
+    CHAT_MSG_SYSTEM = true,
+    CHAT_MSG_ADDON = true,
+    CHAT_MSG_CHANNEL = true,
+}
+
+local suspended = false
+
+local function Listen(event)
+    return pcall(eventFrame.RegisterEvent, eventFrame, event)
+end
+
+-- Inside an instance the world events leave the frame; outside they come back
+function Events:SetSuspended(on)
+    on = on and true or false
+    if on == suspended then return end
+    suspended = on
+    for event in pairs(self.WORLD_EVENTS) do
+        if callbacks[event] then
+            if on then
+                eventFrame:UnregisterEvent(event)
+            else
+                Listen(event)
+            end
+        end
+    end
+end
+
 -- Returns false when the event is restricted or the client refuses it, instead of
 -- raising.
 function Events:Register(event, callback, owner)
@@ -42,8 +82,8 @@ function Events:Register(event, callback, owner)
         return false
     end
     if not callbacks[event] then
-        if not IsCustom(event) then
-            local ok = pcall(eventFrame.RegisterEvent, eventFrame, event)
+        if not IsCustom(event) and not (suspended and self.WORLD_EVENTS[event]) then
+            local ok = Listen(event)
             if not ok then
                 ns:Debug("Event not available on this client:", event)
                 return false

@@ -98,6 +98,8 @@ end
 function Nameplates:Update(unit)
     local plate = PlateFor(unit)
     if not plate then return end
+    -- No marks inside an instance (Core/Guards.lua): battleground plates are not ours
+    if not ns.Guards:IsActive() then return self:Hide(unit) end
     local isPlayer = ns.Utils.UnitIsPlayer(unit)
     local shown = {}
     for _, badge in ipairs(self.BADGES) do
@@ -147,6 +149,7 @@ ns.Events:Register("NAME_PLATE_UNIT_ADDED", function(_, unit) Safely(Nameplates.
 ns.Events:Register("NAME_PLATE_UNIT_REMOVED", function(_, unit) Safely(Nameplates.Hide, Nameplates, unit) end, OWNER)
 -- The lists changed (new data, a recompute): the marks at once, not at the next REFRESH
 ns.Events:Register("HH_WANTED_UPDATED", function() Safely(Nameplates.Refresh, Nameplates) end, OWNER)
+ns.Events:Register("HH_SUSPEND_CHANGED", function() Safely(Nameplates.Refresh, Nameplates) end, OWNER)
 
 local function RefreshLoop()
     Safely(Nameplates.Refresh, Nameplates)

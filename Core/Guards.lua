@@ -1,8 +1,9 @@
 -- Instance and duel guards (docs/addon/features.md section 8).
 --
 -- Inside any instance (battlegrounds, arenas, dungeons, raids, scenarios) HeadHunter
--- is OFF: no alerts, no detection, no marks penalties, and sending is paused.
--- Modules check Guards:IsActive() or listen for HH_SUSPEND_CHANGED.
+-- is OFF: no alerts, no detection, no marks penalties, no sending and no receiving.
+-- The world events stop at the frame (Events:SetSuspended); modules also check
+-- Guards:IsActive() or listen for HH_SUSPEND_CHANGED.
 
 local addonName, ns = ...
 
@@ -22,6 +23,7 @@ function Guards:UpdateInstance()
     local changed = suspended ~= self.InstanceSuspended
     self.InstanceSuspended = suspended
     self.InstanceType = instanceType
+    ns.Events:SetSuspended(suspended)
     if changed then
         ns:Debug("Instance guard:", suspended and ("suspended (" .. instanceType .. ")") or "active")
         ns.Events:Fire("HH_SUSPEND_CHANGED", suspended, instanceType)

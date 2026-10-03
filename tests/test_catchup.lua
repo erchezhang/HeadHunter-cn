@@ -256,6 +256,34 @@ return function(T, H)
         T.eq(#H.printed, 2, "silent (only the load line and the Forever saved data warning)")
     end)
 
+    T.case("after a long battleground the hello asks from when we went in; a short one asks nothing", function()
+        local ns = H.Boot({ client = "forever" })
+        Run(130)
+        T.eq(ns.CatchUp:State(), "done", "login catch-up over")
+        H.sent = {}
+        H.instance = { true, "pvp" }
+        H.Fire("PLAYER_ENTERING_WORLD", false, false)
+        local wentIn = H.serverTime
+        H.Advance(60)
+        H.serverTime = H.serverTime + 60
+        H.instance = { false, "none" }
+        H.Fire("PLAYER_ENTERING_WORLD", false, false)
+        Run(5)
+        T.eq(#Sent("^1AQ:h"), 0, "a minute inside: no hello")
+
+        H.instance = { true, "pvp" }
+        H.Fire("PLAYER_ENTERING_WORLD", false, false)
+        wentIn = H.serverTime
+        H.serverTime = H.serverTime + 1200
+        H.instance = { false, "none" }
+        H.Fire("PLAYER_ENTERING_WORLD", false, false)
+        Run(5)
+        local hello = Sent("^1AQ:h", "CHANNEL")
+        T.eq(#hello, 1, "20 minutes inside: one hello")
+        T.eq(hello[1].message, "1AQ:h" .. B36(wentIn - ns.CatchUp.MARGIN), "since we went in")
+        T.noErrors()
+    end)
+
     -------------------------------------------------
     -- End to end
     -------------------------------------------------

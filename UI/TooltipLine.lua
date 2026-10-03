@@ -63,7 +63,7 @@ function TooltipLine.DuelLine(unit)
 end
 
 function TooltipLine:Enabled()
-    return ns.db ~= nil and ns.db.settings.tooltip ~= false
+    return ns.db ~= nil and ns.db.settings.tooltip ~= false and ns.Guards:IsActive()
 end
 
 -- tooltip: the GameTooltip-like frame being filled

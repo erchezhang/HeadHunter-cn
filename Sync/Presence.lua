@@ -40,7 +40,7 @@ local lastAnswer = -math.huge
 local lastTotal
 
 local function Announce()
-    if capped then return end
+    if capped or not ns.Guards:IsActive() then return end
     ns.Transport:Queue(ns.Protocol.TYPES.PRESENCE, ns.version, ns.Transport.PRIORITY.bulk, "presence")
 end
 

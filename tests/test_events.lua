@@ -32,6 +32,20 @@ return function(T, H)
         T.ok(H.errors[1]:find("boom") ~= nil, "error message kept")
     end)
 
+    T.case("the same error again is logged but shown only once", function()
+        local ns = H.Boot({ client = "era" })
+        ns.Events:Register("HH_TEST", function() error("boom") end, "a")
+        ns.Events:Fire("HH_TEST")
+        ns.Events:Fire("HH_TEST")
+        ns.Events:Fire("HH_TEST")
+        T.eq(#H.errors, 1, "shown once")
+        local logged = 0
+        for _, line in ipairs(ns.Log:Lines()) do
+            if line:find("boom") then logged = logged + 1 end
+        end
+        T.eq(logged, 3, "every copy logged")
+    end)
+
     T.case("custom events never touch the frame; unregister stops delivery", function()
         local ns = H.Boot({ client = "era" })
         local count = 0
