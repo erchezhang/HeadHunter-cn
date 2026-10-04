@@ -103,9 +103,30 @@ return function(T, H)
         T.eq(report.killer.class, nil, "the report itself is not changed")
     end)
 
-    T.case("the same victim killed 5 times also counts", function()
+    T.case("one victim alone never makes a player WANTED (fake reports)", function()
         local e = Compute({ Report(0, "A"), Report(3, "A"), Report(6, "A"), Report(9, "A"), Report(12, "A") }, 13)
-        T.eq(e.wanted, true, "wanted")
+        T.eq(e.wanted, false, "one victim")
+        T.eq(e.killCount, 5, "still five kills")
+    end)
+
+    T.case("WANTED needs 3 different victims, and one victim counts at most twice an hour", function()
+        local e = Compute({ Report(0, "A"), Report(2, "A"), Report(4, "B"), Report(6, "B"), Report(8, "A") }, 9)
+        T.eq(e.wanted, false, "two victims")
+        e = Compute({ Report(0, "A"), Report(2, "A"), Report(4, "B"), Report(6, "B"), Report(8, "A"), Report(10, "C") }, 11)
+        T.eq(e.wanted, true, "three victims")
+        T.eq(e.kills, 5, "A's third death in the hour does not count")
+        local reports = { Report(0, "A"), Report(2, "B"), Report(4, "C"), Report(6, "D"), Report(8, "E") }
+        for i = 1, 4 do reports[#reports + 1] = Report(10 + i, "F") end
+        T.eq(Compute(reports, 20).kills, 7, "5 + F twice")
+        reports[#reports + 1] = Report(75, "F")
+        T.eq(Compute(reports, 76).kills, 8, "F again after an hour")
+    end)
+
+    T.case("test deaths are not limited by victim", function()
+        local sim = { confidence = "sim" }
+        local e = Compute({ Report(0, "A", sim), Report(3, "A", sim), Report(6, "A", sim), Report(9, "A", sim),
+            Report(12, "A", sim) }, 13)
+        T.eq(e.wanted, true, "a trusted test character alone")
     end)
 
     T.case("5 kills spread over more than 20 minutes are not enough", function()

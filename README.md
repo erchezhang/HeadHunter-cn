@@ -16,7 +16,7 @@ See the WANTED board, the best duelists and the top hunters on **[headhunterwow.
 
 1. **An enemy player kills you.** HeadHunter saves who did it: name, level, class, race and zone. If more than one player attacked you, it saves all of them.
 2. **Your report is shared** with every HeadHunter player of your faction.
-3. **Gankers become WANTED.** An enemy who kills 5 players within 20 minutes gets a WANTED poster. Every HeadHunter sees the same list.
+3. **Gankers become WANTED.** An enemy who kills 5 players within 20 minutes gets a WANTED poster. The kills must be on at least 3 different players, and one player's deaths count at most twice an hour, so nobody can make someone WANTED alone. Every HeadHunter sees the same list.
 4. **Hunt them down.** You get an alert when a WANTED outlaw kills someone near you. Join the posse and go after them.
 5. **Justice served.** When a HeadHunter, or anyone in their group, kills a WANTED outlaw, the outlaw is no longer WANTED for everyone.
 6. **See it all on the website.** With the free **HeadHunter Sync** app, your reports go to [headhunterwow.com](https://headhunterwow.com), and the website's lists come back into your game.
