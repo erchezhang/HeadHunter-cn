@@ -48,6 +48,25 @@ return function(T, H)
         T.noErrors()
     end)
 
+    T.case("a hunter and their pet are one attacker, even with the owner known by name only", function()
+        local ns = Setup()
+        local pet = "Pet-0-6783-1-15275-165189-0800264887"
+        ns.PetOwners:Learn(pet, "Kuh Blam") -- from the pet's tooltip: a name, no GUID
+        H.recap = {
+            Hit(KUH, "Kuh-ClassicBetaPvP2", 40, 110),
+            Hit(pet, "Aida", -1, 30, nil, 0x1148),
+            Hit(LOKI, "Lokiju-ClassicBetaPvP2", -1, 30),
+        }
+        H.Fire("PLAYER_DEAD")
+        H.Advance(0.3)
+        local report = ns.db.deaths[1]
+        T.eq(report.killer.key, "Kuh Blam", "the hunter")
+        T.eq(report.killer.sex, 2, "sex from the cache")
+        T.eq(#report.assists, 1, "the pet is not a second Kuh")
+        T.eq(report.assists[1].name, "Lokiju", "the other attacker")
+        T.noErrors()
+    end)
+
     T.case("a killer not seen before is recorded with the given name only", function()
         local ns = H.Boot({ client = "forever" })
         H.guidInfo[LOKI] = { class = "WARRIOR", race = "Tauren", sex = 2, name = "Lokiju", realm = "ClassicBetaPvP2" }

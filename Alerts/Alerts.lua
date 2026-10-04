@@ -7,6 +7,8 @@
 --       chat = "...",                  -- one chat line
 --       sound = true,                  -- play the alert sound
 --       popup = { text, accept, decline, onAccept, onDecline },  -- optional (HH-043)
+--       toast = { icon, title, text, accept, decline, onAccept },  -- optional: the HeadHunter
+--                                      card under the minimap (UI/Toast.lua)
 --       combat = true,                 -- show at once even in combat (no popup allowed)
 --   })
 --
@@ -126,6 +128,7 @@ local function Render(alert)
     if alert.chat then ns:Print(alert.chat) end
     if alert.sound and Setting("sound") then PlayAlertSound(alert.sound) end
     if alert.popup and Setting("popups") then ShowPopup(alert.popup) end
+    if alert.toast and Setting("popups") then ns.Toast:Show(alert.toast) end
     lastShown[alert.key] = ns.Utils.Now()
     ns.Events:Fire("HH_ALERT_SHOWN", alert)
 end
@@ -156,7 +159,7 @@ function Alerts:FlushQueue()
     local now = ns.Utils.Now()
     local pending = {}
     for key, item in pairs(queue) do
-        if now - item.queuedAt <= self.QUEUE_MAX_AGE then pending[#pending + 1] = item end
+        if now - item.queuedAt <= (item.alert.maxAge or self.QUEUE_MAX_AGE) then pending[#pending + 1] = item end
         queue[key] = nil
     end
     table.sort(pending, function(a, b) return a.queuedAt < b.queuedAt end)

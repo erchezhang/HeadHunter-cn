@@ -11,12 +11,14 @@
 --            (author, 2026-10-01): someone else landed the blow, but we, our pet or
 --            our group hit them in the last ASSIST_WINDOW seconds (as the game gives
 --            an honorable kill to everyone who helped)
---   Forever  no combat log: our target, a WANTED enemy player, died while we were
---            in combat (less exact: we may not have landed the blow)
+--   Forever  no combat log (author, 2026-10-04): a WANTED player we saw die (our target
+--            or a nameplate, Sync/Witness.lua) and the game's honor award for us ("You
+--            have been awarded 5 Honor.", no name) within HONOR_WINDOW of it: the game
+--            says we took part. A hunter's Feign Death and a fight we only watched give
+--            no honor (seen in game: honor 1 s after the death)
 --   Both     the honorable kill line (author, 2026-10-01): "X dies, honorable kill ..."
 --            comes to everyone who earned honor for the kill, we and our group nearby,
---            whoever landed the blow. On Forever it is the one sign of a group's kill
---            (enemy health is hidden there); the name may be the given name only.
+--            whoever landed the blow; the name may be the given name only.
 -- Sync: the automatic routes. On Era the realm-wide channel needs a click, so the
 -- hunter gets [Announce] (a typed /hh justice works too).
 -- Peer catches are accepted with a plausible time, under a per-sender rate limit.
@@ -34,7 +36,8 @@ Justice.MAX_SKEW = 300
 Justice.DEDUPE = 60            -- one catch per outlaw per minute (group members all see it)
 Justice.SENDER_LIMIT = 5       -- catches accepted per sender per window
 Justice.SENDER_WINDOW = 600
-Justice.COMBAT_GRACE = 5       -- Forever: seconds after combat a target death still counts
+Justice.HONOR_WINDOW = 5       -- Forever: our honor award this soon after a seen death
+Justice.HONOR_BEFORE = 2       -- Forever: or this soon before it (the events race)
 Justice.ASSIST_WINDOW = 60     -- Era: our hit this recent makes someone else's kill our catch
 
 -- Combat log damage that counts as helping
@@ -47,8 +50,9 @@ local REACTION_HOSTILE = 0x00000040
 
 local senderLog = {}
 local toAnnounce = {}           -- Era: our catch ids waiting for the [Announce] click
-local lastCombat = 0
 local hits = {}                 -- Era: enemy GUID -> Now() of our side's last hit on them
+local seenDeaths = {}           -- Forever: { outlaw, guid, at } waiting for our honor award
+local lastHonor = -math.huge    -- Forever: Now() of our last honor award
 
 local function Store()
     return ns.db and ns.db.justice
@@ -125,6 +129,7 @@ function Justice:Record(entry, how, killer)
         id = entry.id .. ":" .. now, outlaw = entry.id, t = now,
         mapID = ns.Zones.ZoneOf(U.PlayerMapID()), killer = killer or me, hunter = me, how = how,
     }
+    Justice.SetKillerWho(record, Justice.Identity(record.killer))
     if not self:Add(record, "local") then return nil end
     local Protocol, Transport = ns.Protocol, ns.Transport
     Transport:Queue(Protocol.TYPES.JUSTICE, self.Encode(record), Transport.PRIORITY.alert, "K:" .. record.id)
@@ -133,7 +138,38 @@ function Justice:Record(entry, how, killer)
 end
 
 function Justice.Encode(record)
-    return ns.Protocol.EncodeJustice(record.outlaw, record.t, record.mapID, record.killer)
+    return ns.Protocol.EncodeJustice(record.outlaw, record.t, record.mapID, record.killer, Justice.KillerWho(record))
+end
+
+-- Who landed the blow, as far as we can see them: ourselves, or a member of our group
+-- ({ class, race, sex, faction, level } or nil)
+function Justice.Identity(key)
+    local U = ns.Utils
+    if not key then return nil end
+    local units = { "player" }
+    for i = 1, 4 do units[#units + 1] = "party" .. i end
+    for i = 1, 40 do units[#units + 1] = "raid" .. i end
+    for _, unit in ipairs(units) do
+        if U.UnitGUID(unit) and U.SameCharacter(U.UnitKey(unit), key) then
+            local sex = U.UnitSex(unit)
+            return { class = U.UnitClass(unit), race = U.UnitRace(unit), faction = U.UnitFaction(unit),
+                sex = sex ~= 1 and sex or nil, level = U.UnitLevel(unit) }
+        end
+    end
+    return nil
+end
+
+-- The killer's race, class and sex kept on the catch (the Busted list shows them)
+function Justice.SetKillerWho(record, who)
+    if not who then return end
+    record.killerClass, record.killerRace, record.killerSex = who.class, who.race, who.sex
+    record.killerFaction, record.killerLevel = who.faction, who.level
+end
+
+function Justice.KillerWho(record)
+    if not (record.killerClass or record.killerRace) then return nil end
+    return { class = record.killerClass, race = record.killerRace, sex = record.killerSex, faction = record.killerFaction,
+        level = record.killerLevel }
 end
 
 -- An enemy player died by our hand or our group's: a catch if WANTED right now, at
@@ -217,16 +253,34 @@ Justice.HONOR_FORMATS = {
     "%s dies, honorable kill (Estimated Honor Points: %d)",
 }
 
-local honorPatterns
-local function HonorPatterns()
-    if honorPatterns then return honorPatterns end
-    honorPatterns = {}
-    local formats = { _G.COMBATLOG_HONORGAIN or false, _G.COMBATLOG_HONORGAIN_NO_RANK or false }
-    for _, format in ipairs(Justice.HONOR_FORMATS) do formats[#formats + 1] = format end
+-- Forever's line for our own honor, without the victim's name (seen in game 2026-10-04)
+Justice.AWARD_FORMATS = {
+    "You have been awarded %d Honor.",
+    "You have been awarded %d honor points.",
+}
+
+-- The client's formats first, then ours
+local function Patterns(globals, fallbacks)
+    local patterns = {}
+    local formats = {}
+    for _, name in ipairs(globals) do formats[#formats + 1] = _G[name] or false end
+    for _, format in ipairs(fallbacks) do formats[#formats + 1] = format end
     for _, format in ipairs(formats) do
-        if type(format) == "string" then honorPatterns[#honorPatterns + 1] = FormatPattern(format) end
+        if type(format) == "string" then patterns[#patterns + 1] = FormatPattern(format) end
     end
+    return patterns
+end
+
+local honorPatterns, awardPatterns
+local function HonorPatterns()
+    honorPatterns = honorPatterns
+        or Patterns({ "COMBATLOG_HONORGAIN", "COMBATLOG_HONORGAIN_NO_RANK" }, Justice.HONOR_FORMATS)
     return honorPatterns
+end
+
+local function AwardPatterns()
+    awardPatterns = awardPatterns or Patterns({ "COMBATLOG_HONORAWARD" }, Justice.AWARD_FORMATS)
+    return awardPatterns
 end
 
 -- The victim of an honorable kill line as a player key. Forever may give the given name
@@ -261,18 +315,51 @@ function Justice:OnHonorGain(text)
             return key and self:OnEnemyKilled(key, nil, "honor") or nil
         end
     end
+    for _, pattern in ipairs(AwardPatterns()) do
+        if text:match(pattern) then
+            ns.Log:Add("info", "Honor award: " .. text)
+            if not ns.Features.HasCLEU then self:OnHonorAward() end
+            return nil
+        end
+    end
     ns.Log:Add("info", "Honor line not understood: " .. text)
     return nil
 end
 
--- Forever: our target died while we were fighting
-function Justice:CheckTarget()
-    local U = ns.Utils
-    if not U.UnitIsEnemyPlayer("target") then return end
-    if U.Accessible(U.SafeCall(UnitIsDead, "target")) ~= true then return end
-    local fighting = U.SafeCall(UnitAffectingCombat, "player") == true
-    if not fighting and U.Now() - lastCombat > self.COMBAT_GRACE then return end
-    self:OnEnemyKilled(U.UnitKey("target"), U.UnitGUID("target"), "target")
+-- Forever: a seen death the game gave us honor for is our catch
+local function Catch(death)
+    local key = not death.outlaw:find("^guid:") and death.outlaw or nil
+    local record = Justice:OnEnemyKilled(key, death.guid, "seen")
+    ns.Log:Add("info", "WANTED death seen: " .. death.outlaw .. " -> " .. (record and "catch" or "no new catch"))
+end
+
+-- Forever: we saw a hunted player die (outlaw: their WANTED id). The log says why it
+-- was or was not our catch.
+function Justice:OnSeenDeath(outlaw, guid)
+    local now = ns.Utils.Now()
+    local death = { outlaw = outlaw, guid = guid, at = now }
+    if now - lastHonor <= self.HONOR_BEFORE then return Catch(death) end
+    seenDeaths[#seenDeaths + 1] = death
+    C_Timer.After(self.HONOR_WINDOW, function()
+        for i, waiting in ipairs(seenDeaths) do
+            if waiting == death then
+                table.remove(seenDeaths, i)
+                ns.Log:Add("info", "WANTED death seen: " .. outlaw .. " -> no catch, no honor for us")
+                return
+            end
+        end
+    end)
+end
+
+-- Forever: the game gave us honor, so we took part in the deaths we just saw
+function Justice:OnHonorAward()
+    local now = ns.Utils.Now()
+    lastHonor = now
+    local waiting = seenDeaths
+    seenDeaths = {}
+    for _, death in ipairs(waiting) do
+        if now - death.at <= self.HONOR_WINDOW then Catch(death) end
+    end
 end
 
 -------------------------------------------------
@@ -293,7 +380,7 @@ local function UnderRateLimit(sender)
 end
 
 function Justice:OnPeer(record, sender)
-    local outlaw, t, mapID, killer = ns.Protocol.DecodeJustice(record)
+    local outlaw, t, mapID, killer, who = ns.Protocol.DecodeJustice(record)
     if not outlaw then return end
     local U = ns.Utils
     -- Same key format as our reports (a sender's client may write names differently)
@@ -310,16 +397,17 @@ function Justice:OnPeer(record, sender)
         return
     end
     if not UnderRateLimit(sender) then return end
-    self:Add({ id = outlaw .. ":" .. t, outlaw = outlaw, t = t, mapID = mapID,
-        killer = killer and U.PlayerKey(killer) or U.PlayerKey(sender), hunter = U.PlayerKey(sender) or sender },
-        "peer", sender)
+    local catch = { id = outlaw .. ":" .. t, outlaw = outlaw, t = t, mapID = mapID,
+        killer = killer and U.PlayerKey(killer) or U.PlayerKey(sender), hunter = U.PlayerKey(sender) or sender }
+    Justice.SetKillerWho(catch, who)
+    self:Add(catch, "peer", sender)
 end
 
 -- A catch passed on by another HeadHunter during login catch-up (HH-023): no rate
 -- limit (one pull brings many), the time checks still apply. It ends WANTED only
 -- once a second source has it (HH-121, Sync/Relay.lua).
 function Justice:AddRelayed(record, sender)
-    local outlaw, t, mapID, killer = ns.Protocol.DecodeJustice(record)
+    local outlaw, t, mapID, killer, who = ns.Protocol.DecodeJustice(record)
     if not outlaw then return nil end
     local U = ns.Utils
     if not outlaw:find("^guid:") then
@@ -336,6 +424,7 @@ function Justice:AddRelayed(record, sender)
     end
     local catch = { id = outlaw .. ":" .. t, outlaw = outlaw, t = t, mapID = mapID, killer = killer, hunter = killer,
         origin = "relay" }
+    Justice.SetKillerWho(catch, who)
     ns.Relay.Vouch(catch, sender, killer)
     return self:Add(catch, "relay", sender)
 end
@@ -388,13 +477,7 @@ ns.Events:Register("HH_INITIALIZED", function()
     if ns.Features.HasCLEU then
         Events:Register("COMBAT_LOG_EVENT_UNFILTERED", function() Justice:OnCombatLog() end, OWNER)
     else
-        Events:Register("UNIT_HEALTH", function(_, unit)
-            if unit == "target" then Justice:CheckTarget() end
-        end, OWNER)
-        Events:Register("PLAYER_REGEN_ENABLED", function()
-            lastCombat = ns.Utils.Now()
-            Justice:CheckTarget()
-        end, OWNER)
+        Events:Register("HH_HUNTED_DIED", function(_, outlaw, guid) Justice:OnSeenDeath(outlaw, guid) end, OWNER)
     end
 end, OWNER)
 

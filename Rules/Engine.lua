@@ -3,8 +3,9 @@
 -- (docs/website/plan.md); keep both in sync.
 --
 -- Rules: docs/addon/features.md sections 1-3.
---   Kill        every enemy in a report (killer and each assist) gets one kill,
---               weighted by confidence: exact 1, inferred 0.5, sim 1
+--   Kill        every enemy in a report (killer and each assist) gets one kill, once
+--               even when the report names them twice, weighted by confidence:
+--               exact 1, inferred 0.5, sim 1
 --   WANTED      enters at WANTED_KILLS weighted kills within WANTED_WINDOW
 --               (5 in 20 min); each kill while WANTED adds to the count
 --   Ends        when a HeadHunter or their group kills the outlaw (a "catch",
@@ -96,8 +97,17 @@ function Engine.CollectKills(reports, yield)
     for index, report in ipairs(reports) do
         local weight = Engine.WEIGHT[report.confidence] or Engine.WEIGHT.inferred
         local victimLevel = report.victim and report.victim.level
-        local enemies = { report.killer }
-        for _, assist in ipairs(report.assists or {}) do enemies[#enemies + 1] = assist end
+        -- A report may name one attacker twice: one death is one kill for them, and they
+        -- are one attacker in the group size
+        local enemies, named = {}, {}
+        local function Take(enemy)
+            local id = Engine.EnemyId(enemy)
+            if enemy == nil or (id and named[id]) then return end
+            if id then named[id] = true end
+            enemies[#enemies + 1] = enemy
+        end
+        Take(report.killer)
+        for _, assist in ipairs(report.assists or {}) do Take(assist) end
         for _, enemy in ipairs(enemies) do
             local id = Engine.EnemyId(enemy)
             if id then

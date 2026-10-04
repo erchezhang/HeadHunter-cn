@@ -76,6 +76,19 @@ return function(T, H)
         T.eq(e.timesWanted, 1, "times wanted")
     end)
 
+    T.case("a report that names one attacker twice is one kill for them, and one attacker", function()
+        local twice = { key = "Gank-Stonespine", level = 42 }
+        local reports = {}
+        for i = 1, 4 do
+            reports[i] = Report(i, "V" .. i, { killer = { key = "Pal-Stonespine", level = 42 }, assists = { twice, twice } })
+        end
+        local e = Compute(reports, 5)
+        T.eq(e.killCount, 4, "one kill per death")
+        T.eq(e.wanted, false, "4 deaths are not 8 kills")
+        T.eq(e.gangKills, 0, "two attackers, not three: no Gang")
+        T.eq(e.duoKills, 4, "a duo")
+    end)
+
     T.case("the same victim killed 5 times also counts", function()
         local e = Compute({ Report(0, "A"), Report(3, "A"), Report(6, "A"), Report(9, "A"), Report(12, "A") }, 13)
         T.eq(e.wanted, true, "wanted")

@@ -28,7 +28,7 @@ DB.FALLBACK_HOME = "unknown"
 DB.HOME_TABLES = {
     deaths = true, reports = true, enemies = true, justice = true, posters = true, posse = true,
     bountyPay = true, duels = true, eventResults = true, marks = true, demoMarks = true, player = true,
-    witness = true, pinned = true,
+    witness = true, pinned = true, glasses = true,
 }
 
 DB.LIMITS = {
@@ -55,6 +55,9 @@ local DEFAULTS = {
             range = "adjacent", -- "adjacent" | "continent"
             whisperInvite = true, -- Join on another layer: whisper the victim for an invite
             shame = true, -- a Hall of Shame bully or Deadbeat in sight: center text and chat (author, 2026-09-28)
+            glassPopup = true, -- Raise a glass when another HeadHunter busts a WANTED player (Barflies, author, 2026-10-04)
+            glassPopupGap = 5, -- minutes between two glass popups, 3..15 (author, 2026-10-04)
+            glassThanks = true, -- a chat line when a HeadHunter raises a glass to our catch (author, 2026-10-04)
         },
         serialKillerWindowMin = 15, -- 5..15
         mapPins = true, -- HH-046: hotspot and WANTED pins on the world map
@@ -80,6 +83,7 @@ local HOME_DEFAULTS = {
     duels = {},   -- High Noon: duel id -> duel someone saw (HH-091)
     witness = {}, -- HH-121: witness id -> a hunted player who died near a HeadHunter (Sync/Witness.lua)
     pinned = {},  -- HH-121: sighting id -> a sighting kept as evidence for a bounty claim (Sync/Evidence.lua)
+    glasses = {}, -- glass id -> a HeadHunter raised a glass to a catch (Sync/Glasses.lua)
     -- Tournament match results confirmed in game (Tournament/Matches.lua): every
     -- HeadHunter's bracket; our own go to the website with HeadHunter Sync
     eventResults = {},

@@ -6,7 +6,9 @@
 -- The file keeps the website's names (the /api/v1/sync/download answer):
 --   worlds["era|eu|Firemaw"] / ["forever|us|pvp"] = { generated_at, wanted = {...},
 --     duels = { alliance = {...}, horde = {...} }, deadbeats = {...}, bullies = {...},
---     tournaments = {...} (WEB-080: the Tournaments tab and the organizer stars read them) }
+--     tournaments = {...} (WEB-080: the Tournaments tab and the organizer stars read them),
+--     busted = { { name, realm, caught_at, map_id, hunter, killer_name, glasses } } (the catches),
+--     barflies = { { name, realm, glasses, last_glass_at, title, position } } (the most glasses raised) }
 --   forever_servers = { ["4620"] = "pve", ... }: WoW Forever server numbers and their realm type
 --   characters = { { world, name, deaths, duels, catches, bounty = { total, events } } }
 -- This module picks our world, maps names to the addon's (player keys, "ROGUE",
@@ -38,7 +40,7 @@ local RACES = {
 }
 local FACTIONS = { alliance = "Alliance", horde = "Horde" }
 
-local world, wanted, duelists, deadbeats, bullies, tournaments
+local world, wanted, duelists, deadbeats, bullies, tournaments, busted, glasses
 
 -------------------------------------------------
 -- Names
@@ -255,7 +257,7 @@ function SiteData.Tournament(t)
 end
 
 function SiteData:Load()
-    world, wanted, duelists, deadbeats, bullies, tournaments = nil, nil, nil, nil, nil, nil
+    world, wanted, duelists, deadbeats, bullies, tournaments, busted, glasses = nil, nil, nil, nil, nil, nil, nil, nil
     local data = Data()
     world = data and FindWorld(data)
     if not world then return false end
@@ -291,7 +293,68 @@ function SiteData:Load()
         local tournament = type(t) == "table" and SiteData.Tournament(t)
         if tournament then tournaments[#tournaments + 1] = tournament end
     end
+    -- The world's catches, with who busted them and the glasses raised (UI Busted list)
+    busted, glasses = {}, {}
+    for _, b in ipairs(type(world.busted) == "table" and world.busted or {}) do
+        local catch = type(b) == "table" and SiteData.Busted(b)
+        if catch then
+            busted[#busted + 1] = catch
+            glasses[catch.outlaw .. ":" .. catch.t] = catch.glasses
+        end
+    end
     return true
+end
+
+local function Who(person)
+    if type(person) ~= "table" then return nil end
+    local race = SiteData.Race(person.race)
+    return { class = SiteData.Class(person.class), race = race, sex = Number(person.sex),
+        faction = SiteData.Faction(person.faction) or ns.Utils.RaceFaction(race) }
+end
+
+-- A catch from the website as the addon keeps one (Sync/Justice.lua): outlaw key and
+-- time, where, who landed the blow (the reporting HeadHunter, with race and class), and
+-- the glasses raised; or nil
+function SiteData.Busted(b)
+    local outlaw, t = SiteData.Key(b), Number(b.caught_at)
+    if not outlaw or not t then return nil end
+    local hunter = SiteData.Key(b.hunter)
+    local killer = hunter or ns.Utils.PlayerKey(Text(b.killer_name))
+    local catch = { id = outlaw .. ":" .. t, outlaw = outlaw, t = t, mapID = Number(b.map_id), hunter = hunter,
+        killer = killer, outlawWho = Who(b), glasses = Number(b.glasses) or 0, origin = "website" }
+    local who = hunter and Who(b.hunter)
+    if who then ns.Justice.SetKillerWho(catch, who) end
+    return catch
+end
+
+-- The website's catches of our world, newest first
+function SiteData:BustedList()
+    return busted or {}
+end
+
+-- Barflies (author, 2026-10-04): the players who raised the most glasses from the popup,
+-- in the last 30 days, most first: { key, class, race, sex, faction, glasses, lastGlass,
+-- title ("barfly", "regular", "saloon_legend"), position }
+function SiteData:Barflies()
+    local data = Data()
+    local w = data and world
+    local list = {}
+    for i, b in ipairs(type(w) == "table" and type(w.barflies) == "table" and w.barflies or {}) do
+        local key = type(b) == "table" and SiteData.Key(b)
+        local glasses = key and Number(b.glasses)
+        if glasses then
+            local race = SiteData.Race(b.race)
+            list[#list + 1] = { key = key, class = SiteData.Class(b.class), race = race, sex = Number(b.sex),
+                faction = SiteData.Faction(b.faction) or ns.Utils.RaceFaction(race), glasses = glasses,
+                lastGlass = Number(b.last_glass_at), title = Text(b.title), position = Number(b.position) or i }
+        end
+    end
+    return list
+end
+
+-- The website's count of glasses raised to a catch, or nil
+function SiteData:Glasses(outlaw, caughtAt)
+    return glasses and outlaw and caughtAt and glasses[outlaw .. ":" .. caughtAt] or nil
 end
 
 -- A website page from the download's links ("tournaments", "create_tournament"), or nil

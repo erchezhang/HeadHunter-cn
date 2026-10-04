@@ -47,6 +47,50 @@ return function(T, H)
         return data
     end
 
+    T.case("the website's catches join the Busted list, with their glasses, once each", function()
+        local data = EraData()
+        data.worlds["era|eu|Firemaw"].busted = {
+            { name = "Duskblade", realm = "Firemaw", class = "rogue", race = "undead", faction = "horde", sex = 3,
+                caught_at = H.serverTime - 300, map_id = 1429, glasses = 8,
+                hunter = { name = "Brightshield", realm = "Firemaw", class = "paladin", race = "human", faction = "alliance" } },
+            { name = "Knowngank", realm = "Firemaw", caught_at = H.serverTime - 600, glasses = 2 },
+        }
+        local ns = H.Boot({ client = "era", siteData = data })
+        Settle()
+        -- Knowngank's catch we know ourselves already, 30 s apart
+        ns.Justice:Add({ id = "Knowngank-Firemaw:" .. (H.serverTime - 630), outlaw = "Knowngank-Firemaw",
+            t = H.serverTime - 630, hunter = "Brightshield-Firemaw", killer = "Brightshield-Firemaw" }, "peer", "Brightshield-Firemaw")
+        local rows = ns.MainWindow.Rows("busted")
+        T.eq(#rows, 2, "the website's catch joins ours, the known one once")
+        T.eq(rows[1].plain, "Duskblade", "newest first")
+        T.eq(rows[1].byPlain, "Brightshield", "who busted them")
+        T.ok(rows[1].by:find(ns.Utils.ClassIcon("PALADIN"), 1, true) ~= nil, "their class icon")
+        T.eq(rows[1].actions[1].count, 8, "the website's glasses")
+        T.eq(rows[1].actions[1].canRaise, true, "we may raise one too")
+        T.noErrors()
+    end)
+
+    T.case("the Barflies view: the website's ranking with places and titles", function()
+        local data = EraData()
+        data.worlds["era|eu|Firemaw"].barflies = {
+            { name = "Brightshield", realm = "Firemaw", class = "paladin", race = "human", glasses = 16,
+                last_glass_at = H.serverTime - 120, title = "saloon_legend", position = 1 },
+            { name = "Tankard", realm = "Firemaw", glasses = 2, last_glass_at = H.serverTime - 3600, title = "barfly", position = 2 },
+            { name = "Lawdog", realm = "Firemaw", glasses = 1, last_glass_at = H.serverTime - 60, title = "drunken_master", position = 3 },
+        }
+        local ns = H.Boot({ client = "era", siteData = data })
+        Settle()
+        local rows = ns.MainWindow.Rows("barflies")
+        T.eq(#rows, 3, "the website's Barflies")
+        T.eq(rows[3].title, "Drunken Master", "a Barfly who also busted a WANTED player")
+        T.eq(rows[1].plain, "Brightshield", "most glasses first")
+        T.eq(rows[1].title, "Saloon Legend", "the title")
+        T.eq(rows[1].glasses, "16", "glasses")
+        T.eq(rows[2].position, "2", "place")
+        T.eq(#ns.MainWindow.Rows("barflies", nil, nil, nil, "tank"), 1, "search by name")
+        T.noErrors()
+    end)
+
     T.case("no website data: nothing changes", function()
         local ns = H.Boot({ client = "era" })
         Settle()
@@ -231,6 +275,27 @@ return function(T, H)
             t = H.serverTime - 60, hunter = "Vati-Firemaw" }, "local")
         Settle()
         T.eq(#ns.Wanted:List(), 0, "expired and caught")
+        T.noErrors()
+    end)
+
+    T.case("our own sighting of a player beats what reports say: sex, race, class, a newer level", function()
+        local ns = H.Boot({ client = "forever" })
+        local entries = {
+            ["Brisk Arrow"] = { id = "Brisk Arrow", key = "Brisk Arrow", level = 20, sex = 2, race = "NightElf",
+                class = "HUNTER", lastKill = { t = 1000 } },
+            ["Old Sight"] = { id = "Old Sight", key = "Old Sight", level = 40, sex = 2, lastKill = { t = 5000 } },
+            ["Never Seen"] = { id = "Never Seen", key = "Never Seen", level = 25, sex = 2 },
+        }
+        local seen = {
+            ["Brisk Arrow"] = { level = 30, sex = 3, race = "NightElf", class = "HUNTER", lastSeen = 2000 },
+            ["Old Sight"] = { level = 35, sex = 3, lastSeen = 4000 },
+        }
+        ns.Wanted.FromSightings(entries, function(key) return seen[key] end)
+        T.eq(entries["Brisk Arrow"].sex, 3, "female, as we saw her")
+        T.eq(entries["Brisk Arrow"].level, 30, "seen after her last kill: our level")
+        T.eq(entries["Old Sight"].sex, 3, "the sex from our sighting")
+        T.eq(entries["Old Sight"].level, 40, "a kill after our sighting: the report's newer level")
+        T.eq(entries["Never Seen"].sex, 2, "no sighting: the report")
         T.noErrors()
     end)
 

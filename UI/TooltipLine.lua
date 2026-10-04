@@ -39,7 +39,6 @@ function TooltipLine.Lines(entry)
     end
     if (entry.killCount or 0) == 0 then return {} end
     local line = string.format(L.TOOLTIP_KNOWN, entry.killCount)
-    if (entry.timesCaught or 0) > 0 then line = line .. string.format(L.TOOLTIP_CAUGHT, entry.timesCaught) end
     return { { line .. suffix, 0.7, 0.7, 0.7 } }
 end
 

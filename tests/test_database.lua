@@ -118,6 +118,20 @@ return function(T, H)
         T.eq(ns.Database:SetSetting("nope.deeper.key", 1), false, "unknown path")
     end)
 
+    T.case("the debug log is kept across a reload", function()
+        local ns = H.Boot({ client = "forever" })
+        ns.Log:Add("info", "WANTED death seen before the reload")
+        H.Fire("PLAYER_LOGOUT")
+        local saved = _G.HeadHunter_DB
+        T.ok(#saved.log > 0, "saved with the data")
+
+        local after = H.Boot({ client = "forever", savedDB = saved })
+        local text = table.concat(after.Log:Lines(), "\n")
+        T.ok(text:find("WANTED death seen before the reload", 1, true) ~= nil, "still there")
+        T.ok(text:find("Reload", 1, true) ~= nil, "the reload is marked")
+        T.noErrors()
+    end)
+
     T.case("logout stamps savedAt", function()
         local ns = H.Boot({ client = "forever" })
         H.serverTime = H.serverTime + 60

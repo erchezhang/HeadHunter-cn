@@ -10,10 +10,14 @@ local lines = {}
 local head = 0
 local count = 0
 
-function Log:Add(level, msg)
+local function Push(line)
     head = head % MAX_LINES + 1
-    lines[head] = string.format("%s [%s] %s", date("%H:%M:%S"), level, tostring(msg))
+    lines[head] = line
     if count < MAX_LINES then count = count + 1 end
+end
+
+function Log:Add(level, msg)
+    Push(string.format("%s [%s] %s", date("%H:%M:%S"), level, tostring(msg)))
     if self.frame and self.frame:IsShown() then
         self:RequestRefresh()
     end
@@ -33,6 +37,32 @@ function Log:Clear()
     lines, head, count = {}, 0, 0
     if self.frame and self.frame:IsShown() then self:Refresh() end
 end
+
+-- The log lives on in HeadHunter_DB.log across /reload and logout, so what happened
+-- before a reload can still be read after it
+function Log:Save(db)
+    db.log = self:Lines()
+end
+
+-- The saved lines first, then the ones of this session
+function Log:Restore(saved)
+    if type(saved) ~= "table" then return end
+    local current = self:Lines()
+    lines, head, count = {}, 0, 0
+    for _, line in ipairs(saved) do
+        if type(line) == "string" then Push(line) end
+    end
+    self:Add("info", "Reload")
+    for _, line in ipairs(current) do Push(line) end
+end
+
+ns.Events:Register("HH_INITIALIZED", function()
+    Log:Restore(type(HeadHunter_DB) == "table" and HeadHunter_DB.log)
+end, "Log")
+
+ns.Events:Register("PLAYER_LOGOUT", function()
+    if type(HeadHunter_DB) == "table" then Log:Save(HeadHunter_DB) end
+end, "Log")
 
 -------------------------------------------------
 -- Viewer

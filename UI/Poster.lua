@@ -65,7 +65,6 @@ function Poster.Content(id, now)
         wanted = entry.wanted == true,
         badges = Wanted.BadgeNames(entry),
         history = string.format(L.POSTER_HISTORY, entry.killCount or 0, entry.exactKills or 0, entry.guessedKills or 0,
-            entry.timesWanted or 0, entry.timesCaught or 0,
             entry.peakRank and Wanted.RankName(entry.peakRank) or "-"),
         posse = ns.Posse:Summary(entry.id),
         bounty = ns.Bounties:Line(entry.id, now), -- HH-118

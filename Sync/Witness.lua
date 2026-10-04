@@ -10,13 +10,16 @@
 -- nothing. The hunter sends one for their own catch at once (HH_JUSTICE_ADDED, origin
 -- "local"), so every claim has a place; a group member whose catch was a copy of
 -- another's (Justice:Record) sends one too.
--- Sending: others wait 1..SEND_DELAY seconds and stay quiet when another witness of
--- the same death (not the hunter's own record) arrived first.
+-- Sending: others wait 1..SEND_DELAY seconds (Forever: from just after the honor
+-- window) and stay quiet when another witness of the same death (not the hunter's own
+-- record) arrived first, or when the death is our own catch.
 -- Receiving: only the witness speaks for themselves (by = sender), under a per-sender
 -- limit. Stored in ns.db.witness (id "<outlaw>:<t>:<by>") as long as the reports (30
 -- days), passed on at login catch-up ("X" records) and, relayed, counted only once a
 -- second source has them (Sync/Relay.lua).
--- Fires HH_WITNESS_ADDED(record).
+-- Fires HH_WITNESS_ADDED(record), and HH_HUNTED_DIED(outlaw id, GUID) when we saw a
+-- hunted player die (Sync/Justice.lua makes it our catch on Forever when the game
+-- gives us honor for it).
 
 local addonName, ns = ...
 
@@ -107,6 +110,26 @@ local function Told(outlaw, t)
     return false
 end
 
+-- This death is our own catch: its record already says where we were, and we cannot
+-- witness our own claim
+local function OurCatch(outlaw, t)
+    local me = ns.Utils.UnitKey("player")
+    for _, record in ns.Justice:All() do
+        if record.outlaw == outlaw and record.origin == "local" and ns.Utils.SameCharacter(record.hunter, me)
+                and math.abs(record.t - t) <= Witness.SAME_DEATH then
+            return true
+        end
+    end
+    return false
+end
+
+-- Seconds before telling a death we saw: on Forever our catch comes only with the
+-- honor award (Sync/Justice.lua), so wait for it first
+function Witness.SendDelay()
+    local min = ns.Features.HasCLEU and 1 or ns.Justice.HONOR_WINDOW + 1
+    return min + math.random() * math.max(Witness.SEND_DELAY - min, 0)
+end
+
 -- We saw `outlaw` die at `t`; killer: who landed the blow, nil when unknown; own: our
 -- own catch (sent at once, never skipped). Returns the record when it was sent now.
 function Witness:Saw(outlaw, t, killer, own)
@@ -118,14 +141,14 @@ function Witness:Saw(outlaw, t, killer, own)
     if not zone then return nil end
     local w = { outlaw = outlaw, mapID = zone, t = t, x = x, y = y, killer = killer, by = me }
     local function Go()
-        if not own and Told(outlaw, t) then return nil end
+        if not own and (Told(outlaw, t) or OurCatch(outlaw, t)) then return nil end
         if not self:Add(w, "local") then return nil end
         local P, Transport = ns.Protocol, ns.Transport
         Transport:Queue(P.TYPES.WITNESS, P.EncodeWitness(w), Transport.PRIORITY.posse, "X:" .. w.id)
         return w
     end
     if own then return Go() end
-    C_Timer.After(1 + math.random() * (self.SEND_DELAY - 1), Go)
+    C_Timer.After(self.SendDelay(), Go)
     return nil
 end
 
@@ -153,7 +176,10 @@ function Witness:Check(unit, discover)
     elseif dead == true then
         local seen = alive[guid]
         alive[guid] = nil
-        if seen and U.Now() - seen <= self.ALIVE_WINDOW then self:Saw(outlaw, U.ServerTime()) end
+        if seen and U.Now() - seen <= self.ALIVE_WINDOW then
+            self:Saw(outlaw, U.ServerTime())
+            ns.Events:Fire("HH_HUNTED_DIED", outlaw, guid)
+        end
     end
 end
 

@@ -130,6 +130,10 @@ Type `/hh` or click the minimap button:
   - **通缉**：当前所有被通缉的人，可按等级、击杀数或最近击杀排序，左上角可切换联盟/部落名单（默认先开敌方名单）。金币悬赏排在最前；通缉犯较少时，名单会用最多 25 名**在逃**犯补满——他们的通缉时间已过但从未落网。遇到在逃犯同样会收到提醒，抓到他们照样有赏金。
 - **Bullies**: every known bully, WANTED or not.
   - **欺凌者**：所有已知的欺凌者，无论是否被通缉。
+- **Busted**: every WANTED player caught in the last 30 days, who caught them and where. Click the mug to raise a glass.
+  - **落网（Busted）**：最近 30 天内被抓获的所有通缉玩家，含抓获者与地点。点击酒杯向猎人举杯致敬。
+- **Barflies**, next to Busted: who raised the most glasses from the bust popup (see *Busted, Raise a glass and Barflies*).
+  - **酒馆常客（Barflies）**，紧邻落网：从落网弹窗中举杯最多的人（见*落网、举杯致敬与酒馆常客*）。
 - **Deadbeats**: players who did not pay their bounties, how many hunters they did not pay, and how many days they cannot post bounties.
   - **老赖**：未支付悬赏的玩家，列出欠了多少名猎人、还有多少天不能发布悬赏。
 - **Duels**: the best duelists, with a switch between the Alliance and Horde lists.
@@ -139,9 +143,9 @@ Type `/hh` or click the minimap button:
 - **My bounty**: the bounty you collected and your hunter rank.
   - **我的赏金**：你积累的赏金与猎人等级。
 
-On **WANTED**, **Bullies**, **Deadbeats**, **Duels** and **My deaths**, a search box finds a player by name. Each tab keeps its own search.
+On **WANTED**, **Bullies**, **Deadbeats**, **Busted**, **Barflies**, **Duels** and **My deaths**, a search box finds a player by name. Each tab keeps its own search.
 
-在**耻辱柱**、**决斗**与**我的死亡**页签中，可用搜索框按名字查找玩家，每个页签单独保留自己的搜索词。
+在**通缉**、**欺凌者**、**老赖**、**落网**、**酒馆常客**、**决斗**与**我的死亡**页签中，可用搜索框按名字查找玩家，每个页签单独保留自己的搜索词。
 
 The window has the same look as the website. Too big or too small for your screen? Change **Window size** in the options (90% to 130%).
 
@@ -173,8 +177,23 @@ Mouse over an enemy player to see if they are WANTED, their rank, kills and badg
 
 ![My bounty: what earned or cost bounty, and your hunter rank](https://headhunterwow.com/images/screenshots/bounty.webp)
 
-### Gold bounties · 金币悬赏
+### Busted, Raise a glass and Barflies · 落网、举杯致敬与酒馆常客
 
+- **Busted**: every WANTED player that HeadHunters caught in the last 30 days. You see who caught them, with their race and class, and where. With the HeadHunter Sync app, the list also has the website's catches.
+  - **落网（Busted）**：HeadHunter 们最近 30 天抓获的所有通缉玩家。可看到是谁抓获的（含其种族职业）以及地点；配合 HeadHunter Sync 应用，列表还会包含官网的抓获记录。
+- **Raise a glass**: click the mug next to a catch to raise a glass to the hunter. You can raise one glass for each catch, but not for your own. Your glass goes to the other HeadHunters, and with the app to the website. You do not need a website account. When someone raises a glass to your own catch, you get a line in chat (turn it off in the options: **Glasses raised to me**).
+  - **举杯致敬**：点击抓获记录旁的酒杯，向猎人敬一杯。每次抓获只能敬一杯，不能敬自己的。你的敬意会同步给其他 HeadHunter，配合应用还会同步到官网，无需网站账号。有人向你的抓获敬酒时，你会收到一行聊天提示（可在选项中关闭：**为我举杯**）。
+- **The bust popup**: when another HeadHunter busts a WANTED player, a small WANTED poster with a red BUSTED stamp shows under your minimap. It shows both players with their level, race and class. Click **Raise a glass** or **Cancel**. It waits until your fight is over, and it never shows in battlegrounds, dungeons or raids. You get at most one every 5 minutes. In the options you can change the time (3 to 15 minutes) or turn it off (**Raise a glass popups**).
+  - **落网弹窗**：其他 HeadHunter 击倒通缉玩家时，你的小地图下方会弹出一张带红色 BUSTED 印章的小通缉令，显示双方的等级、种族与职业。点击**举杯致敬**或**取消**。弹窗会等你脱战后才显示，且绝不在战场、副本或团队中出现，最多每 5 分钟一次。可在选项中调整间隔（3–15 分钟）或关闭（**举杯弹窗**）。
+- **Barflies**: who raised the most glasses from that popup in the last 30 days. Only popup glasses count. The titles are **Barfly**, **Regular** (5 glasses), **Saloon Legend** (15 glasses) and **Drunken Master**: a Barfly who also busted a WANTED player in that time. See the Barflies on the website, or in the game next to Busted with the HeadHunter Sync app.
+  - **酒馆常客（Barflies）**：最近 30 天从该弹窗举杯最多的人，只统计弹窗举杯。头衔依次为**酒客**、**常客**（5 杯）、**酒馆传奇**（15 杯）与**醉拳大师**——在同期内还击倒过通缉玩家的酒客。可在官网查看，或配合 HeadHunter Sync 应用在游戏内落网列表旁查看。
+
+![Busted: WANTED players caught lately, who caught them and the glasses raised to them](https://headhunterwow.com/images/screenshots/busted.webp)
+![The bust popup under the minimap: a WANTED poster with a red BUSTED stamp](https://headhunterwow.com/images/screenshots/popup.webp)
+![Barflies: who raised the most glasses, with their title](https://headhunterwow.com/images/screenshots/barflies.webp)
+![The options for the Raise a glass popups](https://headhunterwow.com/images/screenshots/glass.webp)
+
+### Gold bounties · 金币悬赏
 Got ganked? Put gold on your killer's head.
 
 被人偷袭了？在凶手头上挂赏金。
@@ -234,7 +253,7 @@ Type `/hh online` to see how many HeadHunters are online right now, how many are
 
 ## Website and the HeadHunter Sync app · 网站与 HeadHunter Sync 应用
 
-**[headhunterwow.com](https://headhunterwow.com)** is the bounty board of every HeadHunter player: WANTED posters, the best duelists, the top hunters, the bullies and the Deadbeats, for each game and realm. Sign in with Battle.net, Discord, Google or email to see your own characters.
+**[headhunterwow.com](https://headhunterwow.com)** is the bounty board of every HeadHunter player: WANTED posters, the best duelists, the top hunters, the bullies, the Deadbeats, the busted outlaws and the Barflies, for each game and realm. Sign in with Battle.net, Discord, Google or email to see your own characters.
 
 ![The WANTED board on the website: every outlaw with their rank, kills, badges and reward](https://headhunterwow.com/images/screenshots/site-wanted.webp)
 
@@ -248,8 +267,8 @@ WoW 插件无法访问互联网，因此有一个免费的桌面小程序：**He
    - **下载** Windows 或 Mac 版 HeadHunter Sync（[GitHub](https://github.com/GudaAddons/headhunter-sync/releases/latest)），用你的网站账号登录。
 2. **Play as usual.** When the game saves (logout, `/reload` or quit), the app sends your deaths, catches, duels, bounty and gold bounties to the website. It runs quietly in the tray.
    - **照常游戏。** 游戏存档时（登出、`/reload` 或退出），应用会把你的死亡、击倒、决斗、赏金与金币悬赏发送到网站，平时安静地待在托盘里。
-3. **Get the website's lists back.** The app also writes the website's WANTED list, duel lists and your own records into the game, as a small extra addon called **HeadHunter Data**. You see them after your next login or `/reload`.
-   - **把网站的名单取回来。** 应用还会把网站的通缉名单、决斗榜与你的个人记录写进一个名为 **HeadHunter Data** 的小插件，下次登录或 `/reload` 后即可看到。
+3. **Get the website's lists back.** The app also writes the website's WANTED list, duel lists, catches, Barflies and your own records into the game, as a small extra addon called **HeadHunter Data**. You see them after your next login or `/reload`.
+   - **把网站的名单取回来。** 应用还会把网站的通缉名单、决斗榜、抓获记录、酒馆常客榜与你的个人记录写进一个名为 **HeadHunter Data** 的小插件，下次登录或 `/reload` 后即可看到。
 4. **WoW Forever:** when your lists reset (see *Good to know*), the app brings your own deaths, duels and bounty back.
    - **WoW Forever**：当你的名单被重置时（见*注意事项*），应用会把你的死亡、决斗与赏金记录带回来。
 5. **Every realm keeps its own data:** PvP, Normal, Roleplay and Hardcore (and every Classic Era realm) each have their own lists, deaths, duels and bounty. A character on a Normal realm sees only Normal realm data. HeadHunter data saved before this update went to the WoW Forever PvP realm.

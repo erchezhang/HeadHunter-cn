@@ -61,7 +61,7 @@ return function(T, H)
         T.eq(Names(rows), "Bully,Sneak", "cowards only")
         T.eq(rows[1].coward, "5", "coward kills")
         T.ok(rows[1].status:find("WANTED", 1, true) ~= nil, "WANTED now")
-        T.eq(rows[2].status, "WANTED 0x · caught 0x", "past status")
+        T.eq(rows[2].status, "|cffaaaaaaNot WANTED|r", "past status: no counts")
         T.ok(rows[2].desc:find("Orc", 1, true) ~= nil, "who")
     end)
 
@@ -159,14 +159,38 @@ return function(T, H)
         T.noErrors()
     end)
 
-    T.case("four sections with their own sub-tabs; a section opens on its last view", function()
+    T.case("Busted: the WANTED players caught, newest first, with the mark and who busted them", function()
+        local ns = H.Boot({ client = "era" })
+        Spree(ns, "Gank-Stonespine", 5)
+        Spree(ns, "Brute-Stonespine", 5)
+        Settle()
+        ns.Justice:Record(ns.Wanted:ByKey("Gank-Stonespine"), "test")
+        H.Advance(120)
+        H.serverTime = H.serverTime + 120
+        ns.Justice:Record(ns.Wanted:ByKey("Brute-Stonespine"), "test", "Hunter-Firemaw")
+        Settle()
+
+        local rows = ns.MainWindow.Rows("busted")
+        local plain = {}
+        for i, row in ipairs(rows) do plain[i] = row.plain end
+        T.eq(table.concat(plain, ","), "Brute-Stonespine,Gank-Stonespine", "newest first")
+        T.ok(rows[1].name:find(ns.MainWindow.MARK_ICON, 1, true) == 1, "the HeadHunter mark first")
+        T.eq(rows[1].byPlain, "Hunter", "who landed the blow")
+        T.ok(rows[2].by:find(ns.Utils.ClassIcon(ns.Utils.UnitClass("player")), 1, true) ~= nil,
+            "our own catch: our race and class icons")
+        T.ok(rows[1].tooltip[2]:find("Busted", 1, true) ~= nil, "tooltip: " .. rows[1].tooltip[2])
+        T.eq(#ns.MainWindow.Rows("busted", nil, nil, nil, "gan"), 1, "search by name")
+        T.noErrors()
+    end)
+
+    T.case("five sections with their own sub-tabs; a section opens on its last view", function()
         local ns = H.Boot({ client = "era" })
         local M = ns.MainWindow
         H.Slash("")
         local f = _G.HeadHunterMainFrame
         local ids = {}
         for i, tab in ipairs(f.tabs.buttons) do ids[i] = tab.id end
-        T.eq(table.concat(ids, ","), "board,duels,events,me", "the top tabs")
+        T.eq(table.concat(ids, ","), "board,busted,duels,events,me", "the top tabs")
         T.ok(f.subtabs.board:IsShown(), "WANTED and Bullies under the board")
         T.ok(not f.subtabs.events:IsShown(), "only the section's own sub-tabs")
         M:SelectSection("me")
@@ -196,8 +220,8 @@ return function(T, H)
         M:SelectTab("deaths")
         T.eq(select(1, M:Current()), "deaths", "tab")
         local tabs = _G.HeadHunterMainFrame.tabs.buttons
-        T.eq(#tabs, 4, "four sections")
-        T.ok(tabs[4].selected and not tabs[1].selected, "My deaths: the Me section drawn selected")
+        T.eq(#tabs, 5, "five sections")
+        T.ok(tabs[5].selected and not tabs[1].selected, "My deaths: the Me section drawn selected")
         T.eq(tabs[1].point[2], _G.HeadHunterMainFrame.header, "in the header, like the website's menu")
         T.eq(#M.shownRows, 0, "no deaths of ours")
         M:SelectTab("wanted")
@@ -238,7 +262,7 @@ return function(T, H)
         T.eq(Names(rows), "Fresh,Older,Oldest", "WANTED first, then at large newest first")
         T.ok(rows[2].rank:find("At large", 1, true) ~= nil, "marked at large")
         T.eq(rows[2].atLarge, true, "row flag")
-        T.ok(rows[2].tooltip[3]:find("never caught", 1, true) ~= nil, "tooltip: " .. rows[2].tooltip[3])
+        T.ok(rows[2].tooltip[3]:find("never busted", 1, true) ~= nil, "tooltip: " .. rows[2].tooltip[3])
 
         M.BOARD_MIN = 2
         T.eq(Names(M.Rows("wanted", "rank", nil, "Horde")), "Fresh,Older", "filled up to the minimum only")
@@ -347,7 +371,7 @@ return function(T, H)
         T.ok(tip:find("60 Orc Rogue", 1, true) ~= nil, "who")
         T.ok(tip:find("WANTED|r · ", 1, true) ~= nil and tip:find("5 kills", 1, true) ~= nil, "status")
         T.ok(tip:find("Last kill just now in Westfall", 1, true) ~= nil, "last kill")
-        T.ok(tip:find("Kills known: 5 · WANTED 1x · caught 0x", 1, true) ~= nil, "history")
+        T.ok(tip:find("Kills known: 5|r", 1, true) ~= nil, "history: " .. tip)
 
         H.Slash("sim death Gank-Stonespine 60 ROGUE Orc 3")
         local death = ns.MainWindow.Rows("deaths")[1]
@@ -371,5 +395,13 @@ return function(T, H)
         local ns = H.Boot({ client = "forever" })
         T.ok(not ns.MinimapButton:IsShown(), "none")
         T.noErrors()
+    end)
+
+    T.case("every list tab has a text for when it is empty", function()
+        local ns = H.Boot({ client = "forever" })
+        for _, tab in ipairs(ns.MainWindow.TABS) do
+            local key = "EMPTY_" .. tab:upper()
+            T.ok(rawget(ns.L, key) ~= nil, key)
+        end
     end)
 end

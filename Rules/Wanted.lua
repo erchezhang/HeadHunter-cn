@@ -232,8 +232,29 @@ function Wanted:ComputeNow(yield)
     Wanted.MergeSite(result, ns.Dev.TestEntries("wanted"), catches, now)
     Wanted.MergeBullies(result, ns.SiteData:Bullies())
     Wanted.MergeBullies(result, ns.Dev.TestEntries("shame"))
+    Wanted.FromSightings(result, function(key) return ns.EnemyCache:ByKey(key) end)
     Publish(result)
     return result
+end
+
+-- What we saw on the player themselves beats what death reports say (author,
+-- 2026-10-04: another player's report made a level 30 female hunter "level 20, male"):
+-- race, class and sex from our sighting, the level when we saw them after their last kill.
+-- sighting: key -> the enemy cache record, or nil
+function Wanted.FromSightings(entries, sighting)
+    for _, entry in pairs(entries) do
+        local seen = entry.key and sighting(entry.key)
+        if type(seen) == "table" then
+            entry.race = seen.race or entry.race
+            entry.class = seen.class or entry.class
+            entry.sex = seen.sex or entry.sex
+            local lastKill = entry.lastKill and entry.lastKill.t or 0
+            if seen.level and (not entry.level or (seen.lastSeen or 0) >= lastKill) then
+                entry.level, entry.levelMin = seen.level, nil
+            end
+        end
+    end
+    return entries
 end
 
 -- Spread one recompute over frames
@@ -376,8 +397,8 @@ ns.SlashCommands:Register("outlaw", function(args)
     end
     ns:Print(string.format(L.OUTLAW_LINE1, DisplayName(entry), entry.wanted and Wanted.RankName(entry.rank) or L.NOT_WANTED,
         entry.wanted and Wanted.TimeLeft(entry) or "-"))
-    ns:Print(string.format(L.OUTLAW_LINE2, entry.killCount, entry.exactKills, entry.guessedKills, entry.timesWanted,
-        entry.timesCaught or 0, entry.peakRank and Wanted.RankName(entry.peakRank) or "-", Wanted.BadgeNames(entry)))
+    ns:Print(string.format(L.OUTLAW_LINE2, entry.killCount, entry.exactKills, entry.guessedKills,
+        entry.peakRank and Wanted.RankName(entry.peakRank) or "-", Wanted.BadgeNames(entry)))
     if entry.lastKill then
         ns:Print(string.format(L.OUTLAW_LINE3, date("%m-%d %H:%M", entry.lastKill.t),
             ns.Utils.DisplayName(entry.lastKill.victim) or "?", ns.Utils.MapName(entry.lastKill.mapID) or "?"))

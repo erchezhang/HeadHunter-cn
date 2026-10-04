@@ -44,7 +44,7 @@ return function(T, H)
         T.ok(c.status:find("11 kills", 1, true) ~= nil, "status: " .. c.status)
         T.ok(c.badges:find("Bully", 1, true) ~= nil, "badges")
         T.eq(c.lastKill, "Last kill just now in Westfall", "last kill")
-        T.ok(c.history:find("Kills known: 11 (exact 11, guessed 0) · WANTED 1x · caught 0x", 1, true) ~= nil,
+        T.ok(c.history:find("Kills known: 11 (exact 11, guessed 0) · peak rank", 1, true) ~= nil,
             "history: " .. c.history)
         T.eq(#c.recent, 8, "eight most recent")
         T.ok(c.recent[1]:find("^just now · Victim%d+ · Westfall · ") ~= nil, "newest first: " .. c.recent[1])
@@ -87,7 +87,7 @@ return function(T, H)
         ns.Justice:Record(ns.Wanted:ByKey("Gank-Stonespine"), "test")
         Settle()
         T.eq(ns.Poster.shown.wanted, false, "no longer WANTED")
-        T.ok(ns.Poster.shown.history:find("caught 1x", 1, true) ~= nil, "caught")
+        T.ok(not ns.Poster.shown.history:find("busted", 1, true), "no busted count")
         T.noErrors()
     end)
 end

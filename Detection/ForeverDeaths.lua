@@ -117,13 +117,24 @@ function ForeverDeaths:ReportFromRecap(events)
     -- A mob or pet finishing us while an enemy player was hitting us still counts
     -- fully for that player (author, 2026-09-23): the newest hostile player hit
     killerId = killerId or order[1]
+    -- A hunter and their pet are two sources (GUID, and the owner's name) but one
+    -- attacker: each player once
+    local killer = EnemyOf(sources[killerId])
+    local named = { [ns.RulesEngine.EnemyId(killer) or killerId] = true }
     local assists = {}
     for _, id in ipairs(order) do
-        if id ~= killerId then assists[#assists + 1] = EnemyOf(sources[id]) end
+        if id ~= killerId then
+            local enemy = EnemyOf(sources[id])
+            local enemyId = ns.RulesEngine.EnemyId(enemy) or id
+            if not named[enemyId] then
+                named[enemyId] = true
+                assists[#assists + 1] = enemy
+            end
+        end
     end
     return {
         t = killerStamp and math.floor(killerStamp) or nil,
-        killer = EnemyOf(sources[killerId]),
+        killer = killer,
         assists = assists,
         confidence = confidence,
     }

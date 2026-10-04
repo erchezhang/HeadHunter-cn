@@ -55,6 +55,38 @@ return function(T, H)
         T.eq(P.DecodeJustice("x;y"), nil, "malformed")
     end)
 
+    T.case("protocol: the killer's race, class and sex ride in the killer field; old records still read", function()
+        local ns = H.Boot({ client = "forever" })
+        local P = ns.Protocol
+        local sent = P.EncodeJustice("Grim Reaper", 1790000000, 1436, "Tess Rider",
+            { class = "PALADIN", race = "Skyborne", faction = "Alliance", sex = 3 })
+        local _, _, _, killer, who = P.DecodeJustice(sent)
+        T.eq(killer, "Tess Rider", "the name")
+        T.eq(who.class, "PALADIN", "class")
+        T.eq(who.race, "Skyborne", "race")
+        T.eq(who.faction, "Alliance", "Skyborne's faction")
+        T.eq(who.sex, 3, "sex")
+
+        local _, _, _, oldKiller, none = P.DecodeJustice(P.EncodeJustice("Grim Reaper", 1790000000, 1436, "Tess Rider"))
+        T.eq(oldKiller, "Tess Rider", "an old record's killer")
+        T.eq(none, nil, "no identity")
+        -- An older client reads the whole field as a name: no player key, so the sender
+        T.eq(ns.Utils.PlayerKey(select(4, sent:match("^(.-);(.-);(.-);(.*)$"))), nil, "older clients fall back")
+    end)
+
+    T.case("a peer's catch keeps the killer's race and class for the Busted list", function()
+        local ns = H.Boot({ client = "forever" })
+        local P = ns.Protocol
+        H.Deliver(P.Pack("A", "K", { P.EncodeJustice("Grim Reaper", H.serverTime - 5, 1436, "Tess Rider",
+            { class = "PALADIN", race = "Human", sex = 3 }) }), "Tess Rider")
+        local record = ns.Justice:Get("Grim Reaper:" .. (H.serverTime - 5))
+        T.ok(record ~= nil, "stored")
+        T.eq(record.killerClass, "PALADIN", "class kept")
+        T.eq(record.killerRace, "Human", "race kept")
+        T.eq(ns.Justice.KillerWho(record).sex, 3, "sex kept")
+        T.noErrors()
+    end)
+
     T.case("era: our killing blow on a WANTED outlaw ends WANTED and says so", function()
         local ns = H.Boot({ client = "era" })
         Spree(ns, "Gank-Stonespine", 5)
@@ -214,23 +246,82 @@ return function(T, H)
         T.eq(Count(), 5, "rate limited per sender")
     end)
 
-    T.case("forever: our WANTED target dies while we fight it", function()
+    -- Forever: Grim Reaper (WANTED) on `unit`, seen alive, then dead
+    local function SeeDie(unit)
+        H.units[unit] = { name = "Grim", realm = "Reaper", fullName = "Grim Reaper", level = 60, class = "ROGUE",
+            race = "Orc", faction = "Horde", isPlayer = true, guid = "Player-4613-00ABCDEF", dead = false }
+        H.Fire(unit == "target" and "PLAYER_TARGET_CHANGED" or "NAME_PLATE_UNIT_ADDED", unit)
+        H.units[unit].dead = true
+        H.Fire("UNIT_HEALTH", unit)
+    end
+
+    local function ForeverWanted()
         local ns = H.Boot({ client = "forever" })
         Spree(ns, "Grim Reaper", 5, 1436, true)
         Settle()
         T.eq(#ns.Wanted:List(), 1, "WANTED")
-        H.units.target = { name = "Grim", realm = "Reaper", fullName = "Grim Reaper", level = 60, class = "ROGUE",
-            race = "Orc", faction = "Horde", isPlayer = true, guid = "Player-4613-00ABCDEF", dead = true }
+        return ns
+    end
 
-        H.Fire("UNIT_HEALTH", "target") -- not in combat: someone else's fight
-        Settle()
-        T.eq(#ns.Wanted:List(), 1, "not our fight")
+    local function Logged(pattern)
+        for _, line in ipairs(H.ns.Log:Lines()) do
+            if line:find(pattern) then return true end
+        end
+        return false
+    end
 
-        H.inCombat = true
-        H.Fire("UNIT_HEALTH", "target")
+    -- Forever's honor line for us names nobody (seen in game 2026-10-04)
+    local function Honor()
+        H.Fire("CHAT_MSG_COMBAT_HONOR_GAIN", "You have been awarded 5 Honor.")
+    end
+
+    T.case("forever: a WANTED player dies in front of us and the game gives us honor for it", function()
+        local ns = ForeverWanted()
+        SeeDie("target")
+        T.eq(#ns.Wanted:List(), 1, "no honor yet: no catch yet")
+        H.Advance(1)
+        Honor()
         Settle()
         T.eq(#ns.Wanted:List(), 0, "caught")
+        T.ok(Logged("Honor award: You have been awarded 5 Honor%."), "the award is understood")
+        T.ok(Logged("WANTED death seen: Grim Reaper %-> catch"), "the log says why")
         T.eq(#H.forbidden, 0, "never touched the combat log")
+        T.noErrors()
+    end)
+
+    T.case("forever: a group kill on a nameplate, the honor just before the death shows", function()
+        local ns = ForeverWanted()
+        Honor()
+        H.Advance(1)
+        SeeDie("nameplate1")
+        Settle()
+        T.eq(#ns.Wanted:List(), 0, "caught")
+        T.noErrors()
+    end)
+
+    T.case("forever: a WANTED death without honor for us is no catch (watched, or Feign Death)", function()
+        local ns = ForeverWanted()
+        H.inCombat = true -- fighting someone else is not enough
+        SeeDie("nameplate1")
+        H.Advance(ns.Justice.HONOR_WINDOW)
+        Settle()
+        T.eq(#ns.Wanted:List(), 1, "still WANTED")
+        T.ok(Logged("Grim Reaper %-> no catch, no honor for us"), "the log says why")
+
+        Honor() -- too late: another kill's honor
+        Settle()
+        T.eq(#ns.Wanted:List(), 1, "still WANTED")
+        T.noErrors()
+    end)
+
+    T.case("forever: honor from an older kill does not make a later death ours", function()
+        local ns = ForeverWanted()
+        Honor()
+        H.Advance(ns.Justice.HONOR_BEFORE + 1)
+        SeeDie("target")
+        H.Advance(ns.Justice.HONOR_WINDOW)
+        Settle()
+        T.eq(#ns.Wanted:List(), 1, "still WANTED")
         T.noErrors()
     end)
 
@@ -274,13 +365,14 @@ return function(T, H)
         T.ok(H.Printed("is not WANTED right now"), "not WANTED")
     end)
 
-    T.case("/hh outlaw shows how often an outlaw was caught", function()
+    T.case("/hh outlaw after a catch: not WANTED, no counts (the website has the record)", function()
         local ns = H.Boot({ client = "era" })
         Spree(ns, "Gank-Stonespine", 5)
         Settle()
         PartyKill("Gank-Stonespine")
         Settle()
         H.Slash("outlaw Gank-Stonespine")
-        T.ok(H.Printed("caught: 1"), "caught count")
+        T.ok(H.Printed("Kills known: 5"), "kills known")
+        T.ok(not H.Printed("busted: "), "no busted count")
     end)
 end

@@ -138,6 +138,29 @@ return function(T, H)
         T.noErrors()
     end)
 
+    T.case("a death we saw and caught ourselves: only the catch's record, no second one", function()
+        local ns = Boot()
+        local outlaw = ns.Wanted:ByKey("Grim Reaper").id
+        H.sent = {}
+        Plate(false)
+        H.Fire("NAME_PLATE_UNIT_ADDED", "nameplate1")
+        Plate(true)
+        H.Fire("UNIT_HEALTH", "nameplate1")
+        H.Advance(1)
+        H.Fire("CHAT_MSG_COMBAT_HONOR_GAIN", "You have been awarded 5 Honor.")
+        Wait(12)
+        local list = ns.Witness:Of(outlaw)
+        T.eq(#list, 1, "one record")
+        T.eq(ns.Witness.OwnCatch(list[1]), true, "the catch's own")
+        T.eq(Sent(outlaw), 1, "told once")
+        T.noErrors()
+    end)
+
+    T.case("forever: a sighting waits until our honor could have come", function()
+        local ns = Boot()
+        for _ = 1, 20 do T.ok(ns.Witness.SendDelay() > ns.Justice.HONOR_WINDOW, "after the honor window") end
+    end)
+
     T.case("a group member's catch came first: ours is a witness record", function()
         local ns = Boot()
         local entry = ns.Wanted:ByKey("Grim Reaper")

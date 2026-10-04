@@ -186,8 +186,9 @@ function Nameplates:Check(unit)
     if not ok then print("  update error " .. tostring(err)) end
 end
 
--- /hh dev wanted | shame | check | clear (not in the help, only with HeadHunter_Dev): the
--- target in the WANTED list or the Hall of Shame as a test, see Core/Dev.lua
+-- /hh dev wanted | shame | glass | check | clear (not in the help, only with HeadHunter_Dev):
+-- the target in the WANTED list or the Hall of Shame as a test, see Core/Dev.lua; glass:
+-- the Raise a glass popup of a made-up bust (Alerts/Justice.lua TestGlass)
 ns.SlashCommands:Register("dev", function(args)
     if not ns.Dev.Enabled() then return end
     local kind = args[1] and args[1]:lower()
@@ -196,6 +197,14 @@ ns.SlashCommands:Register("dev", function(args)
         print("HeadHunter dev: test entries cleared")
     elseif kind == "check" then
         Nameplates:Check("target")
+        return
+    elseif kind == "glass" then
+        -- The Raise a glass popup at once, for the target or a made-up outlaw; the glass
+        -- is never saved or sent
+        local outlaw = ns.Utils.UnitIsPlayer("target") and ns.Utils.UnitKey("target") or "Grim Reaver"
+        if not ns.JusticeAlerts:TestGlass(outlaw) then
+            print("HeadHunter dev: no glass popup (in combat it waits; turned off, or in an instance)")
+        end
         return
     elseif kind == "wanted" or kind == "shame" then
         local on, key = ns.Dev.ToggleTest(kind, "target")
@@ -206,7 +215,7 @@ ns.SlashCommands:Register("dev", function(args)
         print(string.format("HeadHunter dev: %s %s the %s list (test, this client only)", key,
             on and "added to" or "removed from", kind == "wanted" and "WANTED" or "Hall of Shame"))
     else
-        print("HeadHunter dev: /hh dev wanted | shame | check | clear")
+        print("HeadHunter dev: /hh dev wanted | shame | glass | check | clear")
         return
     end
     ns.Wanted:RequestRecompute()

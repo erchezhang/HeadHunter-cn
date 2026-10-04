@@ -1,13 +1,14 @@
 -- HH-060: the main window. /hh (no arguments) or the minimap button toggles it.
 --
 -- Sections (author, 2026-10-01): the top tabs, each with its own sub-tabs in the
--- toolbar: Bounty board (WANTED · Bullies · Deadbeats), Duels, Events (Ongoing · Upcoming · Finished),
--- Me (My deaths · My marks). The views:
+-- toolbar: Bounty board (WANTED · Bullies · Deadbeats), Busted, Duels, Events (Ongoing ·
+-- Upcoming · Finished), Me (My deaths · My marks). The views:
 --   WANTED         players' bounties first (HH-118, merged per target, newest first),
 --                  then who is WANTED now; sort by rank, kills or last kill
 --   Bullies        every enemy with the Coward badge (killed lowbies), WANTED or not
 --   Deadbeats      players who did not pay their bounties (HH-118, blocked 30 days)
 --   (the Hall of Shame of older versions, split as on the website: author, 2026-10-02)
+--   Busted         the WANTED players caught, newest first, and who busted them
 --   High Noon      the best duelists (HH-093); All ranks both factions in one list
 -- The Bounty board and Duels have the faction switch top right (author, 2026-10-01):
 -- All, Alliance or Horde, All first; the board's views share one choice, Duels has its own
@@ -45,11 +46,12 @@ MainWindow.REFRESH = 30      -- seconds, while shown ("5 min ago" texts)
 -- The top tabs and their views (the sub-tabs); a view is what the list shows
 MainWindow.SECTIONS = {
     { id = "board", views = { "wanted", "bullies", "deadbeats" } },
+    { id = "busted", views = { "busted", "barflies" } },
     { id = "duels", views = { "duels" } },
     { id = "events", views = { "ongoing", "upcoming", "finished" } },
     { id = "me", views = { "deaths", "marks" } },
 }
-MainWindow.TABS = { "wanted", "bullies", "deadbeats", "duels", "ongoing", "upcoming", "finished", "deaths", "marks" }
+MainWindow.TABS = { "wanted", "bullies", "deadbeats", "busted", "barflies", "duels", "ongoing", "upcoming", "finished", "deaths", "marks" }
 -- Tabs of older versions
 MainWindow.OLD_TABS = { tours = "ongoing", shame = "bullies" }
 -- The faction crests in the Alliance / Horde switch: the game's PvP flag icons,
@@ -63,7 +65,8 @@ MainWindow.FACTION_ICON_COORDS = { 0.03, 0.62, 0.02, 0.62 }
 MainWindow.ALL = "All"
 MainWindow.BOARD_TABS = { wanted = true, bullies = true, deadbeats = true }
 -- Tabs with a search box, each with its own search (the long lists)
-MainWindow.SEARCH_TABS = { wanted = true, bullies = true, deadbeats = true, duels = true, deaths = true }
+MainWindow.SEARCH_TABS = { wanted = true, bullies = true, deadbeats = true, busted = true, barflies = true, duels = true,
+    deaths = true }
 -- What a sub-tab lists, on hover (author, 2026-10-02)
 MainWindow.TAB_TIPS = { wanted = "TIP_TAB_WANTED", bullies = "TIP_TAB_BULLIES", deadbeats = "TIP_TAB_DEADBEATS" }
 -- The box fits between three sub-tabs and the faction switch on one row
@@ -90,6 +93,19 @@ MainWindow.COLUMNS = {
         { key = "name", header = "COL_NAME", width = 300, font = "name" },
         { key = "unpaid", header = "COL_UNPAID", width = 190 },
         { key = "blocked", header = "COL_BLOCKED", width = 300 },
+    },
+    busted = {
+        { key = "time", header = "COL_WHEN", width = 125 },
+        { key = "name", header = "COL_NAME", width = 245, font = "name" },
+        { key = "by", header = "COL_BUSTED_BY", width = 215, font = "name" },
+        { key = "zone", header = "COL_ZONE", width = 105 }, -- then the Raise a glass button
+    },
+    barflies = {
+        { key = "position", header = "COL_POSITION", width = 40 },
+        { key = "name", header = "COL_NAME", width = 260, font = "name" },
+        { key = "title", header = "COL_RANK", width = 170 },
+        { key = "glasses", header = "COL_GLASSES", width = 120 },
+        { key = "lastGlass", header = "COL_LAST_GLASS", width = 200 },
     },
     duels = {
         { key = "position", header = "COL_POSITION", width = 40 },
@@ -198,7 +214,7 @@ function MainWindow.EntryTooltip(entry, now)
         lines[#lines + 1] = string.format(L.TIP_LAST_KILL, ns.Utils.Ago(math.max(0, now - entry.lastKill.t)),
             ns.Utils.MapName(entry.lastKill.mapID) or L.UNKNOWN_ZONE)
     end
-    lines[#lines + 1] = string.format(L.TIP_HISTORY, entry.killCount or 0, entry.timesWanted or 0, entry.timesCaught or 0)
+    lines[#lines + 1] = string.format(L.TIP_HISTORY, entry.killCount or 0)
     local posse = ns.Posse:Summary(entry.id)
     if posse then lines[#lines + 1] = posse end
     lines[#lines + 1] = L.WINDOW_ROW_HINT
@@ -325,7 +341,9 @@ local function BullyRows(now, faction)
         if entry.wanted then
             status = string.format(L.SHAME_WANTED, ns.Wanted.RankName(entry.rank))
         else
-            status = string.format(L.SHAME_PAST, entry.timesWanted or 0, entry.timesCaught or 0)
+            -- No WANTED or busted counts in the addon (author, 2026-10-04): it only knows
+            -- what it saw, the website has the whole record
+            status = L.TIP_NOT_WANTED
         end
         rows[#rows + 1] = {
             id = entry.id,
@@ -446,6 +464,93 @@ local function DeathRows(now)
                 tooltip = tooltip,
             }
         end
+    end
+    return rows
+end
+
+-- Busted (author, 2026-10-04): every catch we know of (Sync/Justice.lua) and the website's of our world,
+-- newest first; a relayed one once a second source has it. The HeadHunter mark before the name says
+-- they were WANTED when busted, though they may not be now.
+MainWindow.MARK_ICON = "|TInterface\\AddOns\\HeadHunter\\Assets\\Textures\\mark:14:14|t "
+-- Raise a glass: the game's ale mug
+MainWindow.GLASS_TEXTURE = "Interface\\Icons\\INV_Drink_05"
+
+local function BustedRows(now)
+    local U = ns.Utils
+    local list = {}
+    for _, record in ns.Justice:All() do
+        if type(record) == "table" and record.outlaw and ns.Relay.Counts(record) then list[#list + 1] = record end
+    end
+    -- The website's catches of our world too (author, 2026-10-04), the ones we do not
+    -- know already (same outlaw within a minute)
+    local known = #list
+    for _, catch in ipairs(ns.SiteData:BustedList()) do
+        local seen = false
+        for i = 1, known do
+            if list[i].outlaw == catch.outlaw and math.abs((list[i].t or 0) - catch.t) <= ns.Justice.DEDUPE then
+                seen = true
+                break
+            end
+        end
+        if not seen then list[#list + 1] = catch end
+    end
+    table.sort(list, function(a, b) return (a.t or 0) > (b.t or 0) end)
+    local rows = {}
+    for _, record in ipairs(list) do
+        local entry = ns.Wanted:Get(record.outlaw)
+        local who = entry or ns.EnemyCache:ByKey(record.outlaw) or record.outlawWho or {}
+        local plain = (entry and OutlawName(entry))
+            or (not record.outlaw:find("^guid:") and U.DisplayName(record.outlaw)) or "?"
+        local by = record.killer or record.hunter
+        local byName = by and U.DisplayName(by) or "?"
+        -- Their race and class: sent with the catch, else what we see of them now
+        local byWho = ns.Justice.KillerWho(record) or ns.Justice.Identity(by) or (by and ns.EnemyCache:ByKey(by))
+        local zone = U.MapName(record.mapID) or L.UNKNOWN_ZONE
+        local when = date("%m-%d %H:%M", record.t)
+        local tooltip = entry and MainWindow.EntryTooltip(entry, now) or { Named(plain, who), L.WINDOW_ROW_HINT }
+        table.insert(tooltip, 2, string.format(L.TIP_BUSTED, when, zone, byName))
+        -- Raise a glass (Sync/Glasses.lua): the count, and the button while we may raise one
+        local glasses = ns.Glasses:Count(record)
+        local canRaise = ns.Glasses:CanRaise(record)
+        local _, raised = ns.Glasses:Of(record)
+        local own = ns.Glasses.Own(record, U.UnitKey("player"))
+        table.insert(tooltip, 3, string.format(canRaise and L.TIP_GLASSES_RAISE or L.TIP_GLASSES, glasses))
+        rows[#rows + 1] = {
+            id = entry and entry.id or nil,
+            time = when,
+            plain = plain,
+            name = MainWindow.MARK_ICON .. Named(plain, who),
+            by = byWho and MainWindow.Labeled(byName, byWho, byWho.faction or ns.Utils.RaceFaction(byWho.race)) or byName,
+            byPlain = byName,
+            zone = zone,
+            glasses = glasses,
+            tooltip = tooltip,
+            actions = { { kind = "glass", catch = record, count = glasses, canRaise = canRaise, raised = raised, own = own } },
+        }
+    end
+    return rows
+end
+
+-- Barflies (author, 2026-10-04): the players who raised the most glasses from the popup
+-- at the moment of a bust, in the last 30 days, from the website's ranking (the download)
+MainWindow.BARFLY_TITLES = { barfly = "BARFLY_BARFLY", regular = "BARFLY_REGULAR", saloon_legend = "BARFLY_LEGEND",
+    drunken_master = "BARFLY_DRUNKEN" }
+
+local function BarflyRows(now)
+    local U = ns.Utils
+    local rows = {}
+    for i, b in ipairs(ns.SiteData:Barflies()) do
+        local plain = U.DisplayName(b.key) or b.key
+        local title = MainWindow.BARFLY_TITLES[b.title]
+        rows[#rows + 1] = {
+            position = tostring(b.position or i),
+            plain = plain,
+            name = Named(plain, b),
+            title = title and L[title] or "",
+            glasses = tostring(b.glasses),
+            lastGlass = b.lastGlass and U.Ago(math.max(0, now - b.lastGlass)) or "-",
+            tooltip = { Named(plain, b), string.format(L.TIP_GLASSES, b.glasses) },
+        }
     end
     return rows
 end
@@ -634,6 +739,10 @@ function MainWindow.Rows(tab, sortKey, now, faction, search)
         rows = DeadbeatRows(now, faction)
     elseif tab == "deaths" then
         rows = DeathRows(now)
+    elseif tab == "busted" then
+        rows = BustedRows(now)
+    elseif tab == "barflies" then
+        rows = BarflyRows(now)
     else
         rows = WantedRows(sortKey, now, faction)
     end
@@ -1019,15 +1128,60 @@ function MainWindow:Refresh()
 end
 
 -- Up to two buttons at the right end of a row (the event view's Call, Ready, Confirm ...)
+-- Raise a glass on a Busted row (author, 2026-10-04): the mug and the count, no button
+-- frame; it lights up a little on hover and says what it does in a tooltip
+local function GlassButton(row)
+    local b = CreateFrame("Button", nil, row)
+    b:SetSize(64, 22)
+    b:SetPoint("RIGHT", row, "RIGHT", -6, 0)
+    b.icon = b:CreateTexture(nil, "ARTWORK")
+    b.icon:SetSize(18, 18)
+    b.icon:SetPoint("LEFT", 6, 0)
+    b.icon:SetTexture(MainWindow.GLASS_TEXTURE)
+    b.count = b:CreateFontString(nil, "OVERLAY")
+    ns.Theme.Font(b.count, "text", MainWindow.TEXT_SIZE)
+    b.count:SetPoint("LEFT", b.icon, "RIGHT", 6, 0)
+    local glow = b:CreateTexture(nil, "HIGHLIGHT")
+    glow:SetAllPoints()
+    glow:SetColorTexture(1, 0.82, 0, 0.15)
+    b:SetScript("OnEnter", function(self)
+        if not GameTooltip or not self.action then return end
+        GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+        -- What a click does, or why it does nothing; then the count
+        local a = self.action
+        GameTooltip:SetText((a.canRaise and L.GLASS_RAISE) or (a.own and L.GLASS_OWN) or L.GLASS_RAISED)
+        GameTooltip:AddLine(string.format(L.TIP_GLASSES, a.count))
+        GameTooltip:Show()
+    end)
+    b:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+    b:SetScript("OnClick", function(self) MainWindow:OnRowAction(row.data, self.action) end)
+    return b
+end
+
 function MainWindow:LayoutRowButtons(row, actions)
     row.actionButtons = rawget(row, "actionButtons") or {}
+    local glass = actions and actions[1] and actions[1].kind == "glass" and actions[1]
+    if glass then
+        row.glassButton = rawget(row, "glassButton") or GlassButton(row)
+        local b = row.glassButton
+        b.action = glass
+        b.count:SetText(tostring(glass.count))
+        -- Raised by us: the mug in colour and a gold count; not yet: grey
+        b.icon:SetDesaturated(not glass.raised)
+        local color = glass.raised and ns.Theme.COLORS.gold or ns.Theme.COLORS.muted
+        if color then b.count:SetTextColor(color[1], color[2], color[3]) end
+        b:Show()
+        actions = nil
+    elseif rawget(row, "glassButton") then
+        row.glassButton:Hide()
+    end
     for i = 1, 2 do
         local action = actions and actions[i]
         local button = row.actionButtons[i]
         if action and not button then
             button = ns.Theme.Button(row, "", i == 1 and "gold" or "outline", 96, 20)
             button:SetPoint("RIGHT", row, "RIGHT", -4 - (i - 1) * 100, 0)
-            button:SetScript("OnClick", function(self) MainWindow:OnMatchAction(row.data, self.action) end)
+            button:SetScript("OnClick", function(self) MainWindow:OnRowAction(row.data, self.action) end)
             row.actionButtons[i] = button
         end
         if button then
@@ -1040,6 +1194,15 @@ function MainWindow:LayoutRowButtons(row, actions)
             end
         end
     end
+end
+
+-- A row button: Raise a glass (Busted), or the event view's match buttons
+function MainWindow:OnRowAction(data, action)
+    if action and action.kind == "glass" then
+        if ns.Glasses:Raise(action.catch) then self:Refresh() end
+        return
+    end
+    self:OnMatchAction(data, action)
 end
 
 -- A row button of the event view
@@ -1367,7 +1530,7 @@ end
 ns.Events:Register("HH_INITIALIZED", function()
     local request = function() MainWindow:RequestRefresh() end
     for _, event in ipairs({ "HH_WANTED_UPDATED", "HH_DEATH_RECORDED", "HH_REPORT_UPDATED", "HH_MARKS_CHANGED",
-            "HH_HIGHNOON_UPDATED", "HH_BOUNTY_UPDATED", "HH_MATCHES_CHANGED" }) do
+            "HH_HIGHNOON_UPDATED", "HH_BOUNTY_UPDATED", "HH_MATCHES_CHANGED", "HH_GLASS_ADDED" }) do
         ns.Events:Register(event, request, OWNER)
     end
 end, OWNER)
