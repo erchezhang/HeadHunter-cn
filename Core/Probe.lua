@@ -2,6 +2,7 @@
 --
 --   /hh probe        one-shot report of API/event availability (+ current target)
 --   /hh probe watch  toggle live logging of combat and death signals
+--   /hh probe screenshot  take one screenshot and log whether it worked (HH-132)
 --
 -- Everything goes to the debug log (/hh log), which is copyable, so results can be
 -- pasted into docs/addon/README.md.
@@ -335,7 +336,77 @@ function Probe:SetWatch(on)
     end
 end
 
+-------------------------------------------------
+-- Screenshot (HH-132 spike)
+-------------------------------------------------
+
+local SHOT_OWNER = OWNER .. "Screenshot"
+local SHOT_EVENTS = { "SCREENSHOT_SUCCEEDED", "SCREENSHOT_FAILED" }
+
+local SHOT_QUALITY = "screenshotQuality"
+local SHOT_QUALITY_MIN, SHOT_QUALITY_MAX = 1, 10
+
+local function GetSetting(name)
+    local get = (C_CVar and C_CVar.GetCVar) or GetCVar
+    return get and get(name)
+end
+
+local function SetSetting(name, value)
+    local set = (C_CVar and C_CVar.SetCVar) or SetCVar
+    return set ~= nil and pcall(set, name, value)
+end
+
+local function CVar(name)
+    return Show(GetSetting(name))
+end
+
+-- Can an addon take a screenshot on this client, in which format, and when? The local
+-- time is what the game puts in the file name, so the sync app can match it to a death.
+-- With a quality (1-10) the picture is taken at that jpeg quality and the player's own
+-- setting comes back once the game has written the file
+function Probe:Screenshot(quality)
+    Write("==== screenshot probe ====")
+    Write("Screenshot:", Exists(Screenshot), "screenshotFormat:", CVar("screenshotFormat"),
+        "screenshotQuality:", CVar(SHOT_QUALITY))
+    local own
+    if quality then
+        own = GetSetting(SHOT_QUALITY)
+        Write("quality for this one:", quality, "set:", SetSetting(SHOT_QUALITY, tostring(quality)) and "ok" or "failed")
+    end
+    local function Restore()
+        if own == nil then return end
+        SetSetting(SHOT_QUALITY, own)
+        Write("quality back to:", CVar(SHOT_QUALITY))
+        own = nil
+    end
+    for _, event in ipairs(SHOT_EVENTS) do
+        local ok = ns.Events:Register(event, function(name)
+            Write(name, "at", date("%Y-%m-%d %H:%M:%S"))
+            for _, other in ipairs(SHOT_EVENTS) do ns.Events:Unregister(other, SHOT_OWNER) end
+            Restore()
+        end, SHOT_OWNER)
+        Write("event", event .. ":", ok and "registered" or "NOT available")
+    end
+    if not Screenshot then
+        Restore()
+        return
+    end
+    local ok, err = pcall(Screenshot)
+    Write("Screenshot() called:", ok and "ok" or Show(err), "local time:", date("%Y-%m-%d %H:%M:%S"),
+        "server time:", Show(ns.Utils.ServerTime()))
+    if not ok then Restore() end
+end
+
 ns.SlashCommands:Register("probe", function(args)
+    if args[1] and args[1]:lower() == "screenshot" then
+        local quality = tonumber(args[2])
+        if quality then
+            quality = math.max(SHOT_QUALITY_MIN, math.min(SHOT_QUALITY_MAX, math.floor(quality)))
+        end
+        Probe:Screenshot(quality)
+        ns:Print(L.PROBE_DONE)
+        return
+    end
     if args[1] and args[1]:lower() == "watch" then
         Probe:SetWatch(not Probe.watching)
         ns:Print(Probe.watching and L.PROBE_WATCH_ON or L.PROBE_WATCH_OFF)

@@ -192,6 +192,7 @@ end
 -- (Tournament/Tournaments.lua lists them, Tournament/Organizers.lua marks their hosts)
 -- { id, name, venue, teamSize, bestOf, finalBestOf, thirdPlace, bracketSeed, faction,
 --   minLevel, maxLevel, places, entrants (count), drawn (entrant ids), people, results,
+--   joined (keys of every signed-up character),
 --   url, startsAt, days, locksAt, signupsClosed, finished, ended, host = key,
 --   hostInfo = { class, race, sex, faction }, organizers = { key ... } }
 function SiteData.Tournament(t)
@@ -235,6 +236,17 @@ function SiteData.Tournament(t)
                 forfeit = (r.forfeit == "a" or r.forfeit == "b") and r.forfeit or nil }
         end
     end
+    -- Every signed-up character, with or without a place: the event view says Event link
+    -- instead of Join event for them
+    local joined = {}
+    for _, e in ipairs(type(t.players) == "table" and t.players or {}) do
+        joined[#joined + 1] = type(e) == "table" and SiteData.Key(e) or nil
+    end
+    for _, team in ipairs(type(t.teams) == "table" and t.teams or {}) do
+        for _, member in ipairs(type(team) == "table" and type(team.members) == "table" and team.members or {}) do
+            joined[#joined + 1] = type(member) == "table" and SiteData.Key(member) or nil
+        end
+    end
     -- Players, or teams in team formats
     local entrants = type(t.teams) == "table" and #t.teams > 0 and #t.teams
         or type(t.players) == "table" and #t.players or 0
@@ -246,7 +258,7 @@ function SiteData.Tournament(t)
         faction = Text(t.faction) and FACTIONS[t.faction] or nil,
         minLevel = Number(t.min_level), maxLevel = Number(t.max_level),
         places = places, entrants = entrants, drawn = drawn, people = people, results = results,
-        url = Text(t.url),
+        joined = joined, url = Text(t.url),
         startsAt = startsAt, days = days, locksAt = Number(t.locks_at) or startsAt - 3600,
         signupsClosed = t.signups_closed == true,
         finished = t.finished == true, ended = t.ended == true,
@@ -365,8 +377,27 @@ function SiteData:Link(name)
 end
 
 -- The website's open tournaments of our world, soonest first
+local testTournaments = {} -- /hh sim event (HeadHunter_Dev only): in memory, never saved or sent
+
 function SiteData:Tournaments()
-    return tournaments or {}
+    if #testTournaments == 0 then return tournaments or {} end
+    local list = {}
+    for _, t in ipairs(tournaments or {}) do list[#list + 1] = t end
+    for _, t in ipairs(testTournaments) do list[#list + 1] = t end
+    return list
+end
+
+-- A made-up event in the website's format, for testing the Events tab in game
+function SiteData:AddTestTournament(raw)
+    local t = SiteData.Tournament(raw)
+    if t then testTournaments[#testTournaments + 1] = t end
+    return t
+end
+
+function SiteData:ClearTestTournaments()
+    local count = #testTournaments
+    testTournaments = {}
+    return count
 end
 
 -- The website's Hall of Shame bullies: id -> entry

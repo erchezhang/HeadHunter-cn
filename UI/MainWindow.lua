@@ -42,18 +42,22 @@ MainWindow.NAME_SIZE = 15
 MainWindow.MAX_ROWS = 300
 MainWindow.BOARD_MIN = 25    -- the WANTED tab fills up to this many rows with outlaws at large
 MainWindow.REFRESH = 30      -- seconds, while shown ("5 min ago" texts)
+MainWindow.TAB_COUNT = "%s (%d)" -- a header tab with a count: "Events (2)"
+MainWindow.EVENT_LINK_WIDTH = 110 -- Join event / Event link; wider for longer languages
+MainWindow.BUTTON_PADDING = 12
 
 -- The top tabs and their views (the sub-tabs); a view is what the list shows
 MainWindow.SECTIONS = {
     { id = "board", views = { "wanted", "bullies", "deadbeats" } },
     { id = "busted", views = { "busted", "barflies" } },
     { id = "duels", views = { "duels" } },
-    { id = "events", views = { "ongoing", "upcoming", "finished" } },
+    -- Upcoming first and opened by default (author, 2026-10-05)
+    { id = "events", views = { "upcoming", "ongoing", "finished" } },
     { id = "me", views = { "deaths", "marks" } },
 }
-MainWindow.TABS = { "wanted", "bullies", "deadbeats", "busted", "barflies", "duels", "ongoing", "upcoming", "finished", "deaths", "marks" }
+MainWindow.TABS = { "wanted", "bullies", "deadbeats", "busted", "barflies", "duels", "upcoming", "ongoing", "finished", "deaths", "marks" }
 -- Tabs of older versions
-MainWindow.OLD_TABS = { tours = "ongoing", shame = "bullies" }
+MainWindow.OLD_TABS = { tours = "upcoming", shame = "bullies" }
 -- The faction crests in the Alliance / Horde switch: the game's PvP flag icons,
 -- cut to the crest
 MainWindow.FACTION_ICONS = {
@@ -790,6 +794,7 @@ local function CreateMainFrame()
     -- The website's look (UI/Theme.lua): leather, gold frame, tabs in the wood header
     local Theme = ns.Theme
     Theme.StyleFrame(f, L.WINDOW_TITLE)
+    Theme.ResizeGrip(f)
     local tabs = {}
     for i, section in ipairs(MainWindow.SECTIONS) do
         tabs[i] = { id = section.id, label = L["SECTION_" .. section.id:upper()] }
@@ -835,7 +840,7 @@ local function CreateMainFrame()
         end
     end
 
-    -- An open event: Back, its name, the round switch, Copy link
+    -- An open event: Back, its name, the round switch, Join event or Event link
     f.eventBack = Theme.Button(f, L.EVENT_BACK, "outline", 80, 24)
     f.eventBack:SetPoint("TOPLEFT", 16, toolbarY)
     f.eventBack:SetScript("OnClick", function() MainWindow:CloseEvent() end)
@@ -844,7 +849,7 @@ local function CreateMainFrame()
     f.eventTitle:SetWidth(240)
     f.eventTitle:SetJustifyH("LEFT")
     f.eventTitle:SetWordWrap(false)
-    f.eventLink = Theme.Button(f, L.EVENT_COPY_LINK, "gold", 110, 24)
+    f.eventLink = Theme.Button(f, L.EVENT_LINK, "gold", MainWindow.EVENT_LINK_WIDTH, 24)
     f.eventLink:SetPoint("TOPRIGHT", -18, toolbarY)
     f.eventLink:SetScript("OnClick", function() MainWindow:CopyEventLink() end)
     f.eventNext = Theme.Button(f, ">", "outline", 28, 24)
@@ -925,7 +930,7 @@ local function CreateMainFrame()
     f.search = search
 
     f.count = Theme.Text(f, "text", 13, "muted")
-    f.count:SetPoint("BOTTOMRIGHT", -18, 11)
+    f.count:SetPoint("BOTTOMRIGHT", -26, 11)
 
     -- Forever: saved data resets on reload (known client issue), on every tab; hover for more
     f.forever = CreateFrame("Frame", nil, f)
@@ -966,9 +971,10 @@ local function CreateMainFrame()
     return f
 end
 
+-- At the mouse and following it, not past the end of the wide row (author, 2026-10-04)
 local function ShowRowTooltip(row)
     if not (GameTooltip and row.data and row.data.tooltip) then return end
-    GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
+    GameTooltip:SetOwner(row, "ANCHOR_CURSOR")
     for i, line in ipairs(row.data.tooltip) do
         if i == 1 then GameTooltip:SetText(line) else GameTooltip:AddLine(line, 1, 1, 1, true) end
     end
@@ -1055,6 +1061,8 @@ local function LayoutHeaders(columns, extra)
     frame.scroll:SetPoint("BOTTOMRIGHT", -34, 34)
 end
 
+local shownOngoing -- the ongoing count last logged (debug)
+
 function MainWindow:Refresh()
     sinceRefresh = 0
     if not (frame and frame:IsShown()) then return end
@@ -1062,6 +1070,16 @@ function MainWindow:Refresh()
     local columns = event and self.COLUMNS.event or self.COLUMNS[current.tab] or self.COLUMNS.events
     local section = self.SectionOf(current.tab)
     frame.tabs:Select(section.id)
+    local ongoing = ns.Tournaments:OngoingCount()
+    if ongoing ~= shownOngoing then
+        ns:Debug("Events: ongoing", ongoing, "live dot", ongoing > 0)
+        shownOngoing = ongoing
+    end
+    frame.subtabs.events:SetDot("ongoing", ongoing > 0)
+    frame.tabs:SetDot("events", ongoing > 0)
+    local upcoming = ns.Tournaments:UpcomingCount()
+    frame.tabs:SetLabel("events", upcoming > 0 and string.format(self.TAB_COUNT, L.SECTION_EVENTS, upcoming)
+        or L.SECTION_EVENTS)
     local places = event and self.PlacesLine(event) or nil
     frame.eventPlaces:SetText(places or "")
     if places then frame.eventPlaces:Show() else frame.eventPlaces:Hide() end
@@ -1228,7 +1246,7 @@ function MainWindow:OnMatchAction(data, action)
 end
 
 -- The toolbar of the section on show: its sub-tabs, the faction switch, the search; an
--- open event has its own (Back, name, round switch, Copy link)
+-- open event has its own (Back, name, round switch, Join event or Event link)
 function MainWindow:LayoutToolbar(section, event)
     for id, set in pairs(frame.subtabs) do
         if id == section.id and not event then
@@ -1269,6 +1287,9 @@ function MainWindow:LayoutToolbar(section, event)
     end
     if event then
         local TN = ns.Tournaments
+        frame.eventLink:SetText(self.EventLinkJoins(event) and L.EVENT_JOIN or L.EVENT_LINK)
+        local textWidth = frame.eventLink:GetFontString() and frame.eventLink:GetFontString():GetStringWidth() or 0
+        frame.eventLink:SetWidth(math.max(self.EVENT_LINK_WIDTH, (tonumber(textWidth) or 0) + 2 * self.BUTTON_PADDING))
         local count = #TN.Bracket(event)
         local round = self:EventRound(event)
         frame.eventTitle:SetText(event.name .. " · " .. event.teamSize .. "v" .. event.teamSize .. " · " .. TN.Series(event))
@@ -1313,7 +1334,15 @@ function MainWindow:ShowRound(step)
     self:Refresh()
 end
 
--- The open event's page on the website, to copy: an addon cannot open a browser
+-- Join event while sign-up is open and our character is not in it yet (joining happens
+-- on the website); Event link once we joined or sign-up closed (author, 2026-10-05)
+function MainWindow.EventLinkJoins(t, now)
+    local TN = ns.Tournaments
+    return TN.State(t, now or ns.Utils.ServerTime()) == "open" and not TN.Joined(t)
+end
+
+-- The open event's page on the website, to copy: an addon cannot open a browser. To
+-- join, the page itself (where the Join button is), else its bracket
 function MainWindow:CopyEventLink()
     local t = self:OpenEvent()
     if not t then return end
@@ -1321,7 +1350,11 @@ function MainWindow:CopyEventLink()
         ns:Print(L.EVENT_NO_LINK)
         return
     end
-    self:ShowLink(L.EVENT_LINK_TEXT, t.url)
+    if self.EventLinkJoins(t) then
+        self:ShowLink(L.EVENT_JOIN_TEXT, (t.url:gsub("%?.*$", "")))
+    else
+        self:ShowLink(L.EVENT_LINK_TEXT, t.url)
+    end
 end
 
 -- The website's page to make an event, to copy

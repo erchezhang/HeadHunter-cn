@@ -89,6 +89,20 @@ return function(T, H)
         T.eq(e.duoKills, 4, "a duo")
     end)
 
+    T.case("named as killer with no details and as an assist with them: the details are kept", function()
+        -- A WoW Forever death recap: the killer by name only, the same player again as an assist
+        local report = Report(1, "V1", {
+            killer = { key = "Gank-Stonespine" },
+            assists = { { key = "Gank-Stonespine", level = 30, class = "HUNTER", race = "Skyborne", sex = 3 } },
+        })
+        local e = Compute({ report }, 2)
+        T.eq(e.killCount, 1, "one kill")
+        T.eq(e.class, "HUNTER", "class")
+        T.eq(e.race, "Skyborne", "race")
+        T.eq(e.level, 30, "level")
+        T.eq(report.killer.class, nil, "the report itself is not changed")
+    end)
+
     T.case("the same victim killed 5 times also counts", function()
         local e = Compute({ Report(0, "A"), Report(3, "A"), Report(6, "A"), Report(9, "A"), Report(12, "A") }, 13)
         T.eq(e.wanted, true, "wanted")

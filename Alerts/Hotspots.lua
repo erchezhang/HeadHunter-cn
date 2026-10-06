@@ -1,15 +1,20 @@
 -- HH-045: PvP hotspots, "fire" levels per zone (docs/addon/features.md section 5).
 --
 -- Over the last WINDOW seconds, per zone:
---   A = HeadHunter users in PvP combat there (their pings, and us)
---   E = distinct enemy players seen fighting there (merged across all pings)
+--   A = players of our side in PvP combat there: every HeadHunter's pings carry the
+--       players of our faction they see in combat, with or without HeadHunter, and
+--       themselves (author, 2026-10-04: we were 3, the map said 1)
+--   E = distinct enemy players seen in combat there (merged across all pings)
 --   D = deaths reported there
 --   heat = A + E + 2*D
+-- The map and the alert text show A and E of the last NOW_WINDOW seconds, the fight as
+-- it is now (author, 2026-10-04: 2 enemies said 5); the levels use the whole WINDOW.
+-- Only HeadHunters (they send pings) are named with whisper links.
 -- Levels: >= 4 Skirmish (chat line), >= 10 Battle (popup + sound),
 --         >= 20 Warzone (popup + sound + raid-warning text).
 --
--- We count as "in PvP combat" while in combat with enemy players on screen in the
--- last FIGHT_RECENT seconds. Then, at most every PING_INTERVAL seconds, a ping
+-- We count as "in PvP combat" while in combat with enemy players in combat around us
+-- (nameplates, target, focus, mouseover, group) in the last FIGHT_RECENT seconds. Then, at most every PING_INTERVAL seconds, a ping
 -- (protocol type P: map, time, position, short enemy ids) goes out on the
 -- automatic routes.
 -- Alerts: when a zone climbs a level, inside the alert range, never for a fight we
@@ -24,6 +29,7 @@ local Hotspots = ns:RegisterModule("Hotspots", {})
 local OWNER = "Hotspots"
 
 Hotspots.WINDOW = 300
+Hotspots.NOW_WINDOW = 120
 Hotspots.MAP_TIME = 1200 -- the map keeps a PvP area 20 min after the zone's last hot
                          -- moment; new activity restarts it (author, 2026-09-23)
 Hotspots.TICK = 5
@@ -34,7 +40,7 @@ Hotspots.IGNORE_TIME = 600
 Hotspots.MAX_SKEW = 300
 Hotspots.LEVELS = { { heat = 20, id = 3 }, { heat = 10, id = 2 }, { heat = 4, id = 1 } }
 
-local zones = {}        -- zone mapID -> { fighters = {id -> {t, x, y}}, enemies = {id -> t}, deaths = {id -> t} }
+local zones = {}        -- zone mapID -> { fighters = {id -> {t, x, y}}, allies = {id -> t}, enemies = {id -> t}, deaths = {id -> t} }
 local announced = {}    -- zone -> highest level announced in the current burst
 local remembered = {}   -- zone -> the zone's last hot state, for the map (MAP_TIME)
 local ignored = {}      -- zone -> GetTime() until which it is muted
@@ -43,7 +49,7 @@ local lastPing = 0
 local function Zone(mapID)
     local zone = ns.Zones.ZoneOf(mapID)
     if not zone then return nil end
-    zones[zone] = zones[zone] or { fighters = {}, enemies = {}, deaths = {}, names = {} }
+    zones[zone] = zones[zone] or { fighters = {}, allies = {}, enemies = {}, deaths = {}, names = {} }
     return zone, zones[zone]
 end
 
@@ -58,14 +64,20 @@ end
 -------------------------------------------------
 
 -- who: compact name (the key); extra: { sender = name to whisper, layer, enemies =
--- { { name, class, level } } } from 0.1.8 pings (HH-111)
+-- { { name, class, level } } } from 0.1.8 pings (HH-111); allies = short ids of our
+-- side in combat, the fighter among them (0.4.0+; nil from older pings: the fighter
+-- counts alone)
 function Hotspots:AddFighter(mapID, who, t, x, y, enemyIds, extra)
     local zone, data = Zone(mapID)
     if not zone or not who then return nil end
     extra = extra or {}
-    data.fighters[who] = { t = t, x = x, y = y, sender = extra.sender, layer = extra.layer }
+    data.fighters[who] = { t = t, x = x, y = y, sender = extra.sender, layer = extra.layer,
+        allies = extra.allies ~= nil or nil }
     for _, id in ipairs(enemyIds or {}) do
         if not data.enemies[id] or data.enemies[id] < t then data.enemies[id] = t end
+    end
+    for _, id in ipairs(extra.allies or {}) do
+        if not data.allies[id] or data.allies[id] < t then data.allies[id] = t end
     end
     for _, enemy in ipairs(extra.enemies or {}) do
         if enemy.name then
@@ -152,12 +164,26 @@ local function CountRecent(map, since)
     return n
 end
 
+-- Our side: the allies the pings named, and the fighters whose pings named none
+local function OurSide(data, since)
+    local n = 0
+    for _, t in pairs(data.allies) do
+        if t >= since then n = n + 1 end
+    end
+    for _, fighter in pairs(data.fighters) do
+        if fighter.t >= since and not fighter.allies then n = n + 1 end
+    end
+    return n
+end
+
 -- heat, level (0-3), A, E, D for a zone
 function Hotspots:Heat(zone, now)
     local data = zones[zone]
     if not data then return 0, 0, 0, 0, 0 end
     local since = (now or ns.Utils.ServerTime()) - self.WINDOW
-    local a = CountRecent(data.fighters, since)
+    CountRecent(data.fighters, since)
+    CountRecent(data.allies, since)
+    local a = OurSide(data, since)
     local e = CountRecent(data.enemies, since)
     local d = CountRecent(data.deaths, since)
     local heat = a + e + 2 * d
@@ -165,6 +191,18 @@ function Hotspots:Heat(zone, now)
         if heat >= level.heat then return heat, level.id, a, e, d end
     end
     return heat, 0, a, e, d
+end
+
+-- A and E as the fight is now (the last NOW_WINDOW seconds), for the map and alerts
+function Hotspots:Now(zone, now)
+    local data = zones[zone]
+    if not data then return 0, 0 end
+    local since = (now or ns.Utils.ServerTime()) - self.NOW_WINDOW
+    local e = 0
+    for _, t in pairs(data.enemies) do
+        if t >= since then e = e + 1 end
+    end
+    return OurSide(data, since), e
 end
 
 -- True when the zone's heat is only deaths by ONE WANTED outlaw (no fighters, no
@@ -213,6 +251,7 @@ local function Burning(zone, now)
     local data = zones[zone]
     local x, y = LastPosition(data)
     local known = remembered[zone]
+    a, e = Hotspots:Now(zone, now)
     local spot = { zone = zone, level = level, heat = heat, a = a, e = e, d = d,
         x = x or (known and known.x), y = y or (known and known.y), t = Newest(data) }
     remembered[zone] = spot
@@ -272,8 +311,8 @@ local function EnemyFaction()
 end
 Hotspots.EnemyFaction = EnemyFaction
 
--- Our side of the fight. The count next to it is the HeadHunter users in the fight
--- (only they send pings), so it is a lower bound.
+-- Our side of the fight. The count next to it is the players of our faction the
+-- HeadHunters there see in combat, so it is a lower bound.
 local function OwnFaction()
     local mine = ns.Utils.UnitFaction("player")
     if mine == "Alliance" or mine == "Horde" then return ns.Utils.FactionName(mine) end
@@ -379,7 +418,8 @@ function Hotspots:Evaluate(zone)
 
     local zoneName = ns.Utils.MapName(zone) or L.UNKNOWN_ZONE
     local title = L["HOTSPOT_LEVEL_" .. level]
-    local line = string.format(L.HOTSPOT_LINE, Fire(level), title, zoneName, Hotspots.Describe(a, e, d))
+    local nowA, nowE = self:Now(zone, now)
+    local line = string.format(L.HOTSPOT_LINE, Fire(level), title, zoneName, Hotspots.Describe(nowA, nowE, d))
     local names = self:EnemyNames(zone, now)
     if names then line = line .. string.format(L.HOTSPOT_NAMES, names) end
     -- The chat line names our fighters as links to whisper; the popup cannot be clicked
@@ -418,12 +458,83 @@ end
 -- Our own fight
 -------------------------------------------------
 
+-- The units we can look at: what we target, focus and point at, our group and what
+-- they target, and every nameplate (friendly nameplates only when the player shows them)
+local SCAN_UNITS = { "target", "focus", "mouseover", "targettarget", "focustarget" }
+for i = 1, 4 do SCAN_UNITS[#SCAN_UNITS + 1] = "party" .. i end
+for i = 1, 4 do SCAN_UNITS[#SCAN_UNITS + 1] = "party" .. i .. "target" end
+for i = 1, 40 do SCAN_UNITS[#SCAN_UNITS + 1] = "raid" .. i end
+for i = 1, 40 do SCAN_UNITS[#SCAN_UNITS + 1] = "raid" .. i .. "target" end
+for i = 1, 40 do SCAN_UNITS[#SCAN_UNITS + 1] = "nameplate" .. i end
+
+local fightingEnemies, fightingAllies = {}, {} -- guid -> Now() last seen in combat
+
+-- In combat: true, false, or nil when the client hides it (WoW Forever may for enemies)
+local function InCombat(unit)
+    local U = ns.Utils
+    local value = U.SafeCall(UnitAffectingCombat, unit)
+    if value == nil or U.Accessible(value) == nil then return nil end
+    return value and true or false
+end
+
+-- An enemy whose target is one of us is in the fight, whatever the combat flag says
+local function TargetsOurSide(unit, mine)
+    local U = ns.Utils
+    local target = unit .. "target"
+    return mine ~= nil and U.UnitIsPlayer(target) and U.UnitFaction(target) == mine
+end
+
+-- Players in the fight around us now: enemies, and players of our faction (not us).
+-- Returns what it saw, for the debug log: enemies fighting, enemies not, combat unknown
+function Hotspots.ScanFighters()
+    local U = ns.Utils
+    local now = U.Now()
+    local me, mine = U.UnitGUID("player"), U.UnitFaction("player")
+    local seen = {}
+    local fighting, idle, unknown = 0, 0, 0
+    for _, unit in ipairs(SCAN_UNITS) do
+        local guid = U.UnitGUID(unit)
+        if guid and guid ~= me and not seen[guid] and U.UnitIsPlayer(unit) then
+            seen[guid] = true
+            local combat = InCombat(unit)
+            if U.UnitIsEnemyPlayer(unit) then
+                if combat == nil then unknown = unknown + 1 end
+                if combat or TargetsOurSide(unit, mine) then
+                    ns.EnemyCache:ObserveUnit(unit, "nameplate")
+                    fightingEnemies[guid] = now
+                    fighting = fighting + 1
+                else
+                    idle = idle + 1
+                end
+            elseif combat and mine and U.UnitFaction(unit) == mine then
+                fightingAllies[guid] = now
+            end
+        end
+    end
+    return fighting, idle, unknown
+end
+
+-- GUIDs seen in combat within `seconds` (older ones are forgotten)
+local function Recent(list, seconds)
+    local now, guids = ns.Utils.Now(), {}
+    for guid, at in pairs(list) do
+        if now - at <= seconds then guids[#guids + 1] = guid else list[guid] = nil end
+    end
+    table.sort(guids)
+    return guids
+end
+
 function Hotspots:Tick()
     if not ns.Guards:IsActive() then return end
     local U = ns.Utils
     if not U.SafeCall(UnitAffectingCombat, "player") then return end
-    local guids = ns.EnemyCache:RecentGUIDs(self.FIGHT_RECENT)
+    local fighting, idle, unknown = Hotspots.ScanFighters()
+    ns:Debug("PvP scan: enemies fighting", fighting, "not fighting", idle, "combat unknown", unknown)
+    local guids = Recent(fightingEnemies, self.FIGHT_RECENT)
     if #guids == 0 then return end
+    -- Our side: us first, then the players of our faction fighting around us
+    local allies = { Hotspots.ShortId(U.UnitGUID("player")) }
+    for _, guid in ipairs(Recent(fightingAllies, self.FIGHT_RECENT)) do allies[#allies + 1] = Hotspots.ShortId(guid) end
     local ids, enemies = {}, {}
     for i, guid in ipairs(guids) do
         ids[i] = Hotspots.ShortId(guid)
@@ -439,24 +550,24 @@ function Hotspots:Tick()
     local now = U.ServerTime()
     local layer = ns.Layer:Current()
     local zone = self:AddFighter(mapID, U.CompactName(U.UnitKey("player")), now, x, y, ids,
-        { enemies = enemies, layer = layer })
+        { enemies = enemies, layer = layer, allies = allies })
     if not zone then return end
     if now - lastPing >= self.PING_INTERVAL then
         lastPing = now
         local Protocol, Transport = ns.Protocol, ns.Transport
-        Transport:Queue(Protocol.TYPES.HOTSPOT, Protocol.EncodeHotspot(zone, now, x, y, ids, enemies, layer),
+        Transport:Queue(Protocol.TYPES.HOTSPOT, Protocol.EncodeHotspot(zone, now, x, y, ids, enemies, layer, allies),
             Transport.PRIORITY.hotspot, "P:" .. zone)
     end
     self:Evaluate(zone)
 end
 
 function Hotspots:OnPeerPing(record, sender)
-    local mapID, t, x, y, ids, enemies, layer = ns.Protocol.DecodeHotspot(record)
+    local mapID, t, x, y, ids, enemies, layer, allies = ns.Protocol.DecodeHotspot(record)
     if not mapID then return end
     local now = ns.Utils.ServerTime()
     if t > now + self.MAX_SKEW or now - t > self.WINDOW then return end
     local zone = self:AddFighter(mapID, ns.Utils.CompactName(sender), t, x, y, ids,
-        { sender = sender, layer = layer, enemies = enemies })
+        { sender = sender, layer = layer, enemies = enemies, allies = allies })
     if zone then self:Evaluate(zone) end
 end
 

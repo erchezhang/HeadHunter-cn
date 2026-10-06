@@ -11,7 +11,7 @@
 -- added locally (so rules and UI can be tested) but never broadcast.
 -- Peer reports are accepted only when:
 --   - the sender IS the victim (nobody can report deaths on someone else's behalf)
---   - the time is plausible (not in the future, not older than MAX_AGE)
+--   - the time is plausible (not in the future, not older than LIVE_WINDOW)
 --   - the sender stays under a per-sender rate limit
 --   - a test death (/hh sim send) comes from a character we trust (HH-123, Core/Dev.lua)
 -- Fires HH_REPORT_ADDED(report) and HH_REPORT_UPDATED(report).
@@ -25,6 +25,7 @@ local OWNER = "Reports"
 Reports.MAX_AGE = 30 * 86400    -- WANTED lasts until caught or 7 days without a kill (HH-048)
 Reports.MAX_COUNT = 5000
 Reports.MAX_SKEW = 300          -- seconds a peer's clock may run ahead
+Reports.LIVE_WINDOW = 3600      -- a live death this old at most (Era waits for the Report click)
 Reports.SENDER_LIMIT = 10       -- reports accepted per sender per window
 Reports.SENDER_WINDOW = 600
 
@@ -90,6 +91,14 @@ function Reports:Add(report, origin, sender)
     if not store or not report.id or store[report.id] then return nil end
     report.origin = origin
     report.sender = sender
+    -- Which of our characters got another HeadHunter's death, when and where: the website
+    -- shows it to the admin checking faked reports. Never sent to other players
+    if origin == "peer" or origin == "relay" then
+        local U = ns.Utils
+        report.receivedBy = U.UnitKey("player")
+        report.receivedAt = U.ServerTime()
+        report.receivedMap = U.PlayerMapID()
+    end
     report.classification = report.classification or ns.Classify.Report(report)
     store[report.id] = report
     ns:Debug("Report added", report.id, "origin", origin)
@@ -194,6 +203,12 @@ function Reports:OnPeerDeath(record, sender)
     if have then
         -- The victim's own copy of a report we only had relayed (HH-121)
         if ns.Relay.Confirm(have, "peer", sender) then ns.Events:Fire("HH_REPORT_UPDATED", have) end
+        return
+    end
+    -- A live death is sent right after it happens, so the victim was online then. An old
+    -- one could be made up later; older deaths travel by catch-up, where a second source counts
+    if report.t < now - self.LIVE_WINDOW then
+        Reject("too old for a live report", report.t, "now", now, "from", sender)
         return
     end
     if not UnderRateLimit(sender) then

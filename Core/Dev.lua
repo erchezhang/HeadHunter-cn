@@ -25,6 +25,11 @@ local function Config()
     return type(config) == "table" and config or nil
 end
 
+-- This PC has HeadHunter_Dev: the test commands work (/hh sim event)
+function Dev.Present()
+    return Config() ~= nil
+end
+
 function Dev.NoSharing()
     local config = Config()
     return config ~= nil and config.noSharing == true

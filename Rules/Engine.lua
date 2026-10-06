@@ -85,7 +85,21 @@ local function Better(current, candidate, t, currentT)
     if not current then return true end
     if candidate.key and not current.key then return true end
     if candidate.level and not current.level then return true end
+    if (candidate.class or candidate.race) and not (current.class or current.race) then return true end
     return t >= (currentT or 0)
+end
+
+-- What we know of a player named twice in one report (killer and assist, a Forever
+-- death recap): the first entry, with the fields only the second one has
+local INFO_FIELDS = { "key", "guid", "level", "class", "race", "sex", "faction" }
+
+local function Merged(first, second)
+    local merged = {}
+    for k, v in pairs(first) do merged[k] = v end
+    for _, field in ipairs(INFO_FIELDS) do
+        if merged[field] == nil then merged[field] = second[field] end
+    end
+    return merged
 end
 
 -- reports: array of report tables. yield: optional function called now and then
@@ -102,9 +116,13 @@ function Engine.CollectKills(reports, yield)
         local enemies, named = {}, {}
         local function Take(enemy)
             local id = Engine.EnemyId(enemy)
-            if enemy == nil or (id and named[id]) then return end
-            if id then named[id] = true end
+            if enemy == nil then return end
+            if id and named[id] then
+                enemies[named[id]] = Merged(enemies[named[id]], enemy)
+                return
+            end
             enemies[#enemies + 1] = enemy
+            if id then named[id] = #enemies end
         end
         Take(report.killer)
         for _, assist in ipairs(report.assists or {}) do Take(assist) end

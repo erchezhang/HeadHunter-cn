@@ -9,7 +9,8 @@
 --   Theme.Font(fontString, role, size)      role: heading, text, bold, name or western
 --   Theme.Button(parent, text, variant)     variant: "gold" or "outline"
 --   Theme.Card(parent), Theme.Divider(parent), Theme.Border(frame)
---   Theme.ApplyScale(frame)                 follows the Window size option (uiScale)
+--   Theme.ApplyScale(frame)                 follows the window size (uiScale)
+--   Theme.ResizeGrip(frame)                 the corner grip that sets the window size
 --
 -- Theme.FontFile(role, locale, alphabet) is the pure part (tested offline).
 
@@ -44,7 +45,7 @@ Theme.COLORS = {
 }
 
 Theme.HEADER_HEIGHT = 44
-Theme.SCALE = { default = 100, min = 90, max = 130, step = 10 } -- the uiScale setting, in %
+Theme.SCALE = { default = 100, min = 70, max = 150 } -- the uiScale setting, in % (the corner grip)
 
 -------------------------------------------------
 -- Fonts (pure part: which file for which text)
@@ -244,6 +245,7 @@ function Theme.Segmented(parent, options, onSelect, segmentWidth, height)
     local set = CreateFrame("Frame", nil, parent)
     set:SetSize(segmentWidth * #options, height)
     set.buttons = {}
+    local dots = {} -- value -> the live dot texture (SetDot)
 
     local function Paint(button, hover)
         local chosen = button.value == set.value
@@ -302,7 +304,75 @@ function Theme.Segmented(parent, options, onSelect, segmentWidth, height)
         self.value = value
         for _, button in ipairs(self.buttons) do Paint(button, false) end
     end
+
+    -- A live dot after an option's text: something is live there (an event being
+    -- played on Ongoing)
+    function set:SetDot(value, shown)
+        for _, button in ipairs(self.buttons) do
+            if button.value == value and (shown or dots[value]) then
+                if not dots[value] then
+                    dots[value] = Theme.LiveDot(button)
+                    dots[value]:SetPoint("LEFT", button.label, "RIGHT", Theme.LIVE_DOT_GAP, 0)
+                end
+                dots[value]:SetShown(shown)
+            end
+        end
+    end
     return set
+end
+
+Theme.LIVE_DOT_COLOR = { 0.063, 0.725, 0.506 } -- the website's emerald-500
+-- A round mask both clients have; a texture of our own colour needs no game file
+Theme.CIRCLE_MASK = "Interface\\CHARACTERFRAME\\TempPortraitAlphaMask"
+
+-- A small filled circle in the live dot colour (square where masks are missing)
+function Theme.Circle(parent, layer)
+    local c = Theme.LIVE_DOT_COLOR
+    local tex = parent:CreateTexture(nil, layer)
+    tex:SetColorTexture(c[1], c[2], c[3], 1)
+    tex:SetSize(Theme.LIVE_DOT_SIZE, Theme.LIVE_DOT_SIZE)
+    local mask = tex.AddMaskTexture and parent.CreateMaskTexture and parent:CreateMaskTexture()
+    if mask then
+        mask:SetTexture(Theme.CIRCLE_MASK, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+        mask:SetAllPoints(tex)
+        tex:AddMaskTexture(mask)
+    end
+    return tex
+end
+Theme.LIVE_DOT_SIZE = 8
+Theme.LIVE_DOT_PING = 1 -- seconds for the ring to grow and fade, like Tailwind's animate-ping
+Theme.LIVE_DOT_PING_SCALE = 2
+Theme.LIVE_DOT_PING_ALPHA = 0.75
+
+Theme.LIVE_DOT_GAP = 5
+
+-- The website's live dot (LiveDot.vue): a green dot with a ring that grows and fades
+-- around it. Its own small frame, so the ring's per-frame update runs only while it is
+-- shown and never takes the parent's OnUpdate.
+function Theme.LiveDot(parent)
+    local dot = CreateFrame("Frame", nil, parent)
+    dot:SetSize(Theme.LIVE_DOT_SIZE, Theme.LIVE_DOT_SIZE)
+    local ring = Theme.Circle(dot, "ARTWORK")
+    ring:SetPoint("CENTER")
+    local core = Theme.Circle(dot, "OVERLAY")
+    core:SetPoint("CENTER")
+    local clock = 0
+    dot:SetScript("OnUpdate", function(_, elapsed)
+        clock = clock + elapsed
+        local size, alpha = Theme.LivePing(clock)
+        ring:SetSize(size, size)
+        ring:SetAlpha(alpha)
+    end)
+    dot:Hide()
+    return dot
+end
+
+-- The ring at `clock` seconds: its size and alpha, from the dot's size at 0.75 to twice
+-- the size at 0, then again
+function Theme.LivePing(clock)
+    local phase = (clock % Theme.LIVE_DOT_PING) / Theme.LIVE_DOT_PING
+    local size = Theme.LIVE_DOT_SIZE * (1 + (Theme.LIVE_DOT_PING_SCALE - 1) * phase)
+    return size, Theme.LIVE_DOT_PING_ALPHA * (1 - phase)
 end
 
 -- A square icon button with a gold hover (the Options gear, the close X)
@@ -444,11 +514,41 @@ local function CreateTopTab(f, info, onClick)
 end
 
 function Theme.CreateTopTabs(f, tabs, onSelect)
-    local set = { buttons = {}, hidden = {} }
+    local set = { buttons = {}, hidden = {}, dots = {}, dotShown = {} }
+
+    -- Room a tab keeps for its live dot
+    local function DotSpace(tab)
+        return set.dotShown[tab.id] and (Theme.LIVE_DOT_SIZE + Theme.LIVE_DOT_GAP) or 0
+    end
     for i, info in ipairs(tabs) do set.buttons[i] = CreateTopTab(f, info, onSelect) end
 
     function set:Select(id)
         for _, tab in ipairs(self.buttons) do tab:SetSelected(tab.id == id) end
+    end
+
+    -- A live dot in front of a tab's text (Events while an event is being played)
+    function set:SetDot(id, shown)
+        for _, tab in ipairs(self.buttons) do
+            if tab.id == id and (shown or self.dots[id]) and (self.dotShown[id] or false) ~= shown then
+                if not self.dots[id] then
+                    self.dots[id] = Theme.LiveDot(tab)
+                    self.dots[id]:SetPoint("RIGHT", tab.label, "LEFT", -Theme.LIVE_DOT_GAP, 0)
+                end
+                self.dots[id]:SetShown(shown)
+                self.dotShown[id] = shown or nil
+                self:Layout()
+            end
+        end
+    end
+
+    -- A tab's text changes (a count on Events); the tabs move to fit
+    function set:SetLabel(id, text)
+        for _, tab in ipairs(self.buttons) do
+            if tab.id == id and tab.label:GetText() ~= text then
+                tab.label:SetText(text)
+                self:Layout()
+            end
+        end
     end
 
     -- A tab that comes and goes (Tournaments); the others move up
@@ -473,7 +573,7 @@ function Theme.CreateTopTabs(f, tabs, onSelect)
         local size, padding = Theme.TAB_FONT, Theme.TAB_PADDING
         local function Width()
             local total = 0
-            for _, tab in ipairs(shown) do total = total + (tab.label:GetStringWidth() or 60) + 2 * padding end
+            for _, tab in ipairs(shown) do total = total + (tab.label:GetStringWidth() or 60) + 2 * padding + DotSpace(tab) end
             return total
         end
         while Width() > room and (padding > 6 or size > 10) do
@@ -486,7 +586,9 @@ function Theme.CreateTopTabs(f, tabs, onSelect)
         end
         local x = left
         for _, tab in ipairs(shown) do
-            local width = (tab.label:GetStringWidth() or 60) + 2 * padding
+            local width = (tab.label:GetStringWidth() or 60) + 2 * padding + DotSpace(tab)
+            tab.label:ClearAllPoints()
+            tab.label:SetPoint("CENTER", DotSpace(tab) / 2, 1)
             tab:ClearAllPoints()
             tab:SetPoint("BOTTOMLEFT", f.header, "BOTTOMLEFT", x, 1)
             tab:SetWidth(width)
@@ -499,12 +601,12 @@ function Theme.CreateTopTabs(f, tabs, onSelect)
 end
 
 -------------------------------------------------
--- Window size (the uiScale option)
+-- Window size (uiScale, set with the corner grip)
 -------------------------------------------------
 
 local scaled = {}
 
--- The Window size option as a scale, kept inside its limits
+-- The window size as a scale, kept inside its limits
 function Theme.Scale()
     local value = tonumber(ns.Database and ns.Database:GetSetting("uiScale")) or Theme.SCALE.default
     value = math.max(Theme.SCALE.min, math.min(Theme.SCALE.max, value))
@@ -520,3 +622,85 @@ ns.Events:Register("HH_SETTING_CHANGED", function(_, path)
     if path ~= "uiScale" then return end
     for f in pairs(scaled) do f:SetScale(Theme.Scale()) end
 end, OWNER)
+
+-- Saves a window size in %, kept inside the limits; every themed window follows it
+function Theme.SaveScale(percent)
+    percent = math.floor((tonumber(percent) or Theme.SCALE.default) + 0.5)
+    percent = math.max(Theme.SCALE.min, math.min(Theme.SCALE.max, percent))
+    ns.Database:SetSetting("uiScale", percent)
+    return percent
+end
+
+-- The scale for a drag of the corner: the window's width on screen at the start, plus
+-- how far the cursor moved right, as a share of that width (pure, tested offline)
+function Theme.DragScale(startScale, startWidth, moved)
+    if not startWidth or startWidth <= 0 then return startScale end
+    local scale = startScale * (startWidth + moved) / startWidth
+    return math.max(Theme.SCALE.min / 100, math.min(Theme.SCALE.max / 100, scale))
+end
+
+-- Keeps the window's top left corner where it is on screen while its scale changes,
+-- so the bottom right corner follows the cursor
+local function KeepTopLeft(f, left, top)
+    local scale = f:GetEffectiveScale()
+    f:ClearAllPoints()
+    f:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", left / scale, top / scale)
+end
+
+local function ShowGripTip(grip)
+    if not GameTooltip then return end
+    GameTooltip:SetOwner(grip, "ANCHOR_TOPLEFT")
+    GameTooltip:SetText(ns.L.SET_SCALE .. ": " .. string.format(ns.L.SET_PERCENT, math.floor(Theme.Scale() * 100 + 0.5)))
+    GameTooltip:AddLine(ns.L.RESIZE_TIP, 1, 1, 1, true)
+    GameTooltip:Show()
+end
+
+local function EndDrag(grip, f)
+    grip.dragging = false
+    Theme.SaveScale(f:GetScale() * 100)
+    if GameTooltip and GameTooltip:IsOwned(grip) then ShowGripTip(grip) end
+end
+
+-- The grip in the bottom right corner of a window (author, 2026-10-05; it replaces the
+-- Window size option): drag to make the window and its text bigger or smaller, right
+-- click for 100%. It sets the same uiScale, so every themed window follows.
+function Theme.ResizeGrip(f)
+    local grip = CreateFrame("Button", nil, f)
+    grip:SetSize(16, 16)
+    grip:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -4, 4)
+    grip:SetFrameLevel((f:GetFrameLevel() or 1) + 20)
+    grip:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+    grip:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
+    grip:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
+    grip:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    grip:SetScript("OnMouseDown", function(self, button)
+        if button ~= "LeftButton" then return end
+        local scale = f:GetEffectiveScale()
+        self.startX = GetCursorPosition()
+        self.startScale = f:GetScale()
+        self.startWidth = f:GetWidth() * scale
+        self.left, self.top = f:GetLeft() * scale, f:GetTop() * scale
+        self.dragging = true
+    end)
+    grip:SetScript("OnMouseUp", function(self, button)
+        if button == "RightButton" then
+            Theme.SaveScale(Theme.SCALE.default)
+            if GameTooltip and GameTooltip:IsOwned(self) then ShowGripTip(self) end
+        elseif self.dragging then
+            EndDrag(self, f)
+        end
+    end)
+    grip:SetScript("OnUpdate", function(self)
+        if not self.dragging then return end
+        if IsMouseButtonDown and not IsMouseButtonDown("LeftButton") then
+            EndDrag(self, f)
+            return
+        end
+        f:SetScale(Theme.DragScale(self.startScale, self.startWidth, GetCursorPosition() - self.startX))
+        KeepTopLeft(f, self.left, self.top)
+    end)
+    grip:SetScript("OnEnter", ShowGripTip)
+    grip:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+    f.resizeGrip = grip
+    return grip
+end

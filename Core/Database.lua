@@ -15,7 +15,7 @@ local addonName, ns = ...
 
 local DB = ns:RegisterModule("Database", {})
 
-DB.SCHEMA_VERSION = 3
+DB.SCHEMA_VERSION = 4
 
 -- Old saved data mixed every realm. On WoW Forever it goes to the PvP realm, where the
 -- author played most (author, 2026-09-29); Era takes the realm of the last character.
@@ -28,7 +28,7 @@ DB.FALLBACK_HOME = "unknown"
 DB.HOME_TABLES = {
     deaths = true, reports = true, enemies = true, justice = true, posters = true, posse = true,
     bountyPay = true, duels = true, eventResults = true, marks = true, demoMarks = true, player = true,
-    witness = true, pinned = true, glasses = true,
+    witness = true, pinned = true, glasses = true, screenshots = true,
 }
 
 DB.LIMITS = {
@@ -58,6 +58,7 @@ local DEFAULTS = {
             glassPopup = true, -- Raise a glass when another HeadHunter busts a WANTED player (Barflies, author, 2026-10-04)
             glassPopupGap = 5, -- minutes between two glass popups, 3..15 (author, 2026-10-04)
             glassThanks = true, -- a chat line when a HeadHunter raises a glass to our catch (author, 2026-10-04)
+            duelSpots = true, -- HH-134: a chat line when a duel spot starts in the alert range (author, 2026-10-05)
         },
         serialKillerWindowMin = 15, -- 5..15
         mapPins = true, -- HH-046: hotspot and WANTED pins on the world map
@@ -66,7 +67,8 @@ local DEFAULTS = {
         wantedMarks = true, -- the HeadHunter crosshair above WANTED players (UI/Nameplates.lua)
         shameMarks = true, -- the white feather above Hall of Shame players
         minimap = { angle = 200, hidden = false }, -- HH-060 minimap button
-        uiScale = 100, -- HH-125: Window size, 90..130 %
+        uiScale = 100, -- HH-125: window size, 70..150 %, set with the corner grip of the main window
+        screenshots = true, -- HH-132: pictures of our PvP deaths and catches, for the admins (needs HeadHunter Sync)
     },
     zones = {}, -- zone mapID -> { name, continent, locale }: names for the website (Alerts/Zones.lua)
     homes = {}, -- home key -> HOME_DEFAULTS
@@ -84,6 +86,7 @@ local HOME_DEFAULTS = {
     witness = {}, -- HH-121: witness id -> a hunted player who died near a HeadHunter (Sync/Witness.lua)
     pinned = {},  -- HH-121: sighting id -> a sighting kept as evidence for a bounty claim (Sync/Evidence.lua)
     glasses = {}, -- glass id -> a HeadHunter raised a glass to a catch (Sync/Glasses.lua)
+    screenshots = {}, -- HH-132: pictures taken for the sync app (Sync/Screenshots.lua)
     -- Tournament match results confirmed in game (Tournament/Matches.lua): every
     -- HeadHunter's bracket; our own go to the website with HeadHunter Sync
     eventResults = {},
@@ -146,6 +149,12 @@ MIGRATIONS[3] = function(db)
     for _, home in pairs(db.homes) do
         if type(home) == "table" then home.tournaments = nil end
     end
+end
+
+-- Screenshots are on by default (author, 2026-10-05). 0.4.3 and 0.4.4 saved the old
+-- default (off) into every player's settings the same day, so it is turned on once
+MIGRATIONS[4] = function(db)
+    if type(db.settings) == "table" then db.settings.screenshots = true end
 end
 
 -- Use this home's data. Returns true when the home changed.

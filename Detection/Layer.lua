@@ -9,6 +9,7 @@
 --
 --   Layer:Current(maxAge) -> layerID or nil
 --   Layer.FromGUID(guid)  -> layerID or nil (pure)
+--   HH_LAYER_CHANGED(layer, zone) fires when our layer in a zone is first read or changes
 
 local addonName, ns = ...
 
@@ -44,9 +45,13 @@ function Layer.FromGUID(guid)
     return ok and layer or nil
 end
 
+-- Fires HH_LAYER_CHANGED(layer, zone) when the reading for this zone is new or differs
 local function Record(layer)
     if not layer then return false end
-    reading = { id = layer, zone = ns.Zones.ZoneOf(ns.Utils.PlayerMapID()), at = ns.Utils.Now() }
+    local zone = ns.Zones.ZoneOf(ns.Utils.PlayerMapID())
+    local old = reading and reading.zone == zone and reading.id
+    reading = { id = layer, zone = zone, at = ns.Utils.Now() }
+    if old ~= layer then ns.Events:Fire("HH_LAYER_CHANGED", layer, zone) end
     return true
 end
 

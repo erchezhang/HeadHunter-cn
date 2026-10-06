@@ -2,6 +2,10 @@
 -- zone with "PVP" in the middle, darker as the fight grows) and skull pins for WANTED
 -- outlaws (Rules/Wanted.lua) on the world map, in the zone, continent and world views.
 -- Hover: details (no click action; author, 2026-09-23).
+-- HH-134: duel spots (Alerts/DuelSpots.lua) are a blue area with "DUELS" in the middle,
+-- one per zone; the tooltip has a row per layer with duels (author, 2026-10-06). That
+-- mark is the one with clicks: left asks a HeadHunter on the top duel layer for an
+-- invite, right opens a menu to choose the layer (author, 2026-10-06).
 --
 -- Drawn on our own layer over the map canvas, not through the map's data-provider
 -- system: on the 12.x engine (Forever) reading WorldMapFrame.mapID taints the addon
@@ -26,7 +30,9 @@ MapMarkers.SWORDS_ICON = "Interface\\AddOns\\HeadHunter\\Assets\\Textures\\sword
 MapMarkers.SWORDS_SIZE = 18
 MapMarkers.LABEL_COLOR = { 1, 0.82, 0.4 }
 MapMarkers.AREA_ALPHA = { 0.22, 0.36, 0.52 } -- by fire level: darker = more PvP
-MapMarkers.AREA_WIDTH = 0.10               -- diameter, as a share of the zone's width
+MapMarkers.DUEL_COLOR = { 0.2, 0.55, 1 }
+MapMarkers.DUEL_ALPHA = 0.4
+MapMarkers.AREA_WIDTH = 0.10              -- diameter, as a share of the zone's width
 MapMarkers.AREA_MIN_PX = 32                -- never smaller on screen (continent view)
 MapMarkers.WANTED_MAP_TIME = 600           -- a skull shows for 10 min after the outlaw's last
                                            -- kill (each new kill restarts it); the WANTED
@@ -93,6 +99,54 @@ local function HotspotPin(spot, mapID, now)
     }
 end
 
+-- One mark per zone with duel spots (author, 2026-10-06): every layer with its duels, the
+-- HeadHunters to ask on the layer a click asks for, and the click hint. group: from
+-- DuelSpots:ByZone. layerKey is the layer the click asks an invite for (else the busiest
+-- layer, so the click says we are on it or nobody can be asked).
+local function DuelPin(group, mapID, now)
+    local x, y, zoneWidth = MapMarkers.Project(group.zone, group.x, group.y, mapID)
+    if not x then return nil end
+    local DuelSpots = ns.DuelSpots
+    local lines = {
+        string.format(L.MAP_DUELS_TITLE, ns.Utils.MapName(group.zone) or L.UNKNOWN_ZONE),
+        string.format(L.DUEL_SPOT_LAST, math.floor(DuelSpots.WINDOW / 60)),
+    }
+    for _, spot in ipairs(group.spots) do
+        lines[#lines + 1] = { DuelSpots:LayerText(spot), string.format(L.DUEL_SPOT_ROW, spot.duels, spot.players) }
+    end
+    local target = DuelSpots:InviteSpot(group)
+    if target then
+        lines[#lines + 1] = string.format(L.DUEL_SPOT_HEADHUNTERS, DuelSpots:InviterNames(target.zone, target.layerKey))
+    end
+    lines[#lines + 1] = ns.Utils.Ago(math.max(0, now - group.t))
+    if target then lines[#lines + 1] = string.format(L.DUEL_SPOT_CLICK, DuelSpots:LayerText(target)) end
+    local choices = DuelSpots:MenuSpots(group)
+    if #choices > 0 then lines[#lines + 1] = L.DUEL_SPOT_RIGHT_CLICK end
+    return {
+        kind = "duels",
+        id = "duels:" .. group.zone,
+        x = x, y = y,
+        size = MapMarkers.AREA_WIDTH * zoneWidth,
+        alpha = MapMarkers.DUEL_ALPHA,
+        zone = group.zone,
+        layerKey = target and target.layerKey or group.spots[1].layerKey,
+        choices = choices,
+        lines = lines,
+    }
+end
+
+-- Right-click on a duel mark: the layers to choose from, each asking for an invite there
+function MapMarkers.DuelMenu(data)
+    local entries = {}
+    for _, spot in ipairs(data.choices or {}) do
+        entries[#entries + 1] = {
+            label = string.format(L.DUEL_SPOT_LAYER_LINE, ns.DuelSpots:LayerText(spot), string.format(L.DUEL_SPOT_ROW, spot.duels, spot.players)),
+            func = function() ns.DuelSpots:AskInvite(spot.zone, spot.layerKey) end,
+        }
+    end
+    return entries
+end
+
 local function WantedPin(entry, mapID, now)
     local kill = entry.lastKill
     -- The newest place: the last kill, or a later sighting (HH-121 step 3, Alerts/Spotted.lua)
@@ -154,7 +208,7 @@ function MapMarkers.GuideAndTell(mapID, x, y, label, waypointText)
     return how
 end
 
--- Pins to draw on mapID: hotspots first, then WANTED outlaws (drawn on top)
+-- Pins to draw on mapID: hotspots first, then duel spots, then WANTED outlaws (drawn on top)
 function MapMarkers:PinsFor(mapID, now)
     mapID = tonumber(mapID)
     if not mapID then return {} end
@@ -165,6 +219,15 @@ function MapMarkers:PinsFor(mapID, now)
     for _, spot in ipairs(ns.Hotspots:Active(now)) do
         if shown >= MapMarkers.MAX_PER_KIND then break end
         local pin = HotspotPin(spot, mapID, now)
+        if pin then
+            pins[#pins + 1] = pin
+            shown = shown + 1
+        end
+    end
+    shown = 0
+    for _, group in ipairs(ns.DuelSpots:ByZone(now)) do
+        if shown >= MapMarkers.MAX_PER_KIND then break end
+        local pin = DuelPin(group, mapID, now)
         if pin then
             pins[#pins + 1] = pin
             shown = shown + 1
@@ -200,7 +263,7 @@ end
 local attached = false
 local shownMap           -- from the SetMapID hook; never read from WorldMapFrame
 local canvas, overlay
-local pools, active = { hotspot = {}, wanted = {} }, {}
+local pools, active = { hotspot = {}, duels = {}, wanted = {} }, {}
 local lastScale
 local sinceRefresh = 0
 
@@ -239,7 +302,7 @@ end
 local function RaiseOverlay()
     local strata, top = TopOfCanvas()
     if STRATA_RANK[strata] then overlay:SetFrameStrata(strata) end
-    local reserve = MapMarkers.MAX_PER_KIND * 2 + 2
+    local reserve = MapMarkers.MAX_PER_KIND * 3 + 2
     local level = math.max((canvas:GetFrameLevel() or 0) + MapMarkers.FRAME_LEVEL, top + 1)
     overlay:SetFrameLevel(math.min(level, MapMarkers.MAX_FRAME_LEVEL - reserve))
 end
@@ -266,7 +329,13 @@ local function ShowTooltip(button)
     if not GameTooltip then return end
     GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
     for i, line in ipairs(button.data.lines) do
-        if i == 1 then GameTooltip:SetText(line) else GameTooltip:AddLine(line, 1, 1, 1, true) end
+        if i == 1 then
+            GameTooltip:SetText(line)
+        elseif type(line) == "table" then
+            GameTooltip:AddDoubleLine(line[1], line[2], 1, 1, 1, 1, 1, 1)
+        else
+            GameTooltip:AddLine(line, 1, 1, 1, true)
+        end
     end
     GameTooltip:Show()
 end
@@ -294,11 +363,30 @@ end
 -- patch of the map and zoom with it, plus crossed swords over a small "PVP" of fixed
 -- size on screen. Only that mark takes the mouse, so the area never blocks clicks on
 -- the map.
+-- A duel spot (kind "duels") is drawn the same way in blue with "DUELS", and its mark
+-- takes a left click: ask a HeadHunter there for an invite.
 local DISCS = { { size = 1, alpha = 0.45 }, { size = 0.66, alpha = 0.7 }, { size = 0.33, alpha = 1 } }
+local AREA_KINDS = { hotspot = true, duels = true }
 
-local function NewArea()
+-- Left-click: an invite to the top duel layer; right-click: choose the layer from a menu
+local function DuelClick(label, button)
+    local data = label.data
+    if not data or data.kind ~= "duels" then return end
+    if button == "RightButton" then
+        local entries = MapMarkers.DuelMenu(data)
+        if #entries == 0 then
+            ns:Print(L.DUEL_SPOT_SAME_LAYER)
+            return
+        end
+        ns.Select.ContextMenu(label, L.DUEL_SPOT_MENU_TITLE, entries)
+        return
+    end
+    ns.DuelSpots:AskInvite(data.zone, data.layerKey)
+end
+
+local function NewArea(kind)
     local pin = CreateFrame("Frame", nil, overlay)
-    pin.kind = "hotspot"
+    pin.kind = kind
     pin.discs = {}
     for i, disc in ipairs(DISCS) do
         local texture = pin:CreateTexture(nil, "ARTWORK", nil, i)
@@ -315,11 +403,16 @@ local function NewArea()
     label.icon:SetPoint("TOP", label, "TOP")
     label.text = label:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     label.text:SetPoint("TOP", label.icon, "BOTTOM", 0, 1)
-    label.text:SetText(L.MAP_PVP)
+    label.text:SetText(kind == "duels" and L.MAP_DUELS or L.MAP_PVP)
     label.text:SetTextColor(unpack(MapMarkers.LABEL_COLOR))
     label.text:SetShadowColor(0, 0, 0, 1)
     label.text:SetShadowOffset(1, -1)
     MakeInteractive(label)
+    if kind == "duels" then
+        if label.SetMouseClickEnabled then pcall(label.SetMouseClickEnabled, label, true) end
+        if label.RegisterForClicks then label:RegisterForClicks("LeftButtonUp", "RightButtonUp") end
+        label:SetScript("OnClick", DuelClick)
+    end
     pin.label = label
     return pin
 end
@@ -336,7 +429,7 @@ local function Place(pin)
     local scale = CanvasScale()
     local width, height = canvas:GetWidth() or 0, canvas:GetHeight() or 0
     pin:ClearAllPoints()
-    if pin.kind == "hotspot" then
+    if AREA_KINDS[pin.kind] then
         -- Part of the map: zooms with it, but never shrinks below AREA_MIN_PX on screen
         local diameter = math.max(data.size * width, MapMarkers.AREA_MIN_PX / scale)
         pin:SetScale(1)
@@ -356,8 +449,8 @@ end
 
 local function Style(pin)
     local data = pin.data
-    if pin.kind == "hotspot" then
-        local r, g, b = unpack(MapMarkers.AREA_COLOR)
+    if AREA_KINDS[pin.kind] then
+        local r, g, b = unpack(pin.kind == "duels" and MapMarkers.DUEL_COLOR or MapMarkers.AREA_COLOR)
         for i, disc in ipairs(pin.discs) do
             disc:SetVertexColor(r, g, b, data.alpha * DISCS[i].alpha)
         end
@@ -370,14 +463,14 @@ end
 
 local function Acquire(kind)
     local list = pools[kind]
-    return table.remove(list) or (kind == "hotspot" and NewArea() or NewSkull())
+    return table.remove(list) or (AREA_KINDS[kind] and NewArea(kind) or NewSkull())
 end
 
 local function HideAll()
     for _, pin in ipairs(active) do
         pin:Hide()
         pin.data = nil
-        if pin.kind == "hotspot" then pin.label.data = nil end
+        if AREA_KINDS[pin.kind] then pin.label.data = nil end
         local list = pools[pin.kind]
         list[#list + 1] = pin
     end
@@ -461,7 +554,8 @@ ns.Events:Register("HH_INITIALIZED", function()
         end, OWNER)
     end
     local request = function() MapMarkers:RequestRefresh() end
-    for _, event in ipairs({ "HH_WANTED_UPDATED", "HH_HOTSPOT_CHANGED", "HH_POSSE_CHANGED", "HH_OUTLAW_SPOTTED" }) do
+    for _, event in ipairs({ "HH_WANTED_UPDATED", "HH_HOTSPOT_CHANGED", "HH_POSSE_CHANGED", "HH_OUTLAW_SPOTTED",
+            "HH_DUEL_SPOTS_CHANGED" }) do
         ns.Events:Register(event, request, OWNER)
     end
     ns.Events:Register("HH_SETTING_CHANGED", function(_, path)

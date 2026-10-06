@@ -71,4 +71,17 @@ return function(T, H)
         T.ok(H.Printed("not available"), "said so")
         T.noErrors()
     end)
+
+    T.case("two tabs: General has alerts, HeadHunter Sync and rules, Display the rest", function()
+        local ns = H.Boot({ client = "forever", options = "settings" })
+        local P = ns.SettingsPanel
+        T.eq(P.PageOf("alerts"), "general", "alerts")
+        T.eq(P.PageOf("screenshots"), "general", "HeadHunter Sync")
+        T.eq(P.PageOf("serial"), "general", "rules")
+        T.eq(P.PageOf("mapPins"), "display", "map pins")
+        T.eq(P.page, "general", "opens on General")
+        P:ShowPage("display")
+        T.eq(P.page, "display", "switched")
+        T.noErrors()
+    end)
 end

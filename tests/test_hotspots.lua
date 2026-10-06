@@ -224,4 +224,78 @@ return function(T, H)
         H.Slash("hotspots")
         T.ok(H.Printed("Westfall: heat 4 %(HeadHunters 1, enemies 3, deaths 0%)"), "listed")
     end)
+
+    T.case("ping: our side rides along as +ids, older clients see only the enemies", function()
+        local P = H.Boot({ client = "forever" }).Protocol
+        local record = P.EncodeHotspot(1429, H.serverTime, 0.4, 0.6, { "E0000001", "E0000002" }, nil, nil,
+            { "A0000001", "A0000002" })
+        local _, _, _, _, ids, _, _, allies = P.DecodeHotspot(record)
+        T.eq(#ids, 2, "enemies")
+        T.eq(#allies, 2, "our side")
+        T.eq(allies[1], "A0000001", "the sender first")
+        -- What a 0.3 client reads from the id list: plain ids only
+        local field = record:match("^[^;]*;[^;]*;[^;]*;[^;]*;([^;]*)")
+        local old = 0
+        for id in field:gmatch("[^,]+") do if id:match("^%w+$") then old = old + 1 end end
+        T.eq(old, 2, "an older client counts only the enemies")
+        T.eq(select(8, P.DecodeHotspot(P.EncodeHotspot(1429, H.serverTime, 0.4, 0.6, { "E0000001" }))), nil,
+            "no allies from an older ping")
+        -- A full ping drops allies to stay short enough
+        local enemies = {}
+        for i = 1, 3 do enemies[i] = { name = "Longername Number" .. i, class = "ROGUE", level = 60 } end
+        local long = P.EncodeHotspot(1429, H.serverTime, 0.4, 0.6, Ids(1, 12), enemies, 5, Ids(13, 24))
+        T.ok(#long <= P.PING_BUDGET, "fits: " .. #long)
+    end)
+
+    T.case("a 3 vs 2 fight shows 3 vs 2: allies count, passers-by and old enemies do not", function()
+        local ns = H.Boot({ client = "forever" })
+        H.inCombat = true
+        local function Unit(i, faction, inCombat)
+            H.units["nameplate" .. i] = { name = "Unit" .. i, realm = "Reaper", level = 30, class = "WARRIOR",
+                race = faction == "Horde" and "Orc" or "Human", faction = faction, isPlayer = true,
+                guid = string.format("Player-4613-0000000%d", i), inCombat = inCombat }
+        end
+        Unit(1, "Horde", true)      -- the two we fight
+        Unit(2, "Horde", true)
+        Unit(3, "Horde", false)     -- an enemy riding past
+        Unit(4, "Alliance", true)   -- our side, without HeadHunter
+        Unit(5, "Alliance", true)
+        Unit(6, "Alliance", false)  -- our side, not fighting
+        H.Advance(5) -- tick
+        -- Another HeadHunter fought two other enemies here 4 minutes ago
+        Ping(ns, 1429, "Other Hunter", { "OLD00001", "OLD00002" }, 240)
+        local _, _, a, e = ns.Hotspots:Heat(1429)
+        T.eq(a, 4, "5 min: us, our two allies and the other HeadHunter")
+        T.eq(e, 4, "5 min: every enemy fighting in the zone")
+        local nowA, nowE = ns.Hotspots:Now(1429)
+        T.eq(nowA, 3, "now: 3 of us")
+        T.eq(nowE, 2, "now: 2 of them")
+        T.noErrors()
+    end)
+
+    T.case("enemies attacking us count when the combat flag is hidden, and our group's targets are seen", function()
+        local ns = H.Boot({ client = "forever" })
+        H.inCombat = true
+        local SECRET = {}
+        _G.issecretvalue = function(value) return value == SECRET end
+        local function Player(unit, i, faction, inCombat)
+            H.units[unit] = { name = "Unit" .. i, realm = "Reaper", level = 30, class = "WARRIOR",
+                race = faction == "Horde" and "Orc" or "Human", faction = faction, isPlayer = true,
+                guid = string.format("Player-4613-0000000%d", i), inCombat = inCombat }
+        end
+        Player("nameplate1", 1, "Horde", SECRET)   -- combat flag hidden, hitting one of us
+        Player("nameplate1target", 4, "Alliance", true)
+        Player("nameplate2", 2, "Horde", SECRET)   -- combat flag hidden, targeting nobody of ours
+        Player("party1", 5, "Alliance", true)      -- a group member far away...
+        Player("party1target", 3, "Horde", true)   -- ...fighting an enemy we cannot see
+        local fighting, idle, unknown = ns.Hotspots.ScanFighters()
+        T.eq(fighting, 2, "the attacker and the group member's enemy")
+        T.eq(idle, 1, "the one targeting nobody of ours")
+        T.eq(unknown, 2, "two hidden combat flags")
+        H.Advance(5) -- tick
+        local _, nowE = ns.Hotspots:Now(1429)
+        T.eq(nowE, 2, "the map shows 2 enemies")
+        _G.issecretvalue = nil
+        T.noErrors()
+    end)
 end

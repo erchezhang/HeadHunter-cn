@@ -72,6 +72,15 @@ return function(T, H)
         T.eq(ns.db.schemaVersion, 99, "schema untouched")
     end)
 
+    T.case("screenshots turn on once for saved data from 0.4.3 and 0.4.4 (off was the old default)", function()
+        local ns = H.Boot({ client = "era", savedDB = { schemaVersion = 3, settings = { screenshots = false } } })
+        T.eq(ns.Database:GetSetting("screenshots"), true, "turned on")
+        ns.Database:SetSetting("screenshots", false)
+        local saved = _G.HeadHunter_DB
+        ns = H.Boot({ client = "era", savedDB = saved })
+        T.eq(ns.Database:GetSetting("screenshots"), false, "a player's own off stays off after that")
+    end)
+
     T.case("debug setting restores debug mode", function()
         local ns = H.Boot({ client = "era", savedDB = { settings = { debug = true } } })
         T.eq(ns.debugMode, true, "debugMode")

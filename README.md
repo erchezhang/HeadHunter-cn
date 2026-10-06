@@ -97,7 +97,7 @@ If your own group was in the fight, the kill shows as a **group fight** (for exa
 - **WANTED sighting**: "WANTED Ganker X is here!" when a WANTED outlaw shows up on your screen, even in combat.
   - **通缉目击**：通缉犯出现在你屏幕上时提示"通缉 偷袭者 X 出现了！"，战斗中也会提示。
 - **WANTED activity**: a WANTED outlaw killed someone near you. Click **Join the posse** or **Decline**. HeadHunter shows at most one popup every 3 minutes. After a Decline, or a popup you let close by itself, you get no more of these popups for 20 minutes, only chat lines. While you ride with a posse, other outlaws only ask when they are in your zone. Only players close to the outlaw's level get this popup, the others get a chat line. If the victim is on another layer and died again within 15 minutes, joining also asks them for a group invite.
-  - **通缉活动**：通缉犯在你附近击杀了玩家。点击**加入追捕队**或**拒绝**。HeadHunter 每 3 分钟至多弹一次窗；拒绝或让弹窗自行关闭后，20 分钟内不再弹窗，只在聊天提示。你已在追捕队中时，其他通缉犯只有出现在你所在区域才会询问。只有等级接近通缉犯的玩家会收到弹窗，其他人只收聊天行。若受害者在另一分层且 15 分钟内再次阵亡，加入时还会向其请求组队邀请。
+  - **通缉活动**：通缉犯在你附近击杀了玩家。点击**加入追捕队**或**拒绝**。HeadHunter 每 3 分钟至多弹一次窗；拒绝或让弹窗自行关闭后，20 分钟内不再弹窗，只在聊天提示。你已在追捕队中时，其他通缉犯只有出现在你所在区域才会询问。只有等级接近通缉犯的玩家会收到弹窗，其他人只收聊天行。若受害者在另一位面且 15 分钟内再次阵亡，加入时还会向其请求组队邀请。
 - **Justice served**: a message when a WANTED outlaw is brought down.
   - **正法**：通缉犯被击倒时的消息。
 - **Gold bounty sighting**: "BOUNTY: X is here!" when a player with a gold bounty on them shows up.
@@ -109,14 +109,18 @@ If your own group was in the fight, the kill shows as a **group fight** (for exa
 - **You are WANTED**: with the HeadHunter Sync app, HeadHunter tells you at login when the other faction has you on its WANTED list.
   - **你被通缉了**：配合 HeadHunter Sync 应用，登录时若对方阵营的通缉名单上有你，HeadHunter 会提醒你。
 - **PvP hotspots**: Skirmish, Battle or Warzone when a big fight happens near you. The popup names the enemies in the fight and the HeadHunters of your side fighting there. Click **Help** to get the way to the fight: the HeadHunters fighting there see that you are coming, and if they are on another layer, one of them is asked for a group invite.
-  - **PvP 热点**：你附近爆发大规模战斗时，提示遭遇战、战斗或战区。弹窗会列出交战的敌人与你方参战的 HeadHunter。点击**支援**即可获得前往战场的指引：正在交战的 HeadHunter 会知道你在赶来，若他们在另一分层，其中一人会收到组队邀请。
+  - **PvP 热点**：你附近爆发大规模战斗时，提示遭遇战、战斗或战区。弹窗会列出交战的敌人与你方参战的 HeadHunter。点击**支援**即可获得前往战场的指引：正在交战的 HeadHunter 会知道你在赶来，若他们在另一位面，其中一人会收到组队邀请。
+- **Duel spots**: "Duels in Orgrimmar (Layer 3): 12 duels, 6 players in 20 min. Ask for an invite: [name]" when many players duel near you. Click a name to whisper them. Turn it off in the options: **Duel spot alerts**.
+  - **决斗热点**：附近很多玩家决斗时提示“奥格瑞玛决斗（位面 3）：20 分钟内 12 场决斗、6 名玩家。请求邀请：[名字]”。点击名字可密语对方。可在选项中关闭（**决斗热点提醒**）。
 
 ### World map · 世界地图
 
 - A red **PVP** area shows where fights are happening. It gets darker as the fight grows and stays for 20 minutes after the last fight.
   - 红色 **PVP** 区域表示正在发生战斗的位置；战斗规模越大颜色越深，最后一次战斗后保留 20 分钟。
-- A **skull** shows where a WANTED outlaw made their last kill (for 10 minutes). The map shows the 10 biggest fights and the 10 highest ranked outlaws.
-  - **骷髅**标记通缉犯最近一次击杀的位置（保留 10 分钟）。地图最多显示 10 处最大规模的战斗和 10 名等级最高的通缉犯。
+- A blue **DUELS** area shows where players duel now, one per zone. Hover it to see a row for every layer with duels. Left-click to ask a HeadHunter for a group invite to the busiest layer you are not on; right-click to choose the layer.
+  - 蓝色 **DUELS** 区域显示当前玩家决斗的位置，每个区域一个。悬停可看到按位面分行的决斗情况；左键点击可请求 HeadHunter 组队邀请，前往你不在的、最热闹的位面；右键点击可选择位面。
+- A **skull** shows where a WANTED outlaw made their last kill (for 10 minutes). The map shows the 10 biggest fights, the 10 busiest duel spots and the 10 highest ranked outlaws.
+  - **骷髅**标记通缉犯最近一次击杀的位置（保留 10 分钟）。地图最多显示 10 处最大规模的战斗、10 个最热闹的决斗热点和 10 名等级最高的通缉犯。
 
 ![A PvP area on the world map](https://headhunterwow.com/images/screenshots/map.webp)
 
@@ -147,9 +151,9 @@ On **WANTED**, **Bullies**, **Deadbeats**, **Busted**, **Barflies**, **Duels** a
 
 在**通缉**、**欺凌者**、**老赖**、**落网**、**酒馆常客**、**决斗**与**我的死亡**页签中，可用搜索框按名字查找玩家，每个页签单独保留自己的搜索词。
 
-The window has the same look as the website. Too big or too small for your screen? Change **Window size** in the options (90% to 130%).
+The window has the same look as the website. Too big or too small for your screen? Drag the bottom right corner of the window (70% to 150%). Right-click the corner to go back to 100%.
 
-窗口外观与官网一致。在屏幕上显得太大或太小？可在选项中调整**窗口大小**（90% 至 130%）。
+窗口外观与官网一致。在屏幕上显得太大或太小？拖动窗口右下角调整大小（70% 至 150%）。右键点击角落可恢复 100%。
 
 Hover a name for details, or click it to open their **WANTED poster** in the middle of the window: an old paper poster with a black and white picture of their race, their name, rank, kills, badges and the gold on their head. Next to it: their history, recent kills, the posse, gold bounties and the **Join the posse** and **Post a bounty** buttons.
 
@@ -248,6 +252,8 @@ Type `/hh online` to see how many HeadHunters are online right now, how many are
   - 按净胜场定段位：**快拔（Quickdraw）**、**神射手（Sharpshooter，+5）**、**鹰眼（Deadeye，+15）**、**传奇（Legend，+30）**；不足 5 场决斗为**新手（Greenhorn）**，排在所有 5 场及以上玩家之后。
 - The #1 of each faction is the **Top Gun**, once they are 5 or more wins ahead (Sharpshooter) and nobody else at the top has the same record. A Greenhorn cannot be Top Gun.
   - 每个阵营的第一名是**王牌（Top Gun）**，条件是领先第二名至少 5 个净胜场（达到神射手标准）且榜首没有相同战绩者；新手不能成为王牌。
+- **Duel spots**: when HeadHunters see 10 duels between 5 or more different players in 20 minutes, all level 19 or higher, that zone and layer is a duel spot. It is gone when nobody duels there for 3 minutes. Every layer counts on its own. You see it on the map and in chat, with the HeadHunters there you can ask for a group invite. Type `/hh duelspots` to list them all. Only HeadHunters with this version share duel spots.
+  - **决斗热点**：当 HeadHunter 们在 20 分钟内看到同一区域、同一位面上有 10 场决斗、至少 5 名不同玩家（均 19 级及以上）时，该区域与位面即成为决斗热点；3 分钟无人决斗则消失，每个位面单独计算。你可以在地图和聊天中看到它，并向在场的 HeadHunter 请求组队邀请。输入 `/hh duelspots` 可列出全部。只有此版本的 HeadHunter 才共享决斗热点。
 
 ![Duels: every duelist with their rank and record](https://headhunterwow.com/images/screenshots/duels.webp)
 
@@ -257,7 +263,7 @@ Type `/hh online` to see how many HeadHunters are online right now, how many are
 
 ![The WANTED board on the website: every outlaw with their rank, kills, badges and reward](https://headhunterwow.com/images/screenshots/site-wanted.webp)
 
-**[headhunterwow.com](https://headhunterwow.com)** 是所有 HeadHunter 玩家的悬赏公告板：按游戏与服务器列出通缉令、最强决斗者、顶级猎人与耻辱柱。用 Battle.net、Discord、Google 或邮箱登录即可看到自己的角色。
+**[headhunterwow.com](https://headhunterwow.com)** 是所有 HeadHunter 玩家的悬赏公告板：按游戏与服务器列出通缉令、最强决斗者、顶级猎人、欺凌者、老赖、落网逃犯与酒馆常客。用 Battle.net、Discord、Google 或邮箱登录即可看到自己的角色。
 
 A WoW addon cannot use the internet. That is why there is a small, free desktop app: **HeadHunter Sync**. It connects the game and the website.
 
@@ -301,7 +307,9 @@ Good to know about the app:
 | `/hh bounty` | Your hunter rank and the bounty you collected<br>你的猎人等级与积累的赏金 |
 | `/hh hotspots` | PvP activity per zone<br>各区域的 PvP 活动 |
 | `/hh duels` | Duels: the best duelists and your rank<br>决斗：最强决斗者与你的排名 |
-| `/hh map on/off` | PvP areas and skulls on the world map<br>世界地图上的 PvP 区域与骷髅标记开关 |
+| `/hh duelspots` | Places where players duel now, their layer and who to ask for an invite<br>玩家当前决斗的地点、所在位面以及可请求邀请的人 |
+| `/hh sim duels` | Test duel spots in your zone, only on your screen (`/hh sim duels clear` removes them)<br>在你的区域测试决斗热点，仅你自己可见（`/hh sim duels clear` 移除） |
+| `/hh map on/off` | PvP areas, duel spots and skulls on the world map<br>世界地图上的 PvP 区域、决斗热点与骷髅标记开关 |
 | `/hh tooltip on/off` | WANTED line on enemy tooltips<br>敌人鼠标提示上的通缉行开关 |
 | `/hh minimap` | Show or hide the minimap button<br>显示或隐藏小地图按钮 |
 | `/hh claim` | Announce your gold bounty claim to all HeadHunters (Classic Era)<br>向所有 HeadHunter 宣告你领取了金币悬赏（Classic Era） |

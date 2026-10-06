@@ -55,6 +55,35 @@ function Tournaments:Get(id, now)
     return nil
 end
 
+-- Our character signed up on the website (a place or the waitlist, alone or in a team)
+function Tournaments.Joined(t, key)
+    key = key or ns.Utils.UnitKey("player")
+    for _, joined in ipairs(t.joined or {}) do
+        if ns.Utils.SameCharacter(joined, key) then return true end
+    end
+    return false
+end
+
+-- Still to come: not started yet (the count on the Events tab in the header)
+function Tournaments:UpcomingCount(now)
+    now = now or ns.Utils.ServerTime()
+    local count = 0
+    for _, t in ipairs(self:List(now)) do
+        if now < t.startsAt then count = count + 1 end
+    end
+    return count
+end
+
+-- Being played now: a blinking dot on the Ongoing tab
+function Tournaments:OngoingCount(now)
+    now = now or ns.Utils.ServerTime()
+    local count = 0
+    for _, t in ipairs(self:List(now)) do
+        if Tournaments.Ongoing(t, now) then count = count + 1 end
+    end
+    return count
+end
+
 -- Events tab (author, 2026-10-01): being played now, still to come, or over
 function Tournaments.Ongoing(t, now)
     return Tournaments.State(t, now) == "running"

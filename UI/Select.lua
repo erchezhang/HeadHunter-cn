@@ -6,6 +6,7 @@
 --     config = { width, options = { { value, label }, ... }, get = fn() -> value, set = fn(value) }
 --   container:Refresh()        show the current value (after get() changed)
 --   container:Choose(value)    pick a value as a click would (set + Refresh)
+--   Select.ContextMenu(owner, title, entries)   a menu at the cursor; entries = { { label, func } }
 
 local addonName, ns = ...
 
@@ -77,4 +78,36 @@ function Select.Create(parent, config)
     container.dropdown = dropdown
     container:Refresh()
     return container
+end
+
+-- A menu at the cursor (right-click menus): the modern MenuUtil context menu where the
+-- client has it, otherwise the classic dropdown list. Picking an entry runs its func.
+local contextFrame
+
+function Select.ContextMenu(owner, title, entries)
+    if _G.MenuUtil and MenuUtil.CreateContextMenu then
+        MenuUtil.CreateContextMenu(owner, function(_, root)
+            root:CreateTitle(title)
+            for _, entry in ipairs(entries) do root:CreateButton(entry.label, entry.func) end
+        end)
+        return "modern"
+    end
+    contextFrame = contextFrame or CreateFrame("Frame", "HeadHunterContextMenu", UIParent, "UIDropDownMenuTemplate")
+    UIDropDownMenu_Initialize(contextFrame, function(_, level)
+        if (level or 1) ~= 1 then return end
+        local header = UIDropDownMenu_CreateInfo()
+        header.text, header.isTitle, header.notCheckable = title, true, true
+        UIDropDownMenu_AddButton(header, level)
+        for _, entry in ipairs(entries) do
+            local info = UIDropDownMenu_CreateInfo()
+            info.text, info.notCheckable = entry.label, true
+            info.func = function()
+                CloseDropDownMenus()
+                entry.func()
+            end
+            UIDropDownMenu_AddButton(info, level)
+        end
+    end, "MENU")
+    ToggleDropDownMenu(1, nil, contextFrame, "cursor", 0, 0)
+    return "classic"
 end

@@ -54,6 +54,35 @@ return function(T, H)
             T.noErrors()
         end)
 
+        T.case(client .. ": probe screenshot takes one and logs whether it worked", function()
+            local ns = H.Boot({ client = client })
+            local shots = 0
+            _G.Screenshot = function() shots = shots + 1 end
+            H.Slash("probe screenshot")
+            local text = table.concat(ns.Log:Lines(), "\n")
+            T.eq(shots, 1, "one screenshot")
+            T.ok(text:find("Screenshot: yes", 1, true) ~= nil, "API reported")
+            T.ok(text:find("Screenshot() called: ok", 1, true) ~= nil, "call logged with the time")
+            local quality = "3"
+            local seen
+            _G.GetCVar = function(name) return name == "screenshotQuality" and quality or nil end
+            _G.SetCVar = function(name, value) if name == "screenshotQuality" then quality = value end end
+            _G.Screenshot = function() seen = quality end
+            H.Slash("probe screenshot 1")
+            T.eq(seen, "1", "taken at the asked quality")
+            T.eq(quality, "1", "kept until the game wrote the file")
+            H.Fire("SCREENSHOT_SUCCEEDED")
+            T.eq(quality, "3", "the player's own quality is back")
+            H.Slash("probe screenshot 99")
+            T.eq(seen, "10", "quality capped at 10")
+            H.Fire("SCREENSHOT_FAILED")
+            T.eq(quality, "3", "back after a failure too")
+            _G.Screenshot = nil
+            H.Slash("probe screenshot")
+            T.ok(table.concat(ns.Log:Lines(), "\n"):find("Screenshot: no", 1, true) ~= nil, "missing API reported")
+            T.noErrors()
+        end)
+
         T.case(client .. ": probe witness logs another player dying near us", function()
             local ns = H.Boot({ client = client })
             H.Slash("probe")

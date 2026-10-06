@@ -2,7 +2,7 @@
 
 给 [HeadHunter - Wanted: Dead or Alive](https://headhunterwow.com) 插件做的简体中文本地化版本。
 
-- **原始项目地址**：https://github.com/GudaAddons/HeadHunter（原作者 Vati / GudaAddons，当前 **v0.4.0**，官网 [headhunterwow.com](https://headhunterwow.com)）
+- **原始项目地址**：https://github.com/GudaAddons/HeadHunter（原作者 Vati / GudaAddons，当前 **v0.4.5**，官网 [headhunterwow.com](https://headhunterwow.com)）
 - **汉化分支地址**：https://github.com/erchezhang/HeadHunter-cn
 - **汉化：车长不二 完成**
 - 适用客户端：Classic Era（Interface 11509）与 WoW Forever（Interface 16001）
@@ -22,7 +22,7 @@
 
 - **界面**：主窗口各页签（通缉、欺凌者、老赖、落网、酒馆常客、决斗、我的死亡、我的赏金、赛事）与全部列头、鼠标提示、通缉令海报、设置页、地图标记、悬赏与赛事对话框、落网弹窗、确认弹窗
 - **聊天**:`/hh help` 全部命令说明、各命令输出、载入行、未知命令提示
-- **提醒**:中屏与聊天的目击/活动/追捕队/分层/热点/正法/悬赏领取/赛事签到/你被通缉等文案
+- **提醒**:中屏与聊天的目击/活动/追捕队/位面/热点/正法/悬赏领取/赛事签到/你被通缉等文案
 - **词汇表**:通缉等级、徽章、猎人等级、决斗段位、击杀方式、场地名
 
 保留原文:品牌与版本名(HeadHunter / WoW Forever / Classic Era)、命令语法(`/hh ...`、`<name>` 等)、玩家名与公会名、地图区域名(由客户端本地化)。
@@ -39,6 +39,7 @@
 | Bullies（页签） | 欺凌者 | Deadbeats（页签） | 老赖 |
 | Busted（页签） | 落网 | Barflies（页签） | 酒馆常客 |
 | Raise a glass | 举杯致敬 | Drunken Master | 醉拳大师 |
+| layer（游戏机制） | 位面 | Duel spots | 决斗热点 |
 
 ## 安装
 
@@ -54,8 +55,9 @@
 
 | 检查 | 结果 |
 |---|---|
-| 官方离线测试套件（Lua 5.1，49 个套件，v0.4.0） | **590 通过 / 0 失败**（含上游 `test_locales`：每个键 zhCN 必须存在且格式符/颜色码一致） |
-| zhCN 键覆盖 | enUS 587 键 / zhCN 597 键，缺失 0（0.3.9/0.4.0 新增 36 键均已翻译） |
+| 官方离线测试套件（Lua 5.1，52 个套件，v0.4.5） | **629 通过 / 0 失败**（含上游 `test_locales`：每个键 zhCN 必须存在且格式符/颜色码一致） |
+| zhCN 键覆盖 | enUS 628 键 / zhCN 638 键，缺失 0（0.4.1–0.4.5 新增 44 键均已翻译） |
+| 术语修正（2026-10-05） | 汉化中 layer 统一译作**位面**（原“分层”），共修正 `Locales_zhCN.lua` 24 处、README/报告 4 处，残留 0 |
 | README 中英对照完整性 | 上游英文行 100% 保留，每段均配中文译文 |
 
 同步机制与端到端数据流的分析见 [`docs/工作流程与信息同步报告.md`](docs/工作流程与信息同步报告.md)。

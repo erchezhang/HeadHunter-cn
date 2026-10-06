@@ -116,6 +116,45 @@ return function(T, H)
         T.noErrors()
     end)
 
+    T.case("Join event until we sign up or sign-up closes, then Event link; Events counts the upcoming ones", function()
+        H.Install({ client = "era" })
+        local me = H.units.player.name
+        local ns = H.Boot({ client = "era", siteData = Data({
+            Tournament(),
+            Tournament({ id = "mine", players = { { entrant = "p1", name = me, realm = "Firemaw" } } }),
+            Tournament({ id = "teams", format = "2v2", players = {},
+                teams = { { entrant = "t1", members = { { entrant = "p2", name = me, realm = "Firemaw" } } } } }),
+            Tournament({ id = "shut", signups_closed = true }),
+            Tournament({ id = "live", starts_at = H.serverTime - 600, locks_at = H.serverTime - 4200 }),
+        }) })
+        local TN, MW = ns.Tournaments, ns.MainWindow
+        T.eq(MW.EventLinkJoins(TN:Get("gatebrawl")), true, "open and not in it: Join event")
+        T.eq(TN.Joined(TN:Get("mine")), true, "signed up alone")
+        T.eq(TN.Joined(TN:Get("teams")), true, "signed up in a team")
+        T.eq(MW.EventLinkJoins(TN:Get("mine")), false, "in it: Event link")
+        T.eq(MW.EventLinkJoins(TN:Get("shut")), false, "sign-up closed: Event link")
+        T.eq(TN:UpcomingCount(), 4, "the running one does not count")
+        T.noErrors()
+    end)
+
+    T.case("/hh sim event adds a test event being played now or later, only with HeadHunter_Dev", function()
+        local ns = H.Boot({ client = "era" })
+        H.Slash("sim event ongoing")
+        T.ok(H.Printed("need the HeadHunter_Dev addon"), "refused without the dev addon")
+        T.eq(#ns.Tournaments:List(), 0, "nothing added")
+
+        ns = H.Boot({ client = "era", dev = { trust = {} } })
+        H.Slash("sim event ongoing")
+        H.Slash("sim event upcoming")
+        T.eq(ns.Tournaments:OngoingCount(), 1, "one being played")
+        T.eq(ns.Tournaments:UpcomingCount(), 1, "one to come")
+        T.ok(H.Printed("Test Event 1"), "told what was added")
+        H.Slash("sim event clear")
+        T.ok(H.Printed("Removed 2 test event"), "both gone")
+        T.eq(#ns.Tournaments:List(), 0, "the list is empty again")
+        T.noErrors()
+    end)
+
     T.case("state: open, sign-ups closed, locked, running until the last day is over", function()
         local ns = H.Boot({ client = "era" })
         local TN = ns.Tournaments

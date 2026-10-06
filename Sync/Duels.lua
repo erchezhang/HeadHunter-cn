@@ -26,6 +26,8 @@
 -- so High Noon can list both factions. Shared on the automatic routes and by login
 -- catch-up (Sync/CatchUp.lua). Fires HH_DUEL_ADDED(duel), and HH_DUEL_UPDATED(duel) when a
 -- relayed duel gets its second source (HH-121).
+-- HH_DUEL_SEEN(duel) fires once a duel we saw ourselves has both levels, before the
+-- fairness rule: duel spots (Alerts/DuelSpots.lua) also count duels with a bigger level gap.
 
 local addonName, ns = ...
 local L = ns.L
@@ -424,6 +426,7 @@ function Duels:Record(winner, loser, retreat)
         self:Wait(duel)
         return nil
     end
+    ns.Events:Fire("HH_DUEL_SEEN", duel)
     return self:Keep(duel)
 end
 
@@ -501,7 +504,10 @@ function Duels:CheckWaiting(key)
             ready[#ready + 1] = duel
         end
     end
-    for _, duel in ipairs(ready) do self:Keep(duel, true) end
+    for _, duel in ipairs(ready) do
+        ns.Events:Fire("HH_DUEL_SEEN", duel)
+        self:Keep(duel, true)
+    end
 end
 
 function Duels:WaitingCount()
