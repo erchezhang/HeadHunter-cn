@@ -432,6 +432,7 @@ local CN = {
     LOADED = "v%s 已加载。输入 |cffffff00/hh help|r 查看命令。",
     UNSUPPORTED_CLIENT = "不支持此客户端（界面版本 %s）。HeadHunter 仅支持 Classic Era 与 WoW Forever。",
     HELP_HEADER = "|cffc41e3a========== HeadHunter ==========|r",
+    HELP_HELP = "|cffffff00/hh help|r：列出全部命令",
     HELP_STATUS = "|cffffff00/hh status|r：客户端、特性开关与数据库摘要",
     HELP_DEBUG = "|cffffff00/hh debug [on|off]|r：开关调试模式（调试信息回显到聊天）。",
     HELP_LOG = "|cffffff00/hh log [clear]|r：显示调试日志窗口",

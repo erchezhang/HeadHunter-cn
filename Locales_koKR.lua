@@ -13,6 +13,7 @@ local KR = {
     FOREVER_SAVED_VARS_SHORT = "Forever 테스트 모드: 리로드하면 저장 데이터 초기화 (클라이언트 문제)",
     UNSUPPORTED_CLIENT = "이 클라이언트 (인터페이스 %s)는 지원되지 않습니다. HeadHunter는 Classic Era와 WoW Forever에서만 작동합니다.",
     HELP_HEADER = "|cffc41e3a========== HeadHunter ==========|r",
+    HELP_HELP = "|cffffff00/hh help|r: 모든 명령어 나열",
     HELP_STATUS = "|cffffff00/hh status|r: 클라이언트, 기능 플래그, 데이터베이스 요약",
     HELP_DEBUG = "|cffffff00/hh debug [on|off]|r: 디버그 모드 켜기/끄기 (디버그 줄을 채팅에 표시).",
     HELP_LOG = "|cffffff00/hh log [clear]|r: 디버그 로그 창 표시",

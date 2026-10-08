@@ -323,7 +323,7 @@ Good to know about the app:
 | `/hh catchup` | Ask other HeadHunters what you missed<br>向其他 HeadHunter 索取你错过的内容 |
 | `/hh online` | How many HeadHunters are online, per faction<br>在线的 HeadHunter 数量（按阵营） |
 | `/hh layer` | Your current layer (phase) ID, read from nearby NPCs<br>你当前的位面 ID（读取自附近 NPC） |
-| `/hh toolbox` | The toolbox: your layer (phase) ID and every command as a button<br>工具箱：你的位面 ID 与全部命令按钮 |
+| `/hh toolbox` | The toolbox: your layer (phase) ID and every command as a button, its short description right under it<br>工具箱：你的位面 ID 与全部命令按钮，每个按钮下方直接显示该命令的简介 |
 | `/hh t` | Short alias of /hh toolbox<br>/hh toolbox 的简写 |
 | `/hh tool` | Alias of /hh toolbox, same window<br>/hh toolbox 的别名，同一个窗口 |
 | `/hht` | Top-level alias: bare opens the toolbox, with arguments it runs like `/hh <args>`<br>顶层别名：无参打开工具箱，带参数时等同 `/hh <参数>` |

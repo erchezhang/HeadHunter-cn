@@ -18,6 +18,7 @@ L.FOREVER_SAVED_VARS_SHORT = "Forever testing mode: saved data resets on reload 
 L.UNSUPPORTED_CLIENT = "This client (interface %s) is not supported. HeadHunter runs on Classic Era and WoW Forever only."
 
 L.HELP_HEADER = "|cffc41e3a========== HeadHunter ==========|r"
+L.HELP_HELP = "|cffffff00/hh help|r: List all commands"
 L.HELP_STATUS = "|cffffff00/hh status|r: Client, flags and database summary"
 L.HELP_DEBUG = "|cffffff00/hh debug [on|off]|r: Toggle debug mode (echo debug lines to chat)."
 L.HELP_LOG = "|cffffff00/hh log [clear]|r: Show the debug log window"

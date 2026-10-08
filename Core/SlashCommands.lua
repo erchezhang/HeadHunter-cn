@@ -55,7 +55,7 @@ end
 
 SlashCommands:Register("help", function()
     SlashCommands:PrintHelp()
-end)
+end, L.HELP_HELP)
 
 SlashCommands:Register("status", function()
     local E = ns.Expansion

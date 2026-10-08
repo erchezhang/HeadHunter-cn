@@ -13,6 +13,7 @@ local RU = {
     FOREVER_SAVED_VARS_SHORT = "Тестовый режим Forever: данные сбрасываются при перезагрузке (проблема клиента)",
     UNSUPPORTED_CLIENT = "Этот клиент (интерфейс %s) не поддерживается. HeadHunter работает только в Classic Era и WoW Forever.",
     HELP_HEADER = "|cffc41e3a========== HeadHunter ==========|r",
+    HELP_HELP = "|cffffff00/hh help|r: Показать все команды",
     HELP_STATUS = "|cffffff00/hh status|r: клиент, флаги и сводка базы данных",
     HELP_DEBUG = "|cffffff00/hh debug [on|off]|r: режим отладки (строки отладки в чат).",
     HELP_LOG = "|cffffff00/hh log [clear]|r: окно журнала отладки",

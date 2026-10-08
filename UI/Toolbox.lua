@@ -4,6 +4,8 @@
 --
 --   /hh toolbox, /hh tool, /hh t open the window (registered at the bottom)
 --   /hht (top level) opens it too; with arguments it runs them as /hh <args>
+--   Each button shows its short description right under it (Toolbox.Desc); the
+--   tooltip still shows the full help line on hover.
 --   Toolbox.LayerLines()  the card's texts (pure, tested offline)
 --   Toolbox:RunCommand(c) what a button does: the same as typing /hh c
 --
@@ -18,7 +20,7 @@ local Toolbox = ns:RegisterModule("Toolbox", {})
 local OWNER = "Toolbox"
 
 Toolbox.WIDTH = 440
-Toolbox.HEIGHT = 490
+Toolbox.HEIGHT = 690
 
 -- The commands of the website's table, in its order. Labels differ where the command
 -- takes arguments; the buttons run the bare command (a usage line explains the rest).
@@ -36,6 +38,15 @@ Toolbox.COMMANDS = {
 
 function Toolbox.Label(cmd)
     return LABELS[cmd] or ("/hh " .. cmd)
+end
+
+-- The short description under a button: its help line without the command part
+-- ("|c…/hh wanted|r: Current WANTED list" -> "Current WANTED list"). Pure, tested.
+function Toolbox.Desc(cmd)
+    local help = ns.SlashCommands:Help(cmd)
+    if not help then return "" end
+    local desc = help:match("|r:%s*(.+)$") or help
+    return (desc:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""))
 end
 
 -- The layer card's texts: the big ID, the line under it and the zone name (pure).
@@ -135,14 +146,16 @@ CreateToolboxFrame = function()
     f.layerZone:SetPoint("TOPLEFT", 110, -68)
     f.layerZone:SetJustifyH("LEFT")
 
-    -- The website's command table as buttons: two columns, each with its help on hover
+    -- The website's command table as buttons: two columns, the description of
+    -- each command right under its button (the full help line on hover)
     local heading = Theme.Text(f, "bold", 13, "gold")
     heading:SetPoint("TOPLEFT", 18, -(Theme.HEADER_HEIGHT + 12 + 92 + 16))
     heading:SetText(L.TOOLBOX_SECTION_COMMANDS)
 
     f.buttons = {}
+    f.descs = {}
     local startY = Theme.HEADER_HEIGHT + 12 + 92 + 44
-    local colWidth, gap, rowHeight = 198, 8, 32
+    local colWidth, gap, rowHeight = 198, 8, 54
     for i, cmd in ipairs(Toolbox.COMMANDS) do
         local col = (i - 1) % 2
         local row = math.floor((i - 1) / 2)
@@ -158,6 +171,15 @@ CreateToolboxFrame = function()
         button:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
         button:SetScript("OnClick", function() Toolbox:RunCommand(cmd) end)
         f.buttons[cmd] = button
+        -- The description right under the button: small, muted, up to two lines
+        local desc = Theme.Text(f, "text", 10, "muted")
+        desc:SetPoint("TOPLEFT", button, "TOPLEFT", 2, -28)
+        desc:SetWidth(colWidth - 4)
+        desc:SetJustifyH("LEFT")
+        desc:SetWordWrap(true)
+        desc:SetMaxLines(2)
+        desc:SetText(Toolbox.Desc(cmd))
+        f.descs[cmd] = desc
     end
 
     return f

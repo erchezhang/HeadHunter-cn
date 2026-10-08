@@ -13,6 +13,7 @@ local DE = {
     FOREVER_SAVED_VARS_SHORT = "Forever-Testmodus: gespeicherte Daten werden beim Neuladen zurückgesetzt (Client-Problem)",
     UNSUPPORTED_CLIENT = "Dieser Client (Interface %s) wird nicht unterstützt. HeadHunter läuft nur auf Classic Era und WoW Forever.",
     HELP_HEADER = "|cffc41e3a========== HeadHunter ==========|r",
+    HELP_HELP = "|cffffff00/hh help|r: Alle Befehle anzeigen",
     HELP_STATUS = "|cffffff00/hh status|r: Client, Funktionen und Übersicht der Datenbank",
     HELP_DEBUG = "|cffffff00/hh debug [on|off]|r: Debug-Modus (Debug-Zeilen im Chat).",
     HELP_LOG = "|cffffff00/hh log [clear]|r: Fenster mit dem Debug-Protokoll",

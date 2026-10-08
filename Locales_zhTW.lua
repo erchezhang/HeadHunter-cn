@@ -433,6 +433,7 @@ local TW = {
     LOADED = "v%s 已載入。輸入 |cffffff00/hh help|r 檢視命令。",
     UNSUPPORTED_CLIENT = "不支援此客戶端（介面版本 %s）。HeadHunter 僅支援 Classic Era 與 WoW Forever。",
     HELP_HEADER = "|cffc41e3a========== HeadHunter ==========|r",
+    HELP_HELP = "|cffffff00/hh help|r：列出全部指令",
     HELP_STATUS = "|cffffff00/hh status|r：客戶端、特性開關與資料庫摘要",
     HELP_DEBUG = "|cffffff00/hh debug [on|off]|r：開關除錯模式（除錯資訊回顯到聊天）。",
     HELP_LOG = "|cffffff00/hh log [clear]|r：顯示除錯日誌視窗",

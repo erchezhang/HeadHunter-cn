@@ -13,6 +13,7 @@ local FR = {
     FOREVER_SAVED_VARS_SHORT = "Mode test de Forever : données remises à zéro au rechargement (problème du client)",
     UNSUPPORTED_CLIENT = "Ce client (interface %s) n'est pas pris en charge. HeadHunter fonctionne seulement sur Classic Era et WoW Forever.",
     HELP_HEADER = "|cffc41e3a========== HeadHunter ==========|r",
+    HELP_HELP = "|cffffff00/hh help|r: Liste toutes les commandes",
     HELP_STATUS = "|cffffff00/hh status|r : client, options et résumé de la base de données",
     HELP_DEBUG = "|cffffff00/hh debug [on|off]|r : mode débogage (lignes de débogage dans le chat).",
     HELP_LOG = "|cffffff00/hh log [clear]|r : fenêtre du journal de débogage",
