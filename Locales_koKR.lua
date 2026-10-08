@@ -167,6 +167,10 @@ local KR = {
     HOTSPOT_STATUS = "%s %s: 열기 %d (HeadHunter %d, 적 %d, 죽음 %d)",
     HOTSPOT_NONE = "최근 5분 동안 알려진 PvP 활동이 없습니다.",
     HELP_HOTSPOTS = "|cffffff00/hh hotspots|r: 지역별 PvP 활동 (최근 5분)",
+    HELP_HK = "|cffffff00/hh hk|r: 지역별 명예 승리 (최근 24시간)",
+    HONOR_KILLS_HEADER = "최근 24시간 동안의 명예 승리:",
+    HONOR_KILLS_ZONE = "%s: %d",
+    HONOR_KILLS_NONE = "최근 24시간 동안 명예 승리가 없습니다.",
     ENEMIES = "적",
     HEADHUNTERS = "HeadHunter",
 

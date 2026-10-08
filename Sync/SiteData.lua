@@ -8,7 +8,8 @@
 --     duels = { alliance = {...}, horde = {...} }, deadbeats = {...}, bullies = {...},
 --     tournaments = {...} (WEB-080: the Tournaments tab and the organizer stars read them),
 --     busted = { { name, realm, caught_at, map_id, hunter, killer_name, glasses } } (the catches),
---     barflies = { { name, realm, glasses, last_glass_at, title, position } } (the most glasses raised) }
+--     barflies = { { name, realm, glasses, last_glass_at, title, position } } (the most glasses raised),
+--     bounties = { { t, owner, target, reason, gold, until } } (HH-118: the running players' bounties) }
 --   forever_servers = { ["4620"] = "pve", ... }: WoW Forever server numbers and their realm type
 --   characters = { { world, name, deaths, duels, catches, bounty = { total, events } } }
 -- This module picks our world, maps names to the addon's (player keys, "ROGUE",
@@ -22,6 +23,7 @@
 --
 --   SiteData:Wanted() -> id -> WANTED entry     SiteData:Duelists() -> key -> player
 --   SiteData:Bullies() -> id -> Hall of Shame entry (Rules/Wanted.lua MergeBullies)
+--   SiteData:Posters() -> id -> players' bounty   SiteData:BountyTargets() -> id -> entry
 --   SiteData:GeneratedAt()                      nil when there is no data for our world
 
 local addonName, ns = ...
@@ -40,7 +42,7 @@ local RACES = {
 }
 local FACTIONS = { alliance = "Alliance", horde = "Horde" }
 
-local world, wanted, duelists, deadbeats, bullies, tournaments, busted, glasses
+local world, wanted, duelists, deadbeats, bullies, tournaments, busted, glasses, posters, bountyTargets
 
 -------------------------------------------------
 -- Names
@@ -270,6 +272,7 @@ end
 
 function SiteData:Load()
     world, wanted, duelists, deadbeats, bullies, tournaments, busted, glasses = nil, nil, nil, nil, nil, nil, nil, nil
+    posters, bountyTargets = nil, nil
     local data = Data()
     world = data and FindWorld(data)
     if not world then return false end
@@ -314,7 +317,48 @@ function SiteData:Load()
             glasses[catch.outlaw .. ":" .. catch.t] = catch.glasses
         end
     end
+    -- HH-118: the running players' bounties, also those we never heard in game
+    posters, bountyTargets = {}, {}
+    for _, b in ipairs(type(world.bounties) == "table" and world.bounties or {}) do
+        local poster = type(b) == "table" and SiteData.Poster(b)
+        if poster then
+            posters[poster.id] = poster
+            bountyTargets[poster.target] = bountyTargets[poster.target] or SiteData.BountyTarget(b.target)
+        end
+    end
     return true
+end
+
+-- A players' bounty from the website as the addon keeps one (Sync/Bounties.lua), or nil
+function SiteData.Poster(b)
+    local owner, target = SiteData.Key(b.owner), SiteData.Key(b.target)
+    local t, untilT, gold, reason = Number(b.t), Number(b["until"]), Number(b.gold), Number(b.reason)
+    if not owner or not target or not t or not untilT or not gold or gold <= 0 then return nil end
+    if not reason or not ns.Bounties.REASONS[reason] then return nil end
+    return { id = owner .. ":" .. t, owner = owner, target = target, reason = reason, gold = gold,
+        ["until"] = untilT, t = t, origin = SiteData.ORIGIN }
+end
+
+-- A bounty's target we may never have seen: a plain entry, not WANTED
+function SiteData.BountyTarget(person)
+    local key = SiteData.Key(person)
+    if not key then return nil end
+    return {
+        id = key, key = key, name = key,
+        class = SiteData.Class(person.class), race = SiteData.Race(person.race), sex = Number(person.sex),
+        wanted = false, kills = 0, timesWanted = 0, timesCaught = 0, killCount = 0, cowardKills = 0,
+        badges = {}, source = SiteData.ORIGIN,
+    }
+end
+
+-- The website's running players' bounties: poster id -> poster
+function SiteData:Posters()
+    return posters or {}
+end
+
+-- Their targets: id -> entry (Rules/Wanted.lua MergeBountyTargets)
+function SiteData:BountyTargets()
+    return bountyTargets or {}
 end
 
 local function Who(person)

@@ -167,6 +167,10 @@ local RU = {
     HOTSPOT_STATUS = "%s %s: накал %d (HeadHunter %d, врагов %d, смертей %d)",
     HOTSPOT_NONE = "За последние 5 минут PvP неизвестно.",
     HELP_HOTSPOTS = "|cffffff00/hh hotspots|r: PvP по зонам (последние 5 мин)",
+    HELP_HK = "|cffffff00/hh hk|r: ваши почётные победы по зонам (последние 24 ч)",
+    HONOR_KILLS_HEADER = "Ваши почётные победы за последние 24 часа:",
+    HONOR_KILLS_ZONE = "%s: %d",
+    HONOR_KILLS_NONE = "За последние 24 часа почётных побед нет.",
     ENEMIES = "враги",
     HEADHUNTERS = "HeadHunter",
 

@@ -168,6 +168,10 @@ local ES = {
     HOTSPOT_STATUS = "%s %s: intensidad %d (HeadHunters %d, enemigos %d, muertes %d)",
     HOTSPOT_NONE = "No se conoce actividad JcJ en los últimos 5 minutos.",
     HELP_HOTSPOTS = "|cffffff00/hh hotspots|r: actividad JcJ por zona (últimos 5 min)",
+    HELP_HK = "|cffffff00/hh hk|r: tus muertes con honor por zona (últimas 24 h)",
+    HONOR_KILLS_HEADER = "Tus muertes con honor en las últimas 24 horas:",
+    HONOR_KILLS_ZONE = "%s: %d",
+    HONOR_KILLS_NONE = "Ninguna muerte con honor en las últimas 24 horas.",
     ENEMIES = "enemigos",
     HEADHUNTERS = "HeadHunters",
 

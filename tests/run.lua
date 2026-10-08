@@ -49,7 +49,7 @@ end
 local SUITES = {
     "test_expansion", "test_events", "test_utils", "test_database", "test_guards", "test_commands",
     "test_classify", "test_enemy_cache", "test_death_reports", "test_era_deaths", "test_forever_deaths",
-    "test_protocol", "test_sync", "test_rules_engine", "test_wanted", "test_alerts", "test_spotted", "test_activity", "test_posse", "test_layer", "test_pets", "test_hotspots", "test_duel_spots", "test_map_markers", "test_justice", "test_catchup", "test_relay", "test_witness", "test_glasses", "test_verdict", "test_main_window", "test_tooltip_line", "test_poster", "test_theme", "test_settings_panel", "test_marks", "test_level_window", "test_high_noon", "test_tournament", "test_organizers", "test_matches", "test_nameplates", "test_zones", "test_demo", "test_site_data", "test_presence", "test_battle_help", "test_bounties", "test_homes", "test_screenshots", "test_locales",
+    "test_protocol", "test_sync", "test_rules_engine", "test_wanted", "test_alerts", "test_spotted", "test_activity", "test_posse", "test_layer", "test_pets", "test_hotspots", "test_duel_spots", "test_map_markers", "test_justice", "test_honor_kills", "test_catchup", "test_relay", "test_witness", "test_glasses", "test_verdict", "test_main_window", "test_tooltip_line", "test_poster", "test_theme", "test_settings_panel", "test_marks", "test_level_window", "test_high_noon", "test_tournament", "test_organizers", "test_matches", "test_nameplates", "test_zones", "test_demo", "test_site_data", "test_presence", "test_battle_help", "test_bounties", "test_homes", "test_screenshots", "test_locales",
 }
 
 for _, suite in ipairs(SUITES) do

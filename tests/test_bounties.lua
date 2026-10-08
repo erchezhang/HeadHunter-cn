@@ -345,6 +345,43 @@ return function(T, H)
         T.noErrors()
     end)
 
+    T.case("the website's bounties we never heard in game: shown, claimable, never passed on", function()
+        local function Bounty(owner, gold, t, untilT)
+            return { t = t, owner = { name = owner, realm = "Firemaw", faction = "alliance" },
+                target = { name = "Gravelgrin", realm = "Firemaw", faction = "horde", class = "rogue", race = "orc" },
+                reason = 1, gold = gold, ["until"] = untilT }
+        end
+        local data = { format_version = 1, generated_at = H.serverTime - 600, characters = {}, worlds = {
+            ["era|eu|Firemaw"] = { generated_at = H.serverTime - 600, wanted = {}, duels = { alliance = {}, horde = {} },
+                bounties = {
+                    Bounty("Tallon", 20000, H.serverTime - 3600, H.serverTime + 86400),
+                    Bounty("Rowena", 50000, H.serverTime - 7 * 86400, H.serverTime - 60),
+                } },
+        } }
+        local ns = H.Boot({ client = "era", siteData = data })
+        Settle()
+        local summary = ns.Bounties:Summary("Gravelgrin-Firemaw")
+        T.ok(summary ~= nil and summary.count == 1, "the running one only")
+        T.eq(summary.gold, 20000, "its gold")
+        local rows = ns.MainWindow.Rows("wanted", "rank", nil, "Horde")
+        T.eq(rows[1].id, "Gravelgrin-Firemaw", "on top of the WANTED tab, though we never saw them")
+        T.ok(rows[1].rank:find("2g", 1, true) ~= nil, "with the reward")
+        T.ok(ns.Poster.Content("Gravelgrin-Firemaw").bounty:find("2g", 1, true) ~= nil, "and on the poster")
+        T.eq(#ns.Bounties:Records(0), 0, "not passed on at catch-up")
+
+        local posterId = "Tallon-Firemaw:" .. (H.serverTime - 3600)
+        PartyKill("Gravelgrin")
+        Settle()
+        local pay = ns.Bounties:Payment(posterId)
+        T.ok(pay ~= nil and pay.status == "claimed", "our killing blow claims it")
+        T.eq(ns.Bounties:Get(posterId).origin, "website", "kept for the claim, marked as the website's")
+        T.eq(ns.Bounties:Summary("Gravelgrin-Firemaw"), nil, "closed")
+        for _, record in ipairs(ns.Bounties:Records(0)) do
+            T.ok(record:sub(1, 1) ~= "W", "the poster is still not passed on")
+        end
+        T.noErrors()
+    end)
+
     T.case("Hall of Shame alerts: a Deadbeat of our faction we target", function()
         local ns = H.Boot({ client = "era" })
         Death(ns, "Tallon-Firemaw", "Grim-Stonespine", 5000)

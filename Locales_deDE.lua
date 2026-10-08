@@ -167,6 +167,10 @@ local DE = {
     HOTSPOT_STATUS = "%s %s: Hitze %d (HeadHunter %d, Feinde %d, Tode %d)",
     HOTSPOT_NONE = "In den letzten 5 Minuten ist keine PvP-Aktivität bekannt.",
     HELP_HOTSPOTS = "|cffffff00/hh hotspots|r: PvP-Aktivität pro Gebiet (letzte 5 Min.)",
+    HELP_HK = "|cffffff00/hh hk|r: Deine ehrenhaften Siege pro Gebiet (letzte 24 Std.)",
+    HONOR_KILLS_HEADER = "Deine ehrenhaften Siege in den letzten 24 Stunden:",
+    HONOR_KILLS_ZONE = "%s: %d",
+    HONOR_KILLS_NONE = "Keine ehrenhaften Siege in den letzten 24 Stunden.",
     ENEMIES = "Feinde",
     HEADHUNTERS = "HeadHunter",
 

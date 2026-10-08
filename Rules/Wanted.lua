@@ -215,6 +215,21 @@ function Wanted.MergeBullies(entries, site)
     return entries
 end
 
+-- HH-118: the targets of the website's players' bounties that we never saw, added as
+-- plain entries (not WANTED), so their bounty shows on the WANTED tab and the poster.
+-- entries: id -> entry (changed in place); site: id -> entry (Sync/SiteData.lua)
+function Wanted.MergeBountyTargets(entries, site)
+    for id, theirs in pairs(site or {}) do
+        if not entries[id] then
+            local copy = {}
+            for k, v in pairs(theirs) do copy[k] = v end
+            copy.badges = {}
+            entries[id] = copy
+        end
+    end
+    return entries
+end
+
 -- Synchronous recompute (tests, and the coroutine body)
 function Wanted:ComputeNow(yield)
     local reports = {}
@@ -232,6 +247,7 @@ function Wanted:ComputeNow(yield)
     Wanted.MergeSite(result, ns.Dev.TestEntries("wanted"), catches, now)
     Wanted.MergeBullies(result, ns.SiteData:Bullies())
     Wanted.MergeBullies(result, ns.Dev.TestEntries("shame"))
+    Wanted.MergeBountyTargets(result, ns.SiteData:BountyTargets())
     Wanted.FromSightings(result, function(key) return ns.EnemyCache:ByKey(key) end)
     Publish(result)
     return result

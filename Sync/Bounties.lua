@@ -93,6 +93,16 @@ function Bounties:All()
     return pairs(Posters() or {})
 end
 
+-- Ours and the website's running ones we never heard in game (SiteData): shown and
+-- claimable. A claimed one is kept in ns.db with origin "website" (Bounties:OnCatch),
+-- never passed on at catch-up or uploaded
+function Bounties:Listed()
+    local list = {}
+    for id, poster in pairs(ns.SiteData:Posters()) do list[id] = poster end
+    for id, poster in pairs(Posters() or {}) do list[id] = poster end
+    return pairs(list)
+end
+
 function Bounties:Payment(posterId)
     local store = Payments()
     return posterId and store and store[posterId]
@@ -402,7 +412,7 @@ end
 function Bounties:ActiveFor(targetId, now)
     local list = {}
     if not targetId then return list end
-    for _, poster in self:All() do
+    for _, poster in self:Listed() do
         if poster.target == targetId and self:IsActive(poster, now) then list[#list + 1] = poster end
     end
     table.sort(list, function(a, b) return a.t > b.t end)
@@ -426,7 +436,7 @@ end
 -- Every target with a running poster, newest poster first
 function Bounties:Board(now)
     local byTarget, list = {}, {}
-    for _, poster in self:All() do
+    for _, poster in self:Listed() do
         if not byTarget[poster.target] and self:IsActive(poster, now) then
             byTarget[poster.target] = true
             list[#list + 1] = self:Summary(poster.target, now)
@@ -762,7 +772,9 @@ function Bounties:Records(since)
     local Protocol, records = ns.Protocol, {}
     local now = ns.Utils.ServerTime()
     for _, poster in self:All() do
-        if poster.t > since and poster["until"] > now then records[#records + 1] = "W" .. Protocol.EncodePoster(poster) end
+        if poster.t > since and poster["until"] > now and poster.origin ~= "website" then
+            records[#records + 1] = "W" .. Protocol.EncodePoster(poster)
+        end
     end
     for _, pay in pairs(Payments() or {}) do
         if pay.t > since then records[#records + 1] = "R" .. Protocol.EncodePayment(pay) end
@@ -798,6 +810,13 @@ function Bounties:OnCatch(record)
     if self:IsRepeat(me, record.outlaw, record.t, best.id) then
         ns:Print(string.format(L.BOUNTY_NO_CLAIM_REPEAT, self.TargetName(record.outlaw)))
         return
+    end
+    -- A website bounty is kept once claimed: the website stops listing it, and the claim
+    -- line and the paid check at the mailbox still need it
+    if not self:Get(best.id) and Posters() then
+        local copy = {}
+        for k, v in pairs(best) do copy[k] = v end
+        Posters()[best.id] = copy
     end
     local claimed = { best }
     local lines, gold = {}, 0

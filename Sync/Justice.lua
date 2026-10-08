@@ -24,6 +24,9 @@
 -- Peer catches are accepted with a plausible time, under a per-sender rate limit.
 -- Fires HH_JUSTICE_ADDED(record), HH_JUSTICE_UPDATED(record) when a relayed catch
 -- gets its second source (HH-121), and HH_CATCH_WITNESSED(entry, how) when we saw the kill.
+-- Every honor line it understands also fires HH_HONOR_LINE(kind, name, text): kind "kill"
+-- with the victim's name as the line gives it, or "award" with no name
+-- (Detection/HonorKills.lua).
 
 local addonName, ns = ...
 local L = ns.L
@@ -310,6 +313,7 @@ function Justice:OnHonorGain(text)
     for _, pattern in ipairs(HonorPatterns()) do
         local name = text:match(pattern)
         if name then
+            ns.Events:Fire("HH_HONOR_LINE", "kill", name, text)
             local key = Justice.HonorVictim(name)
             ns.Log:Add("info", "Honor line: " .. text .. " -> " .. (key or "no watched outlaw"))
             return key and self:OnEnemyKilled(key, nil, "honor") or nil
@@ -318,6 +322,7 @@ function Justice:OnHonorGain(text)
     for _, pattern in ipairs(AwardPatterns()) do
         if text:match(pattern) then
             ns.Log:Add("info", "Honor award: " .. text)
+            ns.Events:Fire("HH_HONOR_LINE", "award", nil, text)
             if not ns.Features.HasCLEU then self:OnHonorAward() end
             return nil
         end

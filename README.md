@@ -110,6 +110,8 @@ If your own group was in the fight, the kill shows as a **group fight** (for exa
   - **你被通缉了**：配合 HeadHunter Sync 应用，登录时若对方阵营的通缉名单上有你，HeadHunter 会提醒你。
 - **PvP hotspots**: Skirmish, Battle or Warzone when a big fight happens near you. The popup names the enemies in the fight and the HeadHunters of your side fighting there. Click **Help** to get the way to the fight: the HeadHunters fighting there see that you are coming, and if they are on another layer, one of them is asked for a group invite.
   - **PvP 热点**：你附近爆发大规模战斗时，提示遭遇战、战斗或战区。弹窗会列出交战的敌人与你方参战的 HeadHunter。点击**支援**即可获得前往战场的指引：正在交战的 HeadHunter 会知道你在赶来，若他们在另一位面，其中一人会收到组队邀请。
+- **Honorable kills**: every honorable kill you get outside battlegrounds is kept with its time and zone. HeadHunter Sync sends them to the website, which adds up a side's kills in a big open-world fight. Type `/hh hk` to see yours.
+  - **荣誉击杀**：你在战场外获得的每次荣誉击杀都会连同时间与区域一并保存。HeadHunter Sync 会把它们发送到官网，用于统计大规模野外战斗中一方的击杀总数。输入 `/hh hk` 可查看你的记录。
 - **Duel spots**: "Duels in Orgrimmar (Layer 3): 12 duels, 6 players in 20 min. Ask for an invite: [name]" when many players duel near you. Click a name to whisper them. Turn it off in the options: **Duel spot alerts**.
   - **决斗热点**：附近很多玩家决斗时提示“奥格瑞玛决斗（位面 3）：20 分钟内 12 场决斗、6 名玩家。请求邀请：[名字]”。点击名字可密语对方。可在选项中关闭（**决斗热点提醒**）。
 
@@ -306,6 +308,7 @@ Good to know about the app:
 | `/hh posse` | Who is hunting which outlaw<br>谁在追捕哪个通缉犯 |
 | `/hh bounty` | Your hunter rank and the bounty you collected<br>你的猎人等级与积累的赏金 |
 | `/hh hotspots` | PvP activity per zone<br>各区域的 PvP 活动 |
+| `/hh hk` | Your honorable kills per zone in the last 24 hours<br>你最近 24 小时内各区的荣誉击杀 |
 | `/hh duels` | Duels: the best duelists and your rank<br>决斗：最强决斗者与你的排名 |
 | `/hh duelspots` | Places where players duel now, their layer and who to ask for an invite<br>玩家当前决斗的地点、所在位面以及可请求邀请的人 |
 | `/hh sim duels` | Test duel spots in your zone, only on your screen (`/hh sim duels clear` removes them)<br>在你的区域测试决斗热点，仅你自己可见（`/hh sim duels clear` 移除） |
