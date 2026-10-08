@@ -25,6 +25,12 @@ function SlashCommands:PrintHelp()
     end
 end
 
+-- The help line of one command, for a tooltip (UI/Toolbox.lua)
+function SlashCommands:Help(name)
+    local entry = handlers[name]
+    return entry and entry.help
+end
+
 function SlashCommands:Run(input)
     local args = ns.Utils.Tokenize(input)
     local command = table.remove(args, 1)

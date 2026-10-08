@@ -1,5 +1,6 @@
--- HH-060: minimap button. Left-click toggles the main window; drag moves it around
--- the minimap (angle kept in settings.minimap); /hh minimap shows or hides it.
+-- HH-060: minimap buttons. Left-click the head toggles the main window, left-click
+-- the gear opens the toolbox; drag either one to move both around the minimap (one
+-- angle, kept in settings.minimap); /hh minimap shows or hides both.
 
 local addonName, ns = ...
 local L = ns.L
@@ -9,9 +10,12 @@ local MinimapButton = ns:RegisterModule("MinimapButton", {})
 local OWNER = "MinimapButton"
 
 MinimapButton.ICON = "Interface\\Icons\\INV_Misc_Head_Human_01"
+MinimapButton.TOOLBOX_ICON = "Interface\\Icons\\INV_Misc_Gear_01"
 MinimapButton.SIZE = 31
+MinimapButton.TOOLBOX_GAP = 24 -- degrees between the two buttons on the rim
 
-local button
+local button      -- the head: the main window
+local toolButton  -- the gear: the toolbox
 
 -- Position on the minimap's edge for an angle in degrees
 function MinimapButton.Offset(angle, radius)
@@ -28,6 +32,11 @@ local function Place()
     local x, y = MinimapButton.Offset(Settings().angle, radius)
     button:ClearAllPoints()
     button:SetPoint("CENTER", Minimap, "CENTER", x, y)
+    if toolButton then
+        x, y = MinimapButton.Offset(Settings().angle - MinimapButton.TOOLBOX_GAP, radius)
+        toolButton:ClearAllPoints()
+        toolButton:SetPoint("CENTER", Minimap, "CENTER", x, y)
+    end
 end
 
 local function OnDragUpdate()
@@ -39,36 +48,45 @@ local function OnDragUpdate()
     Place()
 end
 
-local function Create()
-    button = CreateFrame("Button", "HeadHunterMinimapButton", Minimap)
-    button:SetSize(MinimapButton.SIZE, MinimapButton.SIZE)
-    button:SetFrameStrata("MEDIUM")
-    button:SetFrameLevel(8)
-    button:RegisterForClicks("LeftButtonUp")
-    button:RegisterForDrag("LeftButton")
-    button:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
+-- One rim button: the addon's look, drag both, the hint on hover
+local function NewButton(name, icon, onClick, title)
+    local b = CreateFrame("Button", name, Minimap)
+    b:SetSize(MinimapButton.SIZE, MinimapButton.SIZE)
+    b:SetFrameStrata("MEDIUM")
+    b:SetFrameLevel(8)
+    b:RegisterForClicks("LeftButtonUp")
+    b:RegisterForDrag("LeftButton")
+    b:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
 
-    local icon = button:CreateTexture(nil, "BACKGROUND")
-    icon:SetTexture(MinimapButton.ICON)
-    icon:SetSize(20, 20)
-    icon:SetPoint("CENTER", button, "CENTER", 0, 1)
-    icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-    local border = button:CreateTexture(nil, "OVERLAY")
+    local tex = b:CreateTexture(nil, "BACKGROUND")
+    tex:SetTexture(icon)
+    tex:SetSize(20, 20)
+    tex:SetPoint("CENTER", b, "CENTER", 0, 1)
+    tex:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    local border = b:CreateTexture(nil, "OVERLAY")
     border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
     border:SetSize(53, 53)
-    border:SetPoint("TOPLEFT", button, "TOPLEFT")
+    border:SetPoint("TOPLEFT", b, "TOPLEFT")
 
-    button:SetScript("OnClick", function() ns.MainWindow:Toggle() end)
-    button:SetScript("OnDragStart", function(self) self:SetScript("OnUpdate", OnDragUpdate) end)
-    button:SetScript("OnDragStop", function(self) self:SetScript("OnUpdate", nil) end)
-    button:SetScript("OnEnter", function(self)
+    b:SetScript("OnClick", onClick)
+    b:SetScript("OnDragStart", function(self) self:SetScript("OnUpdate", OnDragUpdate) end)
+    b:SetScript("OnDragStop", function(self) self:SetScript("OnUpdate", nil) end)
+    b:SetScript("OnEnter", function(self)
         if not GameTooltip then return end
         GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-        GameTooltip:SetText(L.WINDOW_TITLE)
+        GameTooltip:SetText(title)
         GameTooltip:AddLine(L.MINIMAP_HINT, 1, 1, 1)
         GameTooltip:Show()
     end)
-    button:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+    b:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+    return b
+end
+
+local function Create()
+    button = NewButton("HeadHunterMinimapButton", MinimapButton.ICON,
+        function() ns.MainWindow:Toggle() end, L.WINDOW_TITLE)
+    toolButton = NewButton("HeadHunterToolboxMinimapButton", MinimapButton.TOOLBOX_ICON,
+        function() if ns.Toolbox then ns.Toolbox:Toggle() end end, L.TOOLBOX_TITLE)
     Place()
 end
 
@@ -76,14 +94,20 @@ function MinimapButton:Apply()
     if not Minimap then return end
     if Settings().hidden then
         if button then button:Hide() end
+        if toolButton then toolButton:Hide() end
         return
     end
     if not button then Create() end
     button:Show()
+    toolButton:Show()
 end
 
 function MinimapButton:IsShown()
     return button ~= nil and button:IsShown()
+end
+
+function MinimapButton:IsToolboxShown()
+    return toolButton ~= nil and toolButton:IsShown()
 end
 
 ns.Events:Register("HH_INITIALIZED", function()

@@ -94,6 +94,14 @@ function Layer:Clear()
     reading = nil
 end
 
+-- The raw reading behind Current(): layer, zone and age in seconds, or nil when
+-- unknown or stale (the toolbox card shows all three).
+function Layer:Status()
+    local layer = Layer:Current()
+    if not layer then return nil end
+    return layer, reading.zone, math.floor(ns.Utils.Now() - reading.at)
+end
+
 -- Compare a layer seen on mapID with ours. "same" | "different" | nil (unknown, or
 -- another zone: layer numbers only mean something inside one zone). Also returns
 -- our layer.

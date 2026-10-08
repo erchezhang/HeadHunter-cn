@@ -132,6 +132,10 @@ Type `/hh` or click the minimap button:
 
 输入 `/hh` 或点击小地图按钮打开：
 
+The gear button on the minimap (below the head) opens the toolbox: `/hh toolbox`, short `/hh t`.
+
+小地图上的齿轮按钮（头像按钮下方）打开工具箱：`/hh toolbox`，简写 `/hh t`。
+
 - **WANTED**: everyone who is WANTED now, sorted by rank, kills or last kill, with a switch between the Alliance and Horde lists (the enemy list opens first). Gold bounties are listed on top. While few outlaws are WANTED, the list fills up to 25 with outlaws **at large**: their WANTED time ran out, but nobody caught them. You get the same alert when you meet one, and catching one still pays their bounty.
   - **通缉**：当前所有被通缉的人，可按等级、击杀数或最近击杀排序，左上角可切换联盟/部落名单（默认先开敌方名单）。金币悬赏排在最前；通缉犯较少时，名单会用最多 25 名**在逃**犯补满——他们的通缉时间已过但从未落网。遇到在逃犯同样会收到提醒，抓到他们照样有赏金。
 - **Bullies**: every known bully, WANTED or not.
@@ -314,10 +318,13 @@ Good to know about the app:
 | `/hh sim duels` | Test duel spots in your zone, only on your screen (`/hh sim duels clear` removes them)<br>在你的区域测试决斗热点，仅你自己可见（`/hh sim duels clear` 移除） |
 | `/hh map on/off` | PvP areas, duel spots and skulls on the world map<br>世界地图上的 PvP 区域、决斗热点与骷髅标记开关 |
 | `/hh tooltip on/off` | WANTED line on enemy tooltips<br>敌人鼠标提示上的通缉行开关 |
-| `/hh minimap` | Show or hide the minimap button<br>显示或隐藏小地图按钮 |
+| `/hh minimap` | Show or hide the minimap buttons (window and toolbox)<br>显示或隐藏小地图按钮（主窗口与工具箱） |
 | `/hh claim` | Announce your gold bounty claim to all HeadHunters (Classic Era)<br>向所有 HeadHunter 宣告你领取了金币悬赏（Classic Era） |
 | `/hh catchup` | Ask other HeadHunters what you missed<br>向其他 HeadHunter 索取你错过的内容 |
 | `/hh online` | How many HeadHunters are online, per faction<br>在线的 HeadHunter 数量（按阵营） |
+| `/hh layer` | Your current layer (phase) ID, read from nearby NPCs<br>你当前的位面 ID（读取自附近 NPC） |
+| `/hh toolbox` | The toolbox: your layer (phase) ID and every command as a button<br>工具箱：你的位面 ID 与全部命令按钮 |
+| `/hh t` | Short alias of /hh toolbox<br>/hh toolbox 的简写 |
 
 All settings are also on the options page: **Esc > Options > AddOns > HeadHunter**.
 

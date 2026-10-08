@@ -119,6 +119,7 @@ UI\MinimapButton.lua
 UI\Nameplates.lua
 UI\TooltipLine.lua
 UI\SettingsPanel.lua
+UI\Toolbox.lua
 
 # Bootstrap (load last)
 Core\Main.lua
