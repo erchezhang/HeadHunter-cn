@@ -1,7 +1,9 @@
 -- HH-046: map markers. PvP areas for hotspots (Alerts/Hotspots.lua: a translucent red
 -- zone with "PVP" in the middle, darker as the fight grows) and skull pins for WANTED
 -- outlaws (Rules/Wanted.lua) on the world map, in the zone, continent and world views.
--- Hover: details (no click action; author, 2026-09-23).
+-- Hover: details (no click action; author, 2026-09-23). From 2 fires (Battle) the PvP
+-- mark takes a left click, Help like the Battle popup: the way to the fight, and a
+-- whisper for a group invite to a HeadHunter there on another layer (author, 2026-10-08).
 -- HH-134: duel spots (Alerts/DuelSpots.lua) are a blue area with "DUELS" in the middle,
 -- one per zone; the tooltip has a row per layer with duels (author, 2026-10-06). That
 -- mark is the one with clicks: left asks a HeadHunter on the top duel layer for an
@@ -84,6 +86,13 @@ local function HotspotPin(spot, mapID, now)
     local x, y, zoneWidth = MapMarkers.Project(spot.zone, spot.x, spot.y, mapID)
     if not x then return nil end
     local zoneName = ns.Utils.MapName(spot.zone) or L.UNKNOWN_ZONE
+    local clickable = spot.level >= ns.Hotspots.INVITE_LEVEL
+    local lines = {
+        string.format(L.MAP_HOTSPOT_TITLE, L["HOTSPOT_LEVEL_" .. spot.level], zoneName),
+        ns.Hotspots.Describe(spot.a, spot.e, spot.d),
+        ns.Utils.Ago(math.max(0, now - spot.t)),
+    }
+    if clickable then lines[#lines + 1] = L.HOTSPOT_MAP_CLICK end
     return {
         kind = "hotspot",
         id = "hot:" .. spot.zone,
@@ -91,11 +100,9 @@ local function HotspotPin(spot, mapID, now)
         size = MapMarkers.AREA_WIDTH * zoneWidth, -- diameter as a share of the map's width
         alpha = MapMarkers.AREA_ALPHA[spot.level] or MapMarkers.AREA_ALPHA[1],
         level = spot.level,
-        lines = {
-            string.format(L.MAP_HOTSPOT_TITLE, L["HOTSPOT_LEVEL_" .. spot.level], zoneName),
-            ns.Hotspots.Describe(spot.a, spot.e, spot.d),
-            ns.Utils.Ago(math.max(0, now - spot.t)),
-        },
+        zone = spot.zone,
+        clickable = clickable,
+        lines = lines,
     }
 end
 
@@ -384,6 +391,13 @@ local function DuelClick(label, button)
     ns.DuelSpots:AskInvite(data.zone, data.layerKey)
 end
 
+-- Left-click on a PvP mark of 2+ fires: Help, as in the Battle popup
+local function HotspotClick(label)
+    local data = label.data
+    if not data or data.kind ~= "hotspot" or not data.clickable then return end
+    ns.Hotspots:Help(data.zone, L["HOTSPOT_LEVEL_" .. data.level])
+end
+
 local function NewArea(kind)
     local pin = CreateFrame("Frame", nil, overlay)
     pin.kind = kind
@@ -412,6 +426,9 @@ local function NewArea(kind)
         if label.SetMouseClickEnabled then pcall(label.SetMouseClickEnabled, label, true) end
         if label.RegisterForClicks then label:RegisterForClicks("LeftButtonUp", "RightButtonUp") end
         label:SetScript("OnClick", DuelClick)
+    elseif label.RegisterForClicks then
+        label:RegisterForClicks("LeftButtonUp")
+        label:SetScript("OnClick", HotspotClick)
     end
     pin.label = label
     return pin
@@ -455,6 +472,9 @@ local function Style(pin)
             disc:SetVertexColor(r, g, b, data.alpha * DISCS[i].alpha)
         end
         pin.label.data = data
+        if pin.kind == "hotspot" and pin.label.SetMouseClickEnabled then
+            pcall(pin.label.SetMouseClickEnabled, pin.label, data.clickable == true)
+        end
     else
         local size = data.hunted and MapMarkers.HUNTED_SIZE or MapMarkers.WANTED_SIZE
         pin:SetSize(size, size)

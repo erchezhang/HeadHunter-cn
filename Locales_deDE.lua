@@ -175,6 +175,10 @@ local DE = {
     HOTSPOT_STATUS = "%s %s: Hitze %d (HeadHunter %d, Feinde %d, Tode %d)",
     HOTSPOT_NONE = "In den letzten 5 Minuten ist keine PvP-Aktivität bekannt.",
     HELP_HOTSPOTS = "|cffffff00/hh hotspots|r: PvP-Aktivität pro Gebiet (letzte 5 Min.)",
+    HELP_WARS = "|cffffff00/hh wars|r: Die PvP-Kriege, in denen du warst (letzte 30 Tage)",
+    WARS_NONE = "In den letzten 30 Tagen wurde kein Krieg erfasst.",
+    WAR_ONGOING = "läuft noch",
+    WAR_LINE = "%s %s · %s – %s · %d deiner Seite und %d Feinde gesehen · du: %d ehrenhafte Siege, %d Tode",
     HELP_HK = "|cffffff00/hh hk|r: Deine ehrenhaften Siege pro Gebiet (letzte 24 Std.)",
     HONOR_KILLS_HEADER = "Deine ehrenhaften Siege in den letzten 24 Stunden:",
     HONOR_KILLS_ZONE = "%s: %d",
@@ -213,6 +217,7 @@ local DE = {
 
     -- World map pins and guiding
     MAP_HOTSPOT_TITLE = "|cffff3300PvP-Gebiet|r · |cffff9933%s|r in %s",
+    HOTSPOT_MAP_CLICK = "|cff00ff00Linksklick: der Weg zum Kampf und eine Gruppeneinladung von einem HeadHunter dort auf einer anderen Ebene|r",
     MAP_PVP = "PVP",
     MAP_DUELS = "DUELLE",
     MAP_DUELS_TITLE = "|cff3399ffDuelle|r in %s",

@@ -175,6 +175,10 @@ local RU = {
     HOTSPOT_STATUS = "%s %s: накал %d (HeadHunter %d, врагов %d, смертей %d)",
     HOTSPOT_NONE = "За последние 5 минут PvP неизвестно.",
     HELP_HOTSPOTS = "|cffffff00/hh hotspots|r: PvP по зонам (последние 5 мин)",
+    HELP_WARS = "|cffffff00/hh wars|r: PvP-войны, в которых вы участвовали (последние 30 дней)",
+    WARS_NONE = "За последние 30 дней войн не записано.",
+    WAR_ONGOING = "идёт",
+    WAR_LINE = "%s %s · %s – %s · своих: %d, врагов: %d · вы: почётных побед %d, смертей %d",
     HELP_HK = "|cffffff00/hh hk|r: ваши почётные победы по зонам (последние 24 ч)",
     HONOR_KILLS_HEADER = "Ваши почётные победы за последние 24 часа:",
     HONOR_KILLS_ZONE = "%s: %d",
@@ -213,6 +217,7 @@ local RU = {
 
     -- World map pins and guiding
     MAP_HOTSPOT_TITLE = "|cffff3300PvP-зона|r · |cffff9933%s|r, %s",
+    HOTSPOT_MAP_CLICK = "|cff00ff00ЛКМ: путь к бою и приглашение в группу от HeadHunter там, если он на другом слое|r",
     MAP_PVP = "PVP",
     MAP_DUELS = "ДУЭЛИ",
     MAP_DUELS_TITLE = "|cff3399ffДуэли|r: %s",

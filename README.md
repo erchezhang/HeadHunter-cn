@@ -110,6 +110,8 @@ If your own group was in the fight, the kill shows as a **group fight** (for exa
   - **你被通缉了**：配合 HeadHunter Sync 应用，登录时若对方阵营的通缉名单上有你，HeadHunter 会提醒你。
 - **PvP hotspots**: Skirmish, Battle or Warzone when a big fight happens near you. The popup names the enemies in the fight and the HeadHunters of your side fighting there. Click **Help** to get the way to the fight: the HeadHunters fighting there see that you are coming, and if they are on another layer, one of them is asked for a group invite.
   - **PvP 热点**：你附近爆发大规模战斗时，提示遭遇战、战斗或战区。弹窗会列出交战的敌人与你方参战的 HeadHunter。点击**支援**即可获得前往战场的指引：正在交战的 HeadHunter 会知道你在赶来，若他们在另一位面，其中一人会收到组队邀请。
+- **Wars**: when a zone starts burning (1 fire), HeadHunter records the war there: every player seen fighting on both sides, with or without the addon, and your honorable kills and deaths. The war ends when the zone has been quiet for 10 minutes. HeadHunter Sync sends finished wars to the website, which shows both sides. Type `/hh wars` to see yours.
+  - **战争（Wars）**：当一个区域开始燃烧（出现 1 处火点），HeadHunter 会记录那里发生的战争：双方阵营所有被看到参战的玩家（无论是否使用插件），以及你的荣誉击杀与死亡。区域安静 10 分钟后战争结束。HeadHunter Sync 会把结束的战争发送到官网，官网展示双方数据。输入 `/hh wars` 查看你参与过的战争。
 - **Honorable kills**: every honorable kill you get outside battlegrounds is kept with its time and zone. HeadHunter Sync sends them to the website, which adds up a side's kills in a big open-world fight. Type `/hh hk` to see yours.
   - **荣誉击杀**：你在战场外获得的每次荣誉击杀都会连同时间与区域一并保存。HeadHunter Sync 会把它们发送到官网，用于统计大规模野外战斗中一方的击杀总数。输入 `/hh hk` 可查看你的记录。
 - **Duel spots**: "Duels in Orgrimmar (Layer 3): 12 duels, 6 players in 20 min. Ask for an invite: [name]" when many players duel near you. Click a name to whisper them. Turn it off in the options: **Duel spot alerts**.
@@ -117,8 +119,8 @@ If your own group was in the fight, the kill shows as a **group fight** (for exa
 
 ### World map · 世界地图
 
-- A red **PVP** area shows where fights are happening. It gets darker as the fight grows and stays for 20 minutes after the last fight.
-  - 红色 **PVP** 区域表示正在发生战斗的位置；战斗规模越大颜色越深，最后一次战斗后保留 20 分钟。
+- A red **PVP** area shows where fights are happening. It gets darker as the fight grows and stays for 10 minutes after the last fight. From a Battle (2 fires) on, click it: you get the way to the fight, and if a HeadHunter fighting there is on another layer, they are asked for a group invite.
+  - 红色 **PVP** 区域表示正在发生战斗的位置；战斗规模越大颜色越深，最后一次战斗后保留 10 分钟。从战斗规模达到“战斗”（2 处火点）起，点击它可获得前往战场的指引；若在场的 HeadHunter 位于另一位面，会收到组队邀请。
 - A blue **DUELS** area shows where players duel now, one per zone. Hover it to see a row for every layer with duels. Left-click to ask a HeadHunter for a group invite to the busiest layer you are not on; right-click to choose the layer.
   - 蓝色 **DUELS** 区域显示当前玩家决斗的位置，每个区域一个。悬停可看到按位面分行的决斗情况；左键点击可请求 HeadHunter 组队邀请，前往你不在的、最热闹的位面；右键点击可选择位面。
 - A **skull** shows where a WANTED outlaw made their last kill (for 10 minutes). The map shows the 10 biggest fights, the 10 busiest duel spots and the 10 highest ranked outlaws.
@@ -313,6 +315,7 @@ Good to know about the app:
 | `/hh bounty` | Your hunter rank and the bounty you collected<br>你的猎人等级与积累的赏金 |
 | `/hh hotspots` | PvP activity per zone<br>各区域的 PvP 活动 |
 | `/hh hk` | Your honorable kills per zone in the last 24 hours<br>你最近 24 小时内各区的荣誉击杀 |
+| `/hh wars` | The PvP wars you were in (last 30 days)<br>你参与过的 PvP 战争（最近 30 天） |
 | `/hh duels` | Duels: the best duelists and your rank<br>决斗：最强决斗者与你的排名 |
 | `/hh duelspots` | Places where players duel now, their layer and who to ask for an invite<br>玩家当前决斗的地点、所在位面以及可请求邀请的人 |
 | `/hh sim duels` | Test duel spots in your zone, only on your screen (`/hh sim duels clear` removes them)<br>在你的区域测试决斗热点，仅你自己可见（`/hh sim duels clear` 移除） |

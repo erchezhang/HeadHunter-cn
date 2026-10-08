@@ -176,6 +176,10 @@ local ES = {
     HOTSPOT_STATUS = "%s %s: intensidad %d (HeadHunters %d, enemigos %d, muertes %d)",
     HOTSPOT_NONE = "No se conoce actividad JcJ en los últimos 5 minutos.",
     HELP_HOTSPOTS = "|cffffff00/hh hotspots|r: actividad JcJ por zona (últimos 5 min)",
+    HELP_WARS = "|cffffff00/hh wars|r: las guerras JcJ en las que estuviste (últimos 30 días)",
+    WARS_NONE = "No hay guerras registradas en los últimos 30 días.",
+    WAR_ONGOING = "en curso",
+    WAR_LINE = "%s %s · %s – %s · %d de tu bando y %d enemigos vistos · tú: %d muertes con honor, %d muertes",
     HELP_HK = "|cffffff00/hh hk|r: tus muertes con honor por zona (últimas 24 h)",
     HONOR_KILLS_HEADER = "Tus muertes con honor en las últimas 24 horas:",
     HONOR_KILLS_ZONE = "%s: %d",
@@ -214,6 +218,7 @@ local ES = {
 
     -- World map pins and guiding
     MAP_HOTSPOT_TITLE = "|cffff3300Zona JcJ|r · |cffff9933%s|r en %s",
+    HOTSPOT_MAP_CLICK = "|cff00ff00Clic izquierdo: el camino al combate y una invitación de grupo de un HeadHunter de allí en otra capa|r",
     MAP_PVP = "JcJ",
     MAP_DUELS = "DUELOS",
     MAP_DUELS_TITLE = "|cff3399ffDuelos|r en %s",

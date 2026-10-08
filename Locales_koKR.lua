@@ -175,6 +175,10 @@ local KR = {
     HOTSPOT_STATUS = "%s %s: 열기 %d (HeadHunter %d, 적 %d, 죽음 %d)",
     HOTSPOT_NONE = "최근 5분 동안 알려진 PvP 활동이 없습니다.",
     HELP_HOTSPOTS = "|cffffff00/hh hotspots|r: 지역별 PvP 활동 (최근 5분)",
+    HELP_WARS = "|cffffff00/hh wars|r: 참여한 PvP 전쟁 (최근 30일)",
+    WARS_NONE = "최근 30일 동안 기록된 전쟁이 없습니다.",
+    WAR_ONGOING = "진행 중",
+    WAR_LINE = "%s %s · %s – %s · 아군 %d명, 적 %d명 확인 · 나: 명예 승리 %d, 죽음 %d",
     HELP_HK = "|cffffff00/hh hk|r: 지역별 명예 승리 (최근 24시간)",
     HONOR_KILLS_HEADER = "최근 24시간 동안의 명예 승리:",
     HONOR_KILLS_ZONE = "%s: %d",
@@ -213,6 +217,7 @@ local KR = {
 
     -- World map pins and guiding
     MAP_HOTSPOT_TITLE = "|cffff3300PvP 지역|r · |cffff9933%s|r, %s",
+    HOTSPOT_MAP_CLICK = "|cff00ff00왼쪽 클릭: 전투로 가는 길, 그리고 다른 레이어에 있는 그곳 HeadHunter의 파티 초대|r",
     MAP_PVP = "PVP",
     MAP_DUELS = "결투",
     MAP_DUELS_TITLE = "|cff3399ff결투|r, %s",

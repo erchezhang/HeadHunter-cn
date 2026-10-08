@@ -171,6 +171,10 @@ L.HOTSPOT_WHISPER = "HeadHunter: coming to help in the fight in %s. Please invit
 L.HOTSPOT_STATUS = "%s %s: heat %d (HeadHunters %d, enemies %d, deaths %d)"
 L.HOTSPOT_NONE = "No PvP activity known in the last 5 minutes."
 L.HELP_HOTSPOTS = "|cffffff00/hh hotspots|r: PvP activity per zone (last 5 min)"
+L.HELP_WARS = "|cffffff00/hh wars|r: The PvP wars you were in (last 30 days)"
+L.WARS_NONE = "No wars recorded in the last 30 days."
+L.WAR_ONGOING = "going on"
+L.WAR_LINE = "%s %s · %s – %s · %d of your side and %d enemies seen · you: %d honorable kills, %d deaths"
 L.HELP_HK = "|cffffff00/hh hk|r: Your honorable kills per zone (last 24 hours)"
 L.HONOR_KILLS_HEADER = "Your honorable kills in the last 24 hours:"
 L.HONOR_KILLS_ZONE = "%s: %d"
@@ -216,6 +220,7 @@ L.DEV_NO_SHARING = "|cffff8000Test mode|r (HeadHunter_Dev noSharing): nothing is
 
 -- Map markers (HH-046)
 L.MAP_HOTSPOT_TITLE = "|cffff3300PvP zone|r · |cffff9933%s|r in %s"
+L.HOTSPOT_MAP_CLICK = "|cff00ff00Left-click: the way to the fight, and a group invite from a HeadHunter there on another layer|r"
 L.MAP_PVP = "PVP"
 
 -- Duel spots (HH-134)
