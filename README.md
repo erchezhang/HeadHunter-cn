@@ -132,9 +132,9 @@ Type `/hh` or click the minimap button:
 
 输入 `/hh` 或点击小地图按钮打开：
 
-The gear button on the minimap (below the head) opens the toolbox: `/hh toolbox`, short `/hh t`.
+The gear button on the minimap (below the head) opens the toolbox: `/hh toolbox`, `/hh tool`, short `/hh t` — or just type `/hht` (`/hht <args>` runs like `/hh <args>`).
 
-小地图上的齿轮按钮（头像按钮下方）打开工具箱：`/hh toolbox`，简写 `/hh t`。
+小地图上的齿轮按钮（头像按钮下方）打开工具箱：`/hh toolbox`、`/hh tool`，简写 `/hh t`——或直接输入 `/hht`（`/hht <参数>` 等同 `/hh <参数>`）。
 
 - **WANTED**: everyone who is WANTED now, sorted by rank, kills or last kill, with a switch between the Alliance and Horde lists (the enemy list opens first). Gold bounties are listed on top. While few outlaws are WANTED, the list fills up to 25 with outlaws **at large**: their WANTED time ran out, but nobody caught them. You get the same alert when you meet one, and catching one still pays their bounty.
   - **通缉**：当前所有被通缉的人，可按等级、击杀数或最近击杀排序，左上角可切换联盟/部落名单（默认先开敌方名单）。金币悬赏排在最前；通缉犯较少时，名单会用最多 25 名**在逃**犯补满——他们的通缉时间已过但从未落网。遇到在逃犯同样会收到提醒，抓到他们照样有赏金。
@@ -325,6 +325,8 @@ Good to know about the app:
 | `/hh layer` | Your current layer (phase) ID, read from nearby NPCs<br>你当前的位面 ID（读取自附近 NPC） |
 | `/hh toolbox` | The toolbox: your layer (phase) ID and every command as a button<br>工具箱：你的位面 ID 与全部命令按钮 |
 | `/hh t` | Short alias of /hh toolbox<br>/hh toolbox 的简写 |
+| `/hh tool` | Alias of /hh toolbox, same window<br>/hh toolbox 的别名，同一个窗口 |
+| `/hht` | Top-level alias: bare opens the toolbox, with arguments it runs like `/hh <args>`<br>顶层别名：无参打开工具箱，带参数时等同 `/hh <参数>` |
 
 All settings are also on the options page: **Esc > Options > AddOns > HeadHunter**.
 

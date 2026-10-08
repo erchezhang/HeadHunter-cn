@@ -2,7 +2,8 @@
 -- (headhunterwow.com/about) as clickable buttons, with the layer (phase) ID on top.
 -- IDs only mean something inside one zone, so the zone is shown next to it.
 --
---   /hh toolbox opens the window (registered at the bottom)
+--   /hh toolbox, /hh tool, /hh t open the window (registered at the bottom)
+--   /hht (top level) opens it too; with arguments it runs them as /hh <args>
 --   Toolbox.LayerLines()  the card's texts (pure, tested offline)
 --   Toolbox:RunCommand(c) what a button does: the same as typing /hh c
 --
@@ -171,5 +172,16 @@ ns.Events:Register("HH_INITIALIZED", function()
 end, OWNER)
 
 ns.SlashCommands:Register("toolbox", function() Toolbox:Toggle() end, L.HELP_TOOLBOX)
--- Short alias beside the full command (both stay: /hh toolbox and /hh t)
+-- Aliases of the same window (all stay: /hh toolbox, /hh tool, /hh t)
 ns.SlashCommands:Register("t", function() Toolbox:Toggle() end, L.HELP_TOOLBOX_SHORT)
+ns.SlashCommands:Register("tool", function() Toolbox:Toggle() end)
+
+-- Top level: /hht opens the toolbox; with arguments it runs them like /hh <args>
+SLASH_HEADHUNTER_TOOLBOX1 = "/hht"
+SlashCmdList.HEADHUNTER_TOOLBOX = function(input)
+    if type(input) == "string" and input:match("%S") then
+        ns.SlashCommands:Run(input)
+    else
+        Toolbox:Toggle()
+    end
+end
