@@ -23,7 +23,7 @@
 ## Notes-itIT: Registra i ganker, appendi manifesti RICERCATO e dagli la caccia insieme alla tua fazione.
 ## Author: Vati
 ## X-Translated-By: 车长不二 (zhCN, zhTW)
-## Version: 0.4.8
+## Version: 0.4.9
 ## SavedVariables: HeadHunter_DB
 ## OptionalDeps: HeadHunter_Data, HeadHunter_Dev
 ## IconTexture: Interface\Icons\INV_Misc_Head_Human_01
