@@ -11,3 +11,6 @@ desktop.ini
 
 # Packaging artifact, not part of the addon
 HeadHunter.zip
+
+# CN release packages are pushed to the repo
+!HeadHunter-CN-*.zip
