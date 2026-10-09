@@ -322,7 +322,7 @@ function Transport:Flush()
             if outbox[j].key then coalesce[outbox[j].key] = nil end
         end
         outbox = remaining
-        ns:Debug("Sync flushed", sentUpTo, "record(s) via", self.diag.routes, "-", #outbox, "left")
+        ns.Log:Add("debug", string.format("Sync flushed %d record(s) via %s - %d left", sentUpTo, tostring(self.diag.routes), #outbox))
     end
 end
 

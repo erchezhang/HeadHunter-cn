@@ -63,6 +63,7 @@ return function(T, H)
         H.inCombat = true
         H.units.nameplate1 = { name = "Grim", realm = "Reaper", level = 60, class = "ROGUE", race = "Orc",
             faction = "Horde", isPlayer = true, guid = "Player-4613-00ABCDEF" }
+        H.units.nameplate1target = H.units.player
         H.Fire("NAME_PLATE_UNIT_ADDED", "nameplate1")
         H.Advance(5)
         H.Advance(3)

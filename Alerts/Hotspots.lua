@@ -13,8 +13,11 @@
 -- Levels: >= 4 Skirmish (chat line), >= 10 Battle (popup + sound),
 --         >= 20 Warzone (popup + sound + raid-warning text).
 --
--- We count as "in PvP combat" while in combat with enemy players in combat around us
--- (nameplates, target, focus, mouseover, group) in the last FIGHT_RECENT seconds. Then, at most every PING_INTERVAL seconds, a ping
+-- We count as "in PvP combat" while in combat with enemy players fighting our side
+-- around us (nameplates, target, focus, mouseover, group) in the last FIGHT_RECENT
+-- seconds. An enemy fights our side when they target us or a player of our faction, or
+-- when we or a group member in combat target them (author, 2026-10-09: being in combat
+-- near us is not enough, both may be fighting NPCs). Then, at most every PING_INTERVAL seconds, a ping
 -- (protocol type P: map, time, position, short enemy ids) goes out on the
 -- automatic routes.
 -- Alerts: when a zone climbs a level, inside the alert range, never for a fight we
@@ -524,12 +527,32 @@ local function TargetsOurSide(unit, mine)
     return mine ~= nil and U.UnitIsPlayer(target) and U.UnitFaction(target) == mine
 end
 
--- Players in the fight around us now: enemies, and players of our faction (not us).
--- Returns what it saw, for the debug log: enemies fighting, enemies not, combat unknown
+-- The enemies our side is attacking: our target, and the target of each group member
+-- in combat (GUID -> true)
+local GROUP_TARGETS = { "target" }
+for i = 1, 4 do GROUP_TARGETS[#GROUP_TARGETS + 1] = "party" .. i end
+for i = 1, 40 do GROUP_TARGETS[#GROUP_TARGETS + 1] = "raid" .. i end
+
+local function OurTargets()
+    local U = ns.Utils
+    local targets = {}
+    for _, unit in ipairs(GROUP_TARGETS) do
+        local target = unit == "target" and unit or unit .. "target"
+        local attacking = unit == "target" or InCombat(unit) ~= false
+        local guid = attacking and U.UnitGUID(target)
+        if guid then targets[guid] = true end
+    end
+    return targets
+end
+
+-- Players in the fight around us now: enemies fighting our side, and players of our
+-- faction in combat (not us). Returns what it saw, for the debug log: enemies fighting,
+-- enemies not, combat unknown
 function Hotspots.ScanFighters()
     local U = ns.Utils
     local now = U.Now()
     local me, mine = U.UnitGUID("player"), U.UnitFaction("player")
+    local attacked = OurTargets()
     local seen = {}
     local fighting, idle, unknown = 0, 0, 0
     for _, unit in ipairs(SCAN_UNITS) do
@@ -539,7 +562,7 @@ function Hotspots.ScanFighters()
             local combat = InCombat(unit)
             if U.UnitIsEnemyPlayer(unit) then
                 if combat == nil then unknown = unknown + 1 end
-                if combat or TargetsOurSide(unit, mine) then
+                if TargetsOurSide(unit, mine) or (combat ~= false and attacked[guid]) then
                     ns.EnemyCache:ObserveUnit(unit, "nameplate")
                     fightingEnemies[guid] = now
                     fighting = fighting + 1
@@ -575,7 +598,7 @@ function Hotspots:Tick()
     local U = ns.Utils
     if not U.SafeCall(UnitAffectingCombat, "player") then return end
     local fighting, idle, unknown = Hotspots.ScanFighters()
-    ns:Debug("PvP scan: enemies fighting", fighting, "not fighting", idle, "combat unknown", unknown)
+    ns.Log:Add("debug", string.format("PvP scan: enemies fighting %d, not fighting %d, combat unknown %d", fighting, idle, unknown))
     local guids = Recent(fightingEnemies, self.FIGHT_RECENT)
     if #guids == 0 then return end
     -- Our side: us first, then the players of our faction fighting around us

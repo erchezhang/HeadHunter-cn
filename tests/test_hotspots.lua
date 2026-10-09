@@ -160,6 +160,7 @@ return function(T, H)
         H.inCombat = true
         H.units.nameplate1 = { name = "Grim", realm = "Reaper", level = 60, class = "ROGUE", race = "Orc",
             faction = "Horde", isPlayer = true, guid = "Player-4613-00ABCDEF" }
+        H.units.nameplate1target = H.units.player
         H.Fire("NAME_PLATE_UNIT_ADDED", "nameplate1")
         H.Advance(5) -- tick
         H.Advance(3) -- flush
@@ -174,6 +175,26 @@ return function(T, H)
 
         Ping(ns, 1429, "Other Hunter", Ids(1, 12)) -- our own zone becomes a Battle
         T.eq(Popups(), 0, "not alerted about our own fight")
+        T.noErrors()
+    end)
+
+    T.case("fighting an NPC next to an enemy player who fights one too is no PvP", function()
+        local ns = H.Boot({ client = "forever" })
+        H.inCombat = true
+        H.units.nameplate1 = { name = "Grim", realm = "Reaper", level = 60, class = "ROGUE", race = "Orc",
+            faction = "Horde", isPlayer = true, guid = "Player-4613-00ABCDEF", inCombat = true }
+        H.units.nameplate1target = { name = "Boar", level = 10, isPlayer = false, guid = "Creature-0-1-2-3-4-5" }
+        H.Fire("NAME_PLATE_UNIT_ADDED", "nameplate1")
+        local fighting, idle = ns.Hotspots.ScanFighters()
+        T.eq(fighting, 0, "not fighting our side")
+        T.eq(idle, 1, "seen")
+        H.Advance(5)
+        H.Advance(3)
+        for _, m in ipairs(H.sent) do T.ok(not m.message:find("^1AP:"), "no PvP ping") end
+
+        H.units.target = H.units.nameplate1
+        fighting = ns.Hotspots.ScanFighters()
+        T.eq(fighting, 1, "our target is in the fight")
         T.noErrors()
     end)
 
@@ -261,6 +282,8 @@ return function(T, H)
         Unit(4, "Alliance", true)   -- our side, without HeadHunter
         Unit(5, "Alliance", true)
         Unit(6, "Alliance", false)  -- our side, not fighting
+        H.units.nameplate1target = H.units.player
+        H.units.nameplate2target = H.units.nameplate4
         H.Advance(5) -- tick
         -- Another HeadHunter fought two other enemies here 4 minutes ago
         Ping(ns, 1429, "Other Hunter", { "OLD00001", "OLD00002" }, 240)

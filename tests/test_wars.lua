@@ -77,6 +77,7 @@ return function(T, H)
             faction = "Horde", isPlayer = true, guid = "Player-1-00ABCDEF", inCombat = true, guild = "Red Hand" }
         H.units.nameplate2 = { name = "Rowan", realm = "Firemaw", level = 58, class = "PRIEST", race = "Human",
             faction = "Alliance", isPlayer = true, guid = "Player-1-00FEDCBA", inCombat = true, guild = "Iron Posse" }
+        H.units.nameplate1target = H.units.player
         H.Fire("NAME_PLATE_UNIT_ADDED", "nameplate1")
         Ping(ns, 1417, "Alpha-Firemaw", Ids(1, 10))
         H.Advance(5)
