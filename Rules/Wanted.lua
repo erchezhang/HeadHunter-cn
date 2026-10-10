@@ -230,7 +230,8 @@ function Wanted.MergeBountyTargets(entries, site)
     return entries
 end
 
--- Synchronous recompute (tests, and the coroutine body)
+-- Synchronous recompute (tests, and the coroutine body). The website's lists other
+-- HeadHunters shared in game merge after our own download (HH-141, Sync/SharedSite.lua).
 function Wanted:ComputeNow(yield)
     local reports = {}
     -- A relayed report counts only once a second source has it (HH-121)
@@ -246,6 +247,8 @@ function Wanted:ComputeNow(yield)
     -- Test entries from /hh dev (Core/Dev.lua), this client only
     Wanted.MergeSite(result, ns.Dev.TestEntries("wanted"), catches, now)
     Wanted.MergeBullies(result, ns.SiteData:Bullies())
+    Wanted.MergeSite(result, ns.SharedSite:Wanted(), catches, now)
+    Wanted.MergeBullies(result, ns.SharedSite:Bullies())
     Wanted.MergeBullies(result, ns.Dev.TestEntries("shame"))
     Wanted.MergeBountyTargets(result, ns.SiteData:BountyTargets())
     Wanted.FromSightings(result, function(key) return ns.EnemyCache:ByKey(key) end)

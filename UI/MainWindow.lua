@@ -39,7 +39,9 @@ MainWindow.HEIGHT = 580
 MainWindow.ROW_HEIGHT = 26
 MainWindow.TEXT_SIZE = 14    -- the list text; names one bigger (HH-125)
 MainWindow.NAME_SIZE = 15
-MainWindow.MAX_ROWS = 300
+-- HH-137: every row of a list is shown, but only the rows in view get a frame, moved
+-- along while scrolling. Without a known height (tests): this many.
+MainWindow.VISIBLE_FALLBACK = 20
 MainWindow.BOARD_MIN = 25    -- the WANTED tab fills up to this many rows with outlaws at large
 MainWindow.REFRESH = 30      -- seconds, while shown ("5 min ago" texts)
 MainWindow.TAB_COUNT = "%s (%d)" -- a header tab with a count: "Events (2)"
@@ -393,36 +395,59 @@ function MainWindow.CanWhisper(key, faction)
         and not U.SameCharacter(key, U.UnitKey("player"))
 end
 
-local function DuelRows(faction, now)
-    local HighNoon = ns.HighNoon
-    local list = HighNoon:List(faction)
-    if not faction then
-        list = {}
-        for _, side in ipairs({ "Alliance", "Horde" }) do
-            for _, p in ipairs(HighNoon:List(side)) do list[#list + 1] = p end
+-- Both factions' lists in one, best first: they are sorted, so one merge does it
+local function BothLists(HighNoon)
+    local a, b = HighNoon:List("Alliance"), HighNoon:List("Horde")
+    local list, i, j = {}, 1, 1
+    while a[i] or b[j] do
+        if b[j] == nil or (a[i] ~= nil and HighNoon.Better(a[i], b[j])) then
+            list[#list + 1] = a[i]
+            i = i + 1
+        else
+            list[#list + 1] = b[j]
+            j = j + 1
         end
-        table.sort(list, HighNoon.Better)
     end
+    return list
+end
+
+-- One duelist's row; filled the first time a field is read, so a long list costs only
+-- the rows that are drawn (HH-137)
+local DuelRow = {}
+DuelRow.__index = function(row, field)
+    local p, now = rawget(row, "player"), rawget(row, "now")
+    if not p or rawget(row, "filled") then return nil end
+    local HighNoon = ns.HighNoon
+    local plain = p.plain or ns.Utils.DisplayName(p.key) or p.key
+    local name = Named(plain, p)
+    local lastDuel = p.lastT and ns.Utils.Ago(math.max(0, now - p.lastT)) or "-"
+    local whisper = MainWindow.CanWhisper(p.key, p.faction) and p.key or nil
+    local tooltip = { name, string.format(L.DUEL_TOOLTIP, HighNoon.Title(p)),
+        string.format(L.TIP_DUEL, p.wins, p.losses, lastDuel) }
+    if whisper then tooltip[#tooltip + 1] = L.WINDOW_ROW_WHISPER end
+    rawset(row, "filled", true)
+    rawset(row, "plain", plain)
+    rawset(row, "name", name)
+    rawset(row, "rank", HighNoon.RankName(p.topGun and "topgun" or p.rank))
+    rawset(row, "record", p.wins .. "-" .. p.losses)
+    rawset(row, "net", HighNoon.NetText(p.net))
+    rawset(row, "lastDuel", lastDuel)
+    rawset(row, "whisper", whisper)
+    rawset(row, "tooltip", tooltip)
+    return rawget(row, field)
+end
+
+-- The Duels tab: one faction's list or both in one, # the place in it. A search looks
+-- at every duelist (HH-137), and one past the lists shows without a place.
+local function DuelRows(faction, now, search)
+    local HighNoon = ns.HighNoon
+    local list = faction and HighNoon:List(faction) or BothLists(HighNoon)
+    local place = {}
+    for i, p in ipairs(list) do place[p] = faction and p.position or i end
+    if search and search ~= "" then list = HighNoon:Search(search, faction) end
     local rows = {}
     for i, p in ipairs(list) do
-        local plain = ns.Utils.DisplayName(p.key) or p.key
-        local name = Named(plain, p)
-        local lastDuel = p.lastT and ns.Utils.Ago(math.max(0, now - p.lastT)) or "-"
-        local whisper = MainWindow.CanWhisper(p.key, p.faction) and p.key or nil
-        local tooltip = { name, string.format(L.DUEL_TOOLTIP, HighNoon.Title(p)),
-            string.format(L.TIP_DUEL, p.wins, p.losses, lastDuel) }
-        if whisper then tooltip[#tooltip + 1] = L.WINDOW_ROW_WHISPER end
-        rows[#rows + 1] = {
-            position = tostring(faction and p.position or i),
-            plain = plain,
-            name = name,
-            rank = HighNoon.RankName(p.topGun and "topgun" or p.rank),
-            record = p.wins .. "-" .. p.losses,
-            net = HighNoon.NetText(p.net),
-            lastDuel = lastDuel,
-            whisper = whisper,
-            tooltip = tooltip,
-        }
+        rows[i] = setmetatable({ player = p, now = now, position = place[p] and tostring(place[p]) or "-" }, DuelRow)
     end
     return rows
 end
@@ -734,7 +759,7 @@ function MainWindow.Rows(tab, sortKey, now, faction, search)
     if tab == "ongoing" or tab == "upcoming" or tab == "finished" then
         rows = EventRows(tab, now)
     elseif tab == "duels" then
-        rows = DuelRows(faction, now)
+        rows = DuelRows(faction, now, search)
     elseif tab == "marks" then
         rows = MarksRows()
     elseif tab == "bullies" then
@@ -750,8 +775,7 @@ function MainWindow.Rows(tab, sortKey, now, faction, search)
     else
         rows = WantedRows(sortKey, now, faction)
     end
-    if MainWindow.SEARCH_TABS[tab] then rows = Matching(rows, search) end
-    for i = #rows, MainWindow.MAX_ROWS + 1, -1 do rows[i] = nil end
+    if MainWindow.SEARCH_TABS[tab] and tab ~= "duels" then rows = Matching(rows, search) end
     return rows
 end
 
@@ -776,6 +800,8 @@ function MainWindow.SectionOf(view)
     return MainWindow.SECTIONS[1]
 end
 local rowFrames = {}
+-- The list last drawn, its rows and columns, for PaintVisible
+local painted = {}
 local sinceRefresh = 0
 
 local function CreateMainFrame()
@@ -959,6 +985,8 @@ local function CreateMainFrame()
     f.content = CreateFrame("Frame", nil, f.scroll)
     f.content:SetSize(MainWindow.WIDTH - 50, MainWindow.ROW_HEIGHT)
     f.scroll:SetScrollChild(f.content)
+    f.scroll:HookScript("OnVerticalScroll", function() MainWindow:PaintVisible() end)
+    f.scroll:HookScript("OnSizeChanged", function() MainWindow:PaintVisible() end)
 
     f.empty = Theme.Text(f, "text", 16, "muted")
     f.empty:SetPoint("CENTER", f, "CENTER", 0, -20)
@@ -986,8 +1014,6 @@ local function RowFrame(i)
     if row then return row end
     row = CreateFrame("Button", nil, frame.content)
     row:SetHeight(MainWindow.ROW_HEIGHT)
-    row:SetPoint("TOPLEFT", 0, -(i - 1) * MainWindow.ROW_HEIGHT)
-    row:SetPoint("RIGHT", frame.content, "RIGHT")
     local gold = ns.Theme.COLORS.gold
     row.highlight = row:CreateTexture(nil, "HIGHLIGHT")
     row.highlight:SetAllPoints(row)
@@ -1015,6 +1041,57 @@ local function Cell(row, c)
         row.cells[c] = cell
     end
     return cell
+end
+
+-- One row of the list on a row frame, at its place in the list (index from 1)
+local function PaintRow(row, data, columns, index)
+    row:ClearAllPoints()
+    row:SetPoint("RIGHT", frame.content, "RIGHT")
+    row:SetPoint("TOPLEFT", 0, -(index - 1) * MainWindow.ROW_HEIGHT)
+    row.data = data
+    local x = 2
+    for c, column in ipairs(columns) do
+        local cell = Cell(row, c)
+        if column.font == "name" then
+            ns.Theme.Font(cell, "name", MainWindow.NAME_SIZE)
+        else
+            ns.Theme.Font(cell, "text", MainWindow.TEXT_SIZE)
+        end
+        local fg = ns.Theme.COLORS.foreground
+        cell:SetTextColor(fg[1], fg[2], fg[3])
+        cell:ClearAllPoints()
+        cell:SetPoint("LEFT", row, "LEFT", x, 0)
+        cell:SetWidth(column.width - 4)
+        cell:SetText(data[column.key] or "")
+        cell:Show()
+        x = x + column.width
+    end
+    for c = #columns + 1, #row.cells do row.cells[c]:Hide() end
+    MainWindow:LayoutRowButtons(row, data.actions)
+    row:Show()
+end
+
+-- The rows in view, from the list last drawn (HH-137); called on refresh and on scroll
+function MainWindow:PaintVisible()
+    if not frame or not painted.rows then return end
+    local rows, columns = painted.rows, painted.columns
+    local offset = tonumber((frame.scroll:GetVerticalScroll())) or 0
+    local height = tonumber((frame.scroll:GetHeight()))
+    local count = (height and height > 0) and (math.ceil(height / self.ROW_HEIGHT) + 1) or self.VISIBLE_FALLBACK
+    local first = math.max(1, math.floor(offset / self.ROW_HEIGHT) + 1)
+    for slot = 1, count do
+        local data = rows[first + slot - 1]
+        if data then
+            PaintRow(RowFrame(slot), data, columns, first + slot - 1)
+        elseif rowFrames[slot] then
+            rowFrames[slot]:Hide()
+            rowFrames[slot].data = nil
+        end
+    end
+    for slot = count + 1, #rowFrames do
+        rowFrames[slot]:Hide()
+        rowFrames[slot].data = nil
+    end
 end
 
 -- The list starts under the toolbar (every section has one)
@@ -1063,9 +1140,11 @@ end
 
 local shownOngoing -- the ongoing count last logged (debug)
 
+-- The Duels tab needs the High Noon lists: they are counted again when out of date (HH-137)
 function MainWindow:Refresh()
     sinceRefresh = 0
     if not (frame and frame:IsShown()) then return end
+    if current.tab == "duels" then ns.HighNoon:Ensure() end
     local event = self:OpenEvent()
     local columns = event and self.COLUMNS.event or self.COLUMNS[current.tab] or self.COLUMNS.events
     local section = self.SectionOf(current.tab)
@@ -1093,35 +1172,9 @@ function MainWindow:Refresh()
     else
         rows = self.Rows(current.tab, current.sort, nil, self:ListFaction(), search)
     end
-    for i, data in ipairs(rows) do
-        local row = RowFrame(i)
-        row.data = data
-        local x = 2
-        for c, column in ipairs(columns) do
-            local cell = Cell(row, c)
-            if column.font == "name" then
-                ns.Theme.Font(cell, "name", self.NAME_SIZE)
-            else
-                ns.Theme.Font(cell, "text", self.TEXT_SIZE)
-            end
-            local fg = ns.Theme.COLORS.foreground
-            cell:SetTextColor(fg[1], fg[2], fg[3])
-            cell:ClearAllPoints()
-            cell:SetPoint("LEFT", row, "LEFT", x, 0)
-            cell:SetWidth(column.width - 4)
-            cell:SetText(data[column.key] or "")
-            cell:Show()
-            x = x + column.width
-        end
-        for c = #columns + 1, #row.cells do row.cells[c]:Hide() end
-        self:LayoutRowButtons(row, data.actions)
-        row:Show()
-    end
-    for i = #rows + 1, #rowFrames do
-        rowFrames[i]:Hide()
-        rowFrames[i].data = nil
-    end
+    painted.rows, painted.columns = rows, columns
     frame.content:SetHeight(math.max(1, #rows) * self.ROW_HEIGHT)
+    self:PaintVisible()
     if current.tab == "marks" then
         frame.count:SetText(string.format(L.MARKS_STATUS, ns.Marks.RankNameByIndex(ns.Marks:RankIndex()), ns.Marks:Total()))
     else
@@ -1566,6 +1619,12 @@ ns.Events:Register("HH_INITIALIZED", function()
             "HH_HIGHNOON_UPDATED", "HH_BOUNTY_UPDATED", "HH_MATCHES_CHANGED", "HH_GLASS_ADDED" }) do
         ns.Events:Register(event, request, OWNER)
     end
+    -- New duels while the Duels tab is open: its lists are counted again (HH-137)
+    local onDuels = function()
+        if current.tab == "duels" then MainWindow:RequestRefresh() end
+    end
+    ns.Events:Register("HH_DUEL_ADDED", onDuels, OWNER)
+    ns.Events:Register("HH_DUEL_UPDATED", onDuels, OWNER)
 end, OWNER)
 
 -- /hh with no arguments opens the window (see Core/SlashCommands.lua)

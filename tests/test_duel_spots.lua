@@ -90,20 +90,24 @@ return function(T, H)
         T.noErrors()
     end)
 
-    T.case("anti-fake: one HeadHunter alone makes no spot; a second one or our own duel does", function()
+    T.case("one HeadHunter alone makes a spot; with 2 witnesses asked, marked until a second one or our own duel", function()
         local ns = H.Boot({ client = "era" })
         local D = ns.DuelSpots
         local list = DuelList(ns, 10, 5)
         Ping(ns, 1436, "Brakka-Firemaw", list, 3)
-        T.eq(D:State(1436, 3), 10, "the duels are kept")
-        T.eq(#D:Active(), 0, "one HeadHunter alone: no spot")
+        local spot = D:Active()[1]
+        T.ok(spot ~= nil, "one HeadHunter alone: a spot far away players see")
+        T.eq(D:LayerText(spot), "Layer 3", "one witness is enough for now: no mark")
+        D.MIN_WITNESSES = 2
+        T.eq(D:LayerText(D:Active()[1]), "Layer 3 (seen by 1 HeadHunter)", "marked")
         Ping(ns, 1436, "Wren-Firemaw", { list[1] }, 3)
-        T.eq(#D:Active(), 1, "a second HeadHunter saw duels there: a spot")
+        T.eq(D:LayerText(D:Active()[1]), "Layer 3", "a second HeadHunter saw duels there: no mark")
         OurLayer(5)
         Ping(ns, 1429, "Iron-Firemaw", DuelList(ns, 10, 5), 5)
-        T.eq(#D:Active(), 1, "Elwynn: one HeadHunter alone")
         Seen(ns, "Tovik-Firemaw", "Marla-Firemaw")
-        T.eq(#D:Active(), 2, "we saw a duel there ourselves: a spot")
+        for _, s in ipairs(D:Active()) do
+            if s.zone == 1429 then T.eq(s.unconfirmed, nil, "we saw a duel there ourselves: no mark") end
+        end
         T.noErrors()
     end)
 
@@ -147,16 +151,16 @@ return function(T, H)
         T.noErrors()
     end)
 
-    T.case("no duel for 3 min: the spot is gone; duels older than 20 min drop out", function()
+    T.case("no duel for 5 min: the spot is gone; duels older than 20 min drop out", function()
         local ns = H.Boot({ client = "era" })
         local D = ns.DuelSpots
         Spot(ns, 1436, 3, 10, 5)
         T.eq(#D:Active(), 1, "spot")
-        H.serverTime = H.serverTime + 170
-        T.eq(#D:Active(), 1, "the last duel under 3 min ago: still a spot")
+        H.serverTime = H.serverTime + 290
+        T.eq(#D:Active(), 1, "the last duel under 5 min ago: still a spot")
         H.serverTime = H.serverTime + 10
-        T.eq(#D:Active(), 0, "no duel for 3 min: gone")
-        H.serverTime = H.serverTime + 520
+        T.eq(#D:Active(), 0, "no duel for 5 min: gone")
+        H.serverTime = H.serverTime + 400
         T.eq(D:State(1436, 3), 9, "the oldest duel is over 20 min old")
         T.noErrors()
     end)
@@ -276,7 +280,7 @@ return function(T, H)
         local ns = H.Boot({ client = "era" })
         OurLayer(5)
         Spot(ns, 1436, 3, 10, 5)
-        T.ok(H.Printed("Duels in Westfall %(Layer 3%): 10 duels, 5 players in 20 min%."), "chat line")
+        T.ok(H.Printed("Duels in Westfall %(Layer 3%): 10 duels, 5 players in 20 min%."), "chat line, once the first HeadHunter tells it")
         T.ok(H.Printed("Ask for an invite: .*|Hplayer:Brakka|h%[Brakka%]|h"), "a click on the name whispers them")
         local lines = #H.printed
         Ping(ns, 1436, "Zulgar-Firemaw", DuelList(ns, 10, 5), 3)

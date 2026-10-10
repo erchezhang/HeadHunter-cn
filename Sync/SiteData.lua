@@ -449,15 +449,20 @@ function SiteData:Bullies()
     return bullies or {}
 end
 
--- The website's Deadbeat record for a player key: { key, unpaid, blockedUntil } or nil
+-- The website's Deadbeat record for a player key: { key, unpaid, blockedUntil } or nil;
+-- from our own download, else from the lists other HeadHunters shared (HH-141)
 function SiteData:Deadbeat(key)
     local id = key and ns.Utils.CompactName(key)
-    return id and deadbeats and deadbeats[id] or nil
+    local own = id and deadbeats and deadbeats[id] or nil
+    return own or (ns.SharedSite and ns.SharedSite:Deadbeat(key)) or nil
 end
 
--- Every Deadbeat the website listed: compact name -> record
+-- Every Deadbeat the website listed: compact name -> record, with the shared ones (HH-141)
 function SiteData:Deadbeats()
-    return deadbeats or {}
+    local all = {}
+    for id, record in pairs(ns.SharedSite and ns.SharedSite:Deadbeats() or {}) do all[id] = record end
+    for id, record in pairs(deadbeats or {}) do all[id] = record end
+    return all
 end
 
 function SiteData:GeneratedAt()

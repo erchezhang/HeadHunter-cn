@@ -39,6 +39,20 @@ return function(T, H)
         T.noErrors()
     end)
 
+    T.case("each home keeps the region the game gave on it, not the account's last one", function()
+        _G.GetCurrentRegion = function() return 1 end
+        local us = H.Boot({ client = "forever", playerGUID = GUID(PVP) })
+        local saved = us.Database:Root()
+        _G.GetCurrentRegion = function() return 5 end
+        H.Boot({ client = "forever", playerGUID = GUID(6746), savedDB = saved })
+        _G.GetCurrentRegion = nil
+
+        T.eq(saved.homes["forever|" .. PVP].region, "us", "the US server's home stays US")
+        T.eq(saved.homes["forever|6746"].region, "cn", "the Chinese server's home is CN")
+        T.eq(saved.meta.region, "cn", "the account's last region, as before")
+        T.noErrors()
+    end)
+
     T.case("era: each realm keeps its own data", function()
         local firemaw = H.Boot({ client = "era" })
         firemaw.db.marks.total = 3

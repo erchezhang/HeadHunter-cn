@@ -404,4 +404,51 @@ return function(T, H)
             T.ok(rawget(ns.L, key) ~= nil, key)
         end
     end)
+    T.case("every row of a long list, but frames only for the rows in view (HH-137)", function()
+        local ns = H.Boot({ client = "era" })
+        for i = 1, 400 do
+            ns.Duels:Add({ winner = "Win" .. i .. "-Firemaw", loser = "Lose" .. i .. "-Firemaw",
+                t = H.serverTime - 86400 + i * 120, faction = "Alliance", winnerRace = "Human", loserRace = "Orc",
+                winnerLevel = 30, loserLevel = 30 }, "local")
+        end
+        Settle()
+        local MW = ns.MainWindow
+        MW:Toggle()
+        MW:SelectTab("duels")
+        Settle()
+        T.eq(#MW.shownRows, 600, "both lists of 300 in one")
+
+        local listed = {}
+        for i, row in ipairs(MW.shownRows) do listed[row] = i end
+        local function Painted()
+            local shown = {}
+            for _, f in ipairs(H.AllFrames()) do
+                local data = rawget(f, "data")
+                if data and listed[data] and rawget(f, "shown") then shown[#shown + 1] = f end
+            end
+            return shown
+        end
+        local function At(index)
+            for _, f in ipairs(Painted()) do
+                if listed[rawget(f, "data")] == index then return f end
+            end
+        end
+        T.eq(#Painted(), MW.VISIBLE_FALLBACK, "frames only for the rows in view")
+        T.ok(At(1) ~= nil, "the first row shows")
+
+        local scroll = _G.HeadHunterMainFrame.scroll
+        scroll.GetVerticalScroll = function() return 500 * MW.ROW_HEIGHT end
+        MW:PaintVisible()
+        T.eq(#Painted(), MW.VISIBLE_FALLBACK, "still only the rows in view")
+        local row = At(501)
+        T.ok(row ~= nil, "scrolled: row 501 shows")
+        T.eq(row.point[3], -500 * MW.ROW_HEIGHT, "at its place in the list")
+        T.eq(At(1), nil, "row 1 is out of view")
+
+        scroll.GetVerticalScroll = function() return 595 * MW.ROW_HEIGHT end
+        MW:PaintVisible()
+        T.eq(#Painted(), 5, "the end of the list: the last 5 rows, the other frames hidden")
+        T.ok(At(600) ~= nil, "the last row")
+        T.noErrors()
+    end)
 end

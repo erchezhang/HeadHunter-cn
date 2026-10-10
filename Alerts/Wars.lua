@@ -17,6 +17,8 @@
 --
 -- ns.db.wars (per home), oldest first, kept KEEP, at most MAX_WARS:
 --   { id, by (our key), zone, started, ended (nil while open), lastHot, peak (1-3),
+--     present (false until we were in the zone during the war; HH-140, author 2026-10-10:
+--     a war we only heard of from others must not list us as a fighter),
 --     layers = { layer ids }, kills, honor, deaths (ours in the war),
 --     fighters = { [player key] = { side = "ally" | "enemy", faction?, class?, race?,
 --                  level?, guild?, first, last } } }
@@ -98,6 +100,18 @@ function Wars:Close(war)
     ns.Events:Fire("HH_WAR_ENDED", war)
 end
 
+-- We are in this zone now
+local function Here(zone)
+    return zone ~= nil and ns.Zones.ZoneOf(ns.Utils.PlayerMapID()) == zone
+end
+
+-- We are in the war's zone: we were there, and our layer is one of the war's (HH-140)
+local function MarkHere(war)
+    if not Here(war.zone) then return end
+    war.present = true
+    AddLayer(war, ns.Layer:Current())
+end
+
 -- The zone's heat changed: a war starts at 1 fire, a burning zone keeps its war going
 function Wars:OnHotspot(zone, now)
     now = now or ns.Utils.ServerTime()
@@ -113,15 +127,15 @@ function Wars:OnHotspot(zone, now)
         if not by then return nil end
         local started = math.min(ns.Hotspots:Oldest(zone) or now, now)
         war = { id = by .. ":" .. zone .. ":" .. started, by = by, zone = zone, started = started, lastHot = now,
-            peak = 0, layers = {}, fighters = {}, kills = 0, honor = 0, deaths = 0 }
+            peak = 0, present = false, layers = {}, fighters = {}, kills = 0, honor = 0, deaths = 0 }
         store[#store + 1] = war
         for _, seen in pairs(recent[zone] or {}) do AddFighter(war, seen, seen.t) end
-        AddLayer(war, ns.Layer:Current())
         ns.Log:Add("info", "War started in " .. tostring(zone))
         ns.Events:Fire("HH_WAR_STARTED", war)
     end
     war.lastHot = math.max(war.lastHot, now)
     war.peak = math.max(war.peak, ns.Hotspots:Level(zone, now))
+    MarkHere(war)
     return war
 end
 
@@ -151,6 +165,7 @@ function Wars:OnHonorKill(record)
     if not war or (tonumber(record.t) or 0) - war.lastHot > self.END_AFTER then return end
     war.kills = war.kills + 1
     war.honor = war.honor + (tonumber(record.honor) or 0)
+    war.present = true
     AddLayer(war, record.layer)
 end
 
@@ -159,6 +174,7 @@ function Wars:OnDeath(report)
     local war = self:Open(ns.Zones.ZoneOf(report.mapID))
     if not war or (tonumber(report.t) or 0) - war.lastHot > self.END_AFTER then return end
     war.deaths = war.deaths + 1
+    war.present = true
     local killer = report.killer
     if type(killer) == "table" and killer.key then
         AddFighter(war, { key = killer.key, side = "enemy", class = killer.class, race = killer.race,

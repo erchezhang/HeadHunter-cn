@@ -163,7 +163,9 @@ MIGRATIONS[4] = function(db)
     if type(db.settings) == "table" then db.settings.screenshots = true end
 end
 
--- Use this home's data. Returns true when the home changed.
+-- Use this home's data. Returns true when the home changed. A confirmed home keeps the
+-- region the game gave on it (HH-139): meta.region is the account's, overwritten at each
+-- login, so the sync app would file a US server's characters in China after playing there
 function DB:BindHome(key)
     key = key or ns.Utils.HomeKey() or root.meta.home or self.FALLBACK_HOME
     if key == self.homeKey then return false end
@@ -172,6 +174,7 @@ function DB:BindHome(key)
     home = root.homes[key]
     self.homeKey = key
     self.homeConfirmed = ns.Utils.HomeKey() == key
+    if self.homeConfirmed then home.region = ns.Utils.Region() or home.region end
     root.meta.home = key
     ns:Debug("Database home:", key)
     return true

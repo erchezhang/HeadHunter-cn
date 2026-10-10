@@ -192,6 +192,8 @@ function CatchUp:OnData(record, sender)
         ns.Witness:AddRelayed(body, sender)
     elseif kind == "Y" then
         ns.Evidence:AddRelayed(body, sender)
+    elseif kind == "C" then
+        ns.SharedSite:OnRecord(body, sender)
     elseif kind == "E" then
         pending[ns.Utils.CompactName(sender)] = nil
         if next(pending) == nil then self:Finish("complete") end
@@ -202,7 +204,8 @@ end
 -- Answering (everyone else)
 -------------------------------------------------
 
--- The records newer than `since` we can pass on, as S records (newest first)
+-- The records newer than `since` we can pass on, as S records (newest first), and our own
+-- download of the website's lists whatever `since` is (HH-141, Sync/SharedSite.lua)
 function CatchUp.Records(sinceTime)
     local Protocol = ns.Protocol
     local maxLength = Protocol.MAX_MESSAGE - 4 - 1 -- header, kind letter
@@ -220,6 +223,9 @@ function CatchUp.Records(sinceTime)
     -- Witness records (HH-121): the evidence for those bounties
     for _, w in ipairs(ns.Witness:Since(sinceTime)) do records[#records + 1] = "X" .. Protocol.EncodeWitness(w) end
     for _, record in ipairs(ns.Evidence:Records(sinceTime)) do records[#records + 1] = record end
+    for _, record in ipairs(ns.SharedSite.Records(ns.SharedSite.CATCHUP_MAX)) do
+        records[#records + 1] = "C" .. record
+    end
     -- High Noon duels (HH-091) after the reports: they matter less
     for _, duel in ipairs(ns.Duels:Since(sinceTime, CatchUp.MAX_DUELS)) do
         if #records >= CatchUp.MAX_RECORDS + CatchUp.MAX_DUELS then break end

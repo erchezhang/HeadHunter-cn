@@ -37,6 +37,20 @@ return function(T, H)
         T.noErrors()
     end)
 
+    T.case("a war we only hear of does not count us as there, nor take our layer; going there does", function()
+        local ns = H.Boot({ client = "era" })
+        H.playerMap = 1429
+        Battle(ns, 1417, 3)
+        local war = ns.Wars:Open(1417)
+        T.eq(war.present, false, "heard of from others: not there")
+        T.eq(#war.layers, 1, "only the layer the pings saw")
+
+        H.playerMap = 1417
+        ns.Wars:OnHotspot(1417)
+        T.eq(war.present, true, "in the zone now: there")
+        T.noErrors()
+    end)
+
     T.case("a pause under 10 minutes is the same war; 10 cold minutes end it", function()
         local ns = H.Boot({ client = "era" })
         Battle(ns, 1417)

@@ -39,6 +39,8 @@ Protocol.TYPES = {
     WITNESS = "X",  -- HH-121: a hunted player died near the sender (Sync/Witness.lua)
     GLASS = "Y",    -- the sender raised a glass to a catch (Sync/Glasses.lua)
     DUEL_SPOT = "Z", -- HH-134: duels the sender saw lately, with their place and layer (Alerts/DuelSpots.lua)
+    -- HH-141: the sender's own download of the website's lists (Sync/SharedSite.lua)
+    SITE_LIST = "C",
 }
 
 local FACTION_CODE = { Alliance = "A", Horde = "H" }

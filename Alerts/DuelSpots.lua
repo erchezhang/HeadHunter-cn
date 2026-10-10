@@ -12,15 +12,17 @@
 -- other faction never arrive (Sync/Transport.lua), so the HeadHunters we can ask for an
 -- invite are always our faction. Many witnesses see the same duel: the same two players
 -- within DEDUPE seconds is one duel.
--- Anti-fake (author, 2026-10-06): a changed addon could send made-up duels. A spot we did
--- not see ourselves needs MIN_WITNESSES different HeadHunters, and one HeadHunter adds at
--- most SENDER_DUELS new duels per WINDOW.
+-- Anti-fake (author, 2026-10-06): a changed addon could send made-up duels, so one
+-- HeadHunter adds at most SENDER_DUELS new duels per WINDOW. A spot fewer than
+-- MIN_WITNESSES different HeadHunters reported shows marked "seen by 1 HeadHunter"
+-- (author, 2026-10-10: players far away never saw a spot only one HeadHunter was at;
+-- MIN_WITNESSES is 1 for now, 2 once many players use the addon).
 --
 -- Players see a duel spot as a mark on the world map (UI/MapMarkers.lua; a click asks a
 -- HeadHunter on that layer for an invite), a chat line when one starts in the alert
 -- range (alerts.duelSpots; names as links, a click whispers them) and /hh duelspots.
--- A spot also needs a duel in the last QUIET seconds: when duels stop for 3 minutes it is
--- gone (author, 2026-10-06). The map keeps it as it last was until then (MAP_TIME).
+-- A spot also needs a duel in the last QUIET seconds: when duels stop for 5 minutes it is
+-- gone (author, 2026-10-06; 3 minutes until 2026-10-10). The map keeps it as it last was until then (MAP_TIME).
 
 local addonName, ns = ...
 local L = ns.L
@@ -33,9 +35,9 @@ DuelSpots.WINDOW = 1200
 DuelSpots.MIN_DUELS = 10
 DuelSpots.MIN_PLAYERS = 5
 DuelSpots.MIN_LEVEL = 19
-DuelSpots.MIN_WITNESSES = 2
+DuelSpots.MIN_WITNESSES = 1
 DuelSpots.SENDER_DUELS = 10
-DuelSpots.QUIET = 180
+DuelSpots.QUIET = 300
 DuelSpots.MAP_TIME = DuelSpots.QUIET
 DuelSpots.DEDUPE = ns.Duels.DEDUPE
 DuelSpots.TICK = 5
@@ -246,9 +248,9 @@ function DuelSpots:State(zone, layerKey, now)
     return #kept, count
 end
 
--- Anti-fake: a spot we did not see ourselves needs MIN_WITNESSES different HeadHunters
--- who reported duels there in the WINDOW, so one changed addon alone cannot make one.
--- Our own duels and test data (/hh sim duels) are trusted.
+-- Whether MIN_WITNESSES different HeadHunters reported duels there in the WINDOW; a spot
+-- that is not shows marked "seen by 1 HeadHunter". Our own duels and test data
+-- (/hh sim duels) are trusted.
 function DuelSpots:Witnessed(zone, layerKey, now)
     local bucket = spots[zone] and spots[zone][layerKey]
     if not bucket then return false end
@@ -270,7 +272,7 @@ function DuelSpots:IsSpot(zone, layerKey, now)
     now = now or ns.Utils.ServerTime()
     local duels, players = self:State(zone, layerKey, now)
     if layerKey == self.UNKNOWN_LAYER then return false, duels, players end
-    local ok = duels >= self.MIN_DUELS and players >= self.MIN_PLAYERS and self:Witnessed(zone, layerKey, now)
+    local ok = duels >= self.MIN_DUELS and players >= self.MIN_PLAYERS
         and self:LastDuel(zone, layerKey) >= now - self.QUIET
     return ok, duels, players
 end
@@ -296,7 +298,8 @@ end
 local function Snapshot(zone, layerKey, duels, players)
     local newest = Newest(spots[zone][layerKey])
     return { zone = zone, layerKey = layerKey, layer = layerKey ~= DuelSpots.UNKNOWN_LAYER and layerKey or nil,
-        duels = duels, players = players, x = newest and newest.x, y = newest and newest.y, t = newest and newest.t or 0 }
+        duels = duels, players = players, x = newest and newest.x, y = newest and newest.y, t = newest and newest.t or 0,
+        unconfirmed = not DuelSpots:Witnessed(zone, layerKey) or nil }
 end
 
 -- Duel spots for the map and /hh duelspots, busiest first: the ones that pass the rule
@@ -415,11 +418,19 @@ function DuelSpots.Describe(spot)
     return string.format(L.DUEL_SPOT_DESCRIBE, spot.duels, spot.players, math.floor(DuelSpots.WINDOW / 60))
 end
 
--- "Layer 3", "Layer 3 (your layer)" or "Layer unknown"
+-- "Layer 3", "Layer 3 (your layer)" or "Layer unknown", with "(seen by 1 HeadHunter)"
+-- while only one HeadHunter reported it
 function DuelSpots:LayerText(spot)
-    if not spot.layer then return L.DUEL_SPOT_LAYER_UNKNOWN end
-    if self:OnOurLayer(spot.zone, spot.layerKey) then return string.format(L.DUEL_SPOT_LAYER_YOURS, spot.layer) end
-    return string.format(L.DUEL_SPOT_LAYER, spot.layer)
+    local text
+    if not spot.layer then
+        text = L.DUEL_SPOT_LAYER_UNKNOWN
+    elseif self:OnOurLayer(spot.zone, spot.layerKey) then
+        text = string.format(L.DUEL_SPOT_LAYER_YOURS, spot.layer)
+    else
+        text = string.format(L.DUEL_SPOT_LAYER, spot.layer)
+    end
+    if spot.unconfirmed then text = string.format(L.DUEL_SPOT_UNCONFIRMED, text) end
+    return text
 end
 
 -- Up to MAX_NAMES HeadHunters there, as chat links when `links`, else plain names
