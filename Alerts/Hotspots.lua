@@ -491,8 +491,8 @@ end
 -- Our own fight
 -------------------------------------------------
 
--- The units we can look at: what we target, focus and point at, our group and what
--- they target, and every nameplate (friendly nameplates only when the player shows them)
+-- The units we can look at: what we target, focus and point at, our group close to us
+-- and what they target, and every nameplate (friendly nameplates only when the player shows them)
 local SCAN_UNITS = { "target", "focus", "mouseover", "targettarget", "focustarget" }
 for i = 1, 4 do SCAN_UNITS[#SCAN_UNITS + 1] = "party" .. i end
 for i = 1, 4 do SCAN_UNITS[#SCAN_UNITS + 1] = "party" .. i .. "target" end
@@ -527,8 +527,15 @@ local function TargetsOurSide(unit, mine)
     return mine ~= nil and U.UnitIsPlayer(target) and U.UnitFaction(target) == mine
 end
 
+-- A group member too far away to be in our fight, or what that member targets (HH-143:
+-- a raid spread over the zone filled wars with players who were not there)
+local function FarGroupUnit(unit)
+    local member = unit:match("^(party%d+)") or unit:match("^(raid%d+)")
+    return member ~= nil and not ns.Utils.UnitInFightRange(member)
+end
+
 -- The enemies our side is attacking: our target, and the target of each group member
--- in combat (GUID -> true)
+-- in combat close to us (GUID -> true)
 local GROUP_TARGETS = { "target" }
 for i = 1, 4 do GROUP_TARGETS[#GROUP_TARGETS + 1] = "party" .. i end
 for i = 1, 40 do GROUP_TARGETS[#GROUP_TARGETS + 1] = "raid" .. i end
@@ -538,7 +545,7 @@ local function OurTargets()
     local targets = {}
     for _, unit in ipairs(GROUP_TARGETS) do
         local target = unit == "target" and unit or unit .. "target"
-        local attacking = unit == "target" or InCombat(unit) ~= false
+        local attacking = unit == "target" or (InCombat(unit) ~= false and not FarGroupUnit(unit))
         local guid = attacking and U.UnitGUID(target)
         if guid then targets[guid] = true end
     end
@@ -557,7 +564,7 @@ function Hotspots.ScanFighters()
     local fighting, idle, unknown = 0, 0, 0
     for _, unit in ipairs(SCAN_UNITS) do
         local guid = U.UnitGUID(unit)
-        if guid and guid ~= me and not seen[guid] and U.UnitIsPlayer(unit) then
+        if guid and guid ~= me and not seen[guid] and U.UnitIsPlayer(unit) and not FarGroupUnit(unit) then
             seen[guid] = true
             local combat = InCombat(unit)
             if U.UnitIsEnemyPlayer(unit) then

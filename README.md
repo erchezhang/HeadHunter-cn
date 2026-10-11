@@ -6,7 +6,7 @@
 
 > **简体中文汉化版 · Simplified Chinese localization**
 >
-> - **原始项目地址 / Upstream**：https://github.com/GudaAddons/HeadHunter （原作者 Vati / GudaAddons，当前 **v0.3.6**）
+> - **原始项目地址 / Upstream**：https://github.com/GudaAddons/HeadHunter （原作者 Vati / GudaAddons，当前 **v0.5.5**）
 > - **汉化分支地址 / Localization fork**：https://github.com/erchezhang/HeadHunter-cn
 > - **汉化：车长不二 完成**（Simplified Chinese localization by 车长不二）
 > - **翻译范围**：主窗口、通缉令、鼠标提示、设置页、地图标记等浏览界面，`/hh help` 的全部命令说明与输出，以及中屏/聊天提醒——全部文案覆盖，并随上游持续同步
@@ -15,7 +15,7 @@
 >
 > 原插件无 LICENSE 文件，代码与英文文案版权归原作者；汉化版仅供个人使用与学习，如原作者有异议请开 Issue，会立即处理。
 >
-> English: this fork tracks GudaAddons/HeadHunter (v0.3.6) with a Simplified Chinese localization (by 车长不二) contributed upstream as `Locales_zhCN.lua`. Upstream: https://github.com/GudaAddons/HeadHunter · Everything below is the original documentation with a Chinese translation under each paragraph.
+> English: this fork tracks GudaAddons/HeadHunter (v0.5.5) with a Simplified Chinese localization (by 车长不二) contributed upstream as `Locales_zhCN.lua`. Upstream: https://github.com/GudaAddons/HeadHunter · Everything below is the original documentation with a Chinese translation under each paragraph.
 
 ---
 
@@ -23,9 +23,12 @@
 
 **被人偷袭了？HeadHunter 会记录是谁杀了你，把报告共享给你阵营的玩家，并在地图上标记 WANTED 通缉犯。组建追捕队，把他们绳之以法。**
 
-For **Classic Era** and **WoW: Forever**.
 
-适用于 **Classic Era（经典怀旧服）** 与 **WoW: Forever**。
+For **WoW Forever**.
+
+适用于 **WoW Forever**。
+
+适用于 **WoW Forever**。
 
 See the WANTED board, the best duelists and the top hunters on **[headhunterwow.com](https://headhunterwow.com)**.
 
@@ -222,8 +225,6 @@ Got ganked? Put gold on your killer's head.
   - 猎人一方的 HeadHunter 会看到你的邮件并把你标记为**已付清**。3 天内不付即视为赖账；不付就是**老赖**：30 天内不能发布悬赏，名字进老赖名单；补交会解除。
 - If the same hunter claimed on that player before, the mail window warns you that it may be an alt. You can refuse that one without becoming a **Deadbeat**.
   - 如果同一名猎人此前就对该玩家领取过悬赏，邮件窗口会警告你对方可能是小号；这种情况你可以拒绝支付而不会变成**老赖**。
-- **Classic Era:** after claiming, click **Announce** (or type `/hh claim`) so the owner hears about it, even outside your guild and group.
-  - **Classic Era**：领取后请点击**宣告**（或输入 `/hh claim`），让悬赏发布者即使不在你的公会/队伍里也能收到消息。
 
 ### Catch-up · 登录补齐
 
@@ -239,15 +240,14 @@ Type `/hh online` to see how many HeadHunters are online right now, how many are
 
 - **WoW Forever:** everyone in your region, both factions.
   - **WoW Forever**：你所在区域的所有人，包含双方阵营。
-- **Classic Era:** only your guild and group. The game does not let addons count further.
-  - **Classic Era**：只有你的公会与队伍，游戏不允许插件统计更多。
 - With more than 500 online, it says **500+**.
   - 在线超过 500 时显示 **500+**。
 
 ### Duels · 决斗
 
-- Classic Era: every duel next to a HeadHunter counts, even when the duelists do not use the addon, as long as HeadHunter knows both levels (target or mouse over the duelists). WoW Forever: duels count when one of the duelists uses HeadHunter. Running away counts as a loss.
-  - Classic Era：发生在 HeadHunter 玩家身边的每场决斗都计入，即使对方没装插件（前提是能读到双方等级：选中或指向决斗者）；WoW Forever：决斗一方使用 HeadHunter 即计入。逃跑判负。
+### Duels
+- Duels count when one of the duelists uses HeadHunter. Running away counts as a loss.
+  - 决斗一方使用 HeadHunter 时计入；逃跑判负。
 - Only duels between players of level 10 or higher, at most 5 levels apart, count. Beating lowbies does not help.
   - 只有 10 级及以上、等级差不超过 5 级的玩家之间的决斗计入；打赢低级玩家没有帮助。
 - Duels are shared like death reports, and never make anyone WANTED.
@@ -285,8 +285,8 @@ WoW 插件无法访问互联网，因此有一个免费的桌面小程序：**He
    - **把网站的名单取回来。** 应用还会把网站的通缉名单、决斗榜、抓获记录、酒馆常客榜与你的个人记录写进一个名为 **HeadHunter Data** 的小插件，下次登录或 `/reload` 后即可看到。
 4. **WoW Forever:** when your lists reset (see *Good to know*), the app brings your own deaths, duels and bounty back.
    - **WoW Forever**：当你的名单被重置时（见*注意事项*），应用会把你的死亡、决斗与赏金记录带回来。
-5. **Every realm keeps its own data:** PvP, Normal, Roleplay and Hardcore (and every Classic Era realm) each have their own lists, deaths, duels and bounty. A character on a Normal realm sees only Normal realm data. HeadHunter data saved before this update went to the WoW Forever PvP realm.
-   - **每个服务器数据独立：**PvP、普通、角色扮演与硬核（以及每个 Classic Era 服务器）各有自己的名单、死亡、决斗与赏金；普通服角色只看到普通服数据；此次更新前保存的数据归入 WoW Forever 的 PvP 服务器。
+5. **Every realm keeps its own data:** PvP, Normal, Roleplay and Hardcore each have their own lists, deaths, duels and bounty. A character on a Normal realm sees only Normal realm data. HeadHunter data saved before this update went to the WoW Forever PvP realm.
+   - **每个服务器数据独立：**PvP、普通、角色扮演与硬核各有自己的名单、死亡、决斗与赏金；普通服角色只看到普通服数据；此次更新前保存的数据归入 WoW Forever 的 PvP 服务器。
 
 Good to know about the app:
 
@@ -322,7 +322,6 @@ Good to know about the app:
 | `/hh map on/off` | PvP areas, duel spots and skulls on the world map<br>世界地图上的 PvP 区域、决斗热点与骷髅标记开关 |
 | `/hh tooltip on/off` | WANTED line on enemy tooltips<br>敌人鼠标提示上的通缉行开关 |
 | `/hh minimap` | Show or hide the minimap buttons (window and toolbox)<br>显示或隐藏小地图按钮（主窗口与工具箱） |
-| `/hh claim` | Announce your gold bounty claim to all HeadHunters (Classic Era)<br>向所有 HeadHunter 宣告你领取了金币悬赏（Classic Era） |
 | `/hh catchup` | Ask other HeadHunters what you missed<br>向其他 HeadHunter 索取你错过的内容 |
 | `/hh online` | How many HeadHunters are online, per faction<br>在线的 HeadHunter 数量（按阵营） |
 | `/hh layer` | Your current layer (phase) ID, read from nearby NPCs<br>你当前的位面 ID（读取自附近 NPC） |
@@ -337,19 +336,13 @@ All settings are also on the options page: **Esc > Options > AddOns > HeadHunter
 
 ## Good to know · 注意事项
 
-- **Classic Era:** reports go to your guild and group automatically. To reach every HeadHunter on the realm, click **Report** after a death (or type `/hh report`). The same goes for **Announce** after you bring down an outlaw (`/hh justice`). The game only allows these realm-wide messages after a click.
-  - **Classic Era**：报告会自动发送给公会与队伍；要通知全服的 HeadHunter，死亡后点击**报告**（或输入 `/hh report`），击倒通缉犯后同理点击**宣告**（`/hh justice`）。游戏只允许点击触发的全服消息。
-- **Classic Era** has no map waypoints, so HeadHunter tells you the coordinates in chat instead.
-  - **Classic Era** 没有地图路径点功能，HeadHunter 会在聊天中告诉你坐标。
-- **WoW: Forever** shares everything automatically.
-  - **WoW: Forever** 的所有内容自动共享。
+- HeadHunter shares everything with other HeadHunters automatically.
+  - HeadHunter 会自动与其他 HeadHunter 共享一切。
 - **WoW: Forever is in testing mode.** The Forever client does not load saved data back (a known client issue, not a HeadHunter bug), so your lists and settings reset on every reload or login. Catch-up handles it: when you log in, other HeadHunters send back what you missed, so your lists refill from the realm. The HeadHunter Sync app also brings your own records back from the website. HeadHunter tells you this in chat when you log in on Forever.
   - **WoW: Forever 处于测试模式**：Forever 客户端不会回读存档（已知客户端问题，非插件 bug），每次重载或登录后名单与设置都会重置。登录补齐机制会处理这一点：登录时其他 HeadHunter 会把你错过的内容发回来，名单随之从服务器重建；HeadHunter Sync 应用也会从网站带回你的个人记录。在 Forever 登录时 HeadHunter 会在聊天中说明此事。
 - HeadHunter is off in dungeons, raids and battlegrounds. Duels never count as PvP kills.
   - 副本、团队副本与战场中 HeadHunter 处于关闭状态；决斗永远不算 PvP 击杀。
 - Gold bounties are paid by mail between players of the same faction. HeadHunter never holds your gold.
   - 金币悬赏通过同阵营玩家之间的邮件支付，HeadHunter 从不代管你的金币。
-- **Classic Era:** the other faction's Deadbeats reach you through the website, so use the HeadHunter Sync app. WoW Forever shares them directly.
-  - **Classic Era**：对方阵营的老赖名单通过网站传递，请使用 HeadHunter Sync 应用；WoW Forever 直接共享。
 - The more players use HeadHunter, the better it works. Tell your guild!
   - 使用 HeadHunter 的人越多，效果越好。告诉你的公会吧！

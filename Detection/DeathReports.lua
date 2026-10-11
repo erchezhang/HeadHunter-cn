@@ -83,8 +83,8 @@ end
 DeathReports.DisplayName = DisplayName
 
 -- Group members who were in the fight with us when we died (author, 2026-09-26: a group
--- fight is not a gank, so no Duo or Gang badge): online, in combat or dead, and in range
--- (or on our map when the game cannot tell the range).
+-- fight is not a gank, so no Duo or Gang badge): online, in combat or dead, and close to
+-- us (Utils.UnitInFightRange; being in our zone is not enough, HH-143).
 function DeathReports.CountHelpers()
     local U = ns.Utils
     local prefix, size
@@ -98,22 +98,14 @@ function DeathReports.CountHelpers()
     local function Flag(fn, unit)
         return U.Accessible(U.SafeCall(fn, unit)) == true
     end
-    local myMap = U.PlayerMapID()
     local count = 0
     for i = 1, size do
         local unit = prefix .. i
         if Flag(_G.UnitExists, unit) and not U.SafeCall(_G.UnitIsUnit, unit, "player")
             and Flag(_G.UnitIsConnected, unit)
-            and (Flag(_G.UnitAffectingCombat, unit) or Flag(_G.UnitIsDeadOrGhost, unit)) then
-            local inRange, checked = U.SafeCall(_G.UnitInRange, unit)
-            local near
-            if U.Accessible(checked) == true then
-                near = U.Accessible(inRange) == true
-            else
-                local map = C_Map and tonumber(U.Accessible(U.SafeCall(C_Map.GetBestMapForUnit, unit)))
-                near = myMap ~= nil and map == myMap
-            end
-            if near then count = count + 1 end
+            and (Flag(_G.UnitAffectingCombat, unit) or Flag(_G.UnitIsDeadOrGhost, unit))
+            and U.UnitInFightRange(unit) then
+            count = count + 1
         end
     end
     return count

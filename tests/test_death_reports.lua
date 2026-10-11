@@ -94,7 +94,7 @@ return function(T, H)
         local ns = H.Boot({ client = "forever" })
         H.inGroup = true
         H.units.party1 = { name = "Brakka Stonefist", isPlayer = true, inCombat = true, inRange = true }
-        H.units.party2 = { name = "Zulgar Mossback", isPlayer = true, dead = true, inCombat = false, map = H.playerMap }
+        H.units.party2 = { name = "Zulgar Mossback", isPlayer = true, dead = true, inCombat = false, inRange = true }
         H.units.party3 = { name = "Thrag Ironhide", isPlayer = true, inCombat = true, inRange = false }
         H.units.party4 = { name = "Mog Bristleback", isPlayer = true, inCombat = false, inRange = true }
         T.eq(ns.DeathReports.CountHelpers(), 2, "in combat or dead, and near")
@@ -107,6 +107,31 @@ return function(T, H)
 
         H.inGroup = false
         T.eq(ns.DeathReports.CountHelpers(), 0, "no group: alone")
+        T.noErrors()
+    end)
+
+    T.case("group members far away in our zone are not in the fight (HH-143)", function()
+        local ns = H.Boot({ client = "forever" })
+        _G.CreateVector2D = function(x, y) return { x = x, y = y } end
+        _G.C_Map.GetWorldPosFromMapPos = function(_, v)
+            return 0, { GetXY = function() return v.x * 1000, v.y * 1000 end }
+        end
+        H.inGroup = true
+        H.playerX, H.playerY = 0.5, 0.5
+        H.units.party1 = { name = "Brakka Stonefist", isPlayer = true, inCombat = true, x = 0.53, y = 0.5 }
+        H.units.party2 = { name = "Zulgar Mossback", isPlayer = true, dead = true, map = H.playerMap, x = 0.9, y = 0.1 }
+        H.units.party3 = { name = "Thrag Ironhide", isPlayer = true, inCombat = true, map = H.playerMap }
+        H.units.party4 = { name = "Mog Bristleback", isPlayer = true, inCombat = true, inRange = true, x = 0.1, y = 0.9 }
+        T.eq(ns.Utils.UnitYards("party1"), 30, "30 yards from us")
+        T.eq(ns.Utils.UnitYards("party3"), nil, "no place known")
+        T.eq(ns.DeathReports.CountHelpers(), 1, "only the one within 100 yards")
+
+        local report = ns.DeathReports:Record({ t = H.serverTime, killer = { key = "Fizz Sparkle", level = 23 } }, "test")
+        H.units.party1 = nil
+        local alone = ns.DeathReports:Record({ t = H.serverTime + 60, killer = { key = "Fizz Sparkle", level = 23 } }, "test")
+        T.eq(report.helpers, 1, "the one close by")
+        T.eq(alone.helpers, 0, "a raid across the zone: alone")
+        _G.CreateVector2D = nil
         T.noErrors()
     end)
 end

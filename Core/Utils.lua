@@ -415,6 +415,7 @@ end
 
 Utils.MAX_SPEED = 14          -- yards a second: a fast mount, with margin
 Utils.POSITION_MARGIN = 100   -- yards: a sighting stands for a player about nameplate range away
+Utils.FIGHT_RANGE = 100       -- yards: a group member this close is in our fight (HH-143)
 
 -- A map position in world yards: { continent, x, y }, or nil. Every zone map of one
 -- continent (a city map and its zone too) gives yards on the same grid (spike 2026-10-02).
@@ -435,6 +436,29 @@ function Utils.Yards(a, b)
     if not (a and b) or a.continent ~= b.continent then return nil end
     local dx, dy = a.x - b.x, a.y - b.y
     return math.sqrt(dx * dx + dy * dy)
+end
+
+-- Yards between us and a group member, or nil when the game does not tell where one
+-- of us is (another continent, an instance)
+function Utils.UnitYards(unit)
+    local mapID = Utils.PlayerMapID()
+    if not mapID or not C_Map then return nil end
+    local pos = SafeCall(C_Map.GetPlayerMapPosition, mapID, unit)
+    if type(pos) ~= "table" or not pos.GetXY then return nil end
+    local x, y = SafeCall(pos.GetXY, pos)
+    x, y = tonumber(Accessible(x)), tonumber(Accessible(y))
+    local myX, myY = Utils.PlayerPosition(mapID)
+    return Utils.Yards(Utils.WorldPos(mapID, myX, myY), Utils.WorldPos(mapID, x, y))
+end
+
+-- Is a group member close enough to be in our fight (author, 2026-10-10: a raid on the
+-- other side of the zone made a 1 vs 1 a group fight)? Judged by the distance; without
+-- it by the game's own range check; never by the zone. Unknown is not near.
+function Utils.UnitInFightRange(unit)
+    local yards = Utils.UnitYards(unit)
+    if yards then return yards <= Utils.FIGHT_RANGE end
+    local inRange, checked = SafeCall(_G.UnitInRange, unit)
+    return Accessible(checked) == true and Accessible(inRange) == true
 end
 
 -- Could nobody have gone from a to b in `seconds`? Unknown positions and different

@@ -358,8 +358,12 @@ function H.Install(opts)
             return H.playerMap
         end,
         GetMapInfo = function(id) return H.maps[id] end,
-        GetPlayerMapPosition = function()
-            return { GetXY = function() return H.playerX, H.playerY end }
+        -- A group member's place: u.x, u.y on our map (nil = the game does not tell)
+        GetPlayerMapPosition = function(_, unit)
+            local u = unit and unit ~= "player" and H.units[unit]
+            if not u then return { GetXY = function() return H.playerX, H.playerY end } end
+            if not (u.x and u.y) then return nil end
+            return { GetXY = function() return u.x, u.y end }
         end,
         -- H.noWaypoints: the client refuses user waypoints (as Classic Era does)
         CanSetUserWaypointOnMap = function() return not H.noWaypoints end,

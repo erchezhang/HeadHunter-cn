@@ -309,15 +309,20 @@ return function(T, H)
         Player("nameplate1", 1, "Horde", SECRET)   -- combat flag hidden, hitting one of us
         Player("nameplate1target", 4, "Alliance", true)
         Player("nameplate2", 2, "Horde", SECRET)   -- combat flag hidden, targeting nobody of ours
-        Player("party1", 5, "Alliance", true)      -- a group member far away...
+        Player("party1", 5, "Alliance", true)      -- a group member close by...
         Player("party1target", 3, "Horde", true)   -- ...fighting an enemy we cannot see
+        H.units.party1.inRange = true
+        Player("raid7", 6, "Alliance", true)       -- a group member across the zone (HH-143)...
+        Player("raid7target", 7, "Horde", true)    -- ...and the enemy they fight there
+        H.units.raid7.inRange = false
         local fighting, idle, unknown = ns.Hotspots.ScanFighters()
-        T.eq(fighting, 2, "the attacker and the group member's enemy")
+        T.eq(fighting, 2, "the attacker and the close group member's enemy")
         T.eq(idle, 1, "the one targeting nobody of ours")
         T.eq(unknown, 2, "two hidden combat flags")
         H.Advance(5) -- tick
-        local _, nowE = ns.Hotspots:Now(1429)
+        local nowA, nowE = ns.Hotspots:Now(1429)
         T.eq(nowE, 2, "the map shows 2 enemies")
+        T.eq(nowA, 2, "us and the close group member, not the far one")
         _G.issecretvalue = nil
         T.noErrors()
     end)

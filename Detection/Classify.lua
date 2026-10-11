@@ -95,8 +95,8 @@ function Classify.IsGiant(classification, group)
 end
 
 -- Display text: "Fair fight", "Coward kill · Duo (2 vs 1)", "Gang (3 vs 1)",
--- "Group fight (4 vs 3)", ... A same-level fight with help is not fair, so then only
--- the group is shown.
+-- "Group fight (4 vs 3)", ... A fight with help is neither fair nor an Underdog win
+-- (author, 2026-10-10: Underdog is for 1 vs 1 only), so then only the group is shown.
 function Classify.Label(classification, attackers, helpers)
     classification = classification or "unknown"
     attackers = attackers or 1
@@ -104,7 +104,7 @@ function Classify.Label(classification, attackers, helpers)
     local group = Classify.Group(attackers, helpers)
     if not group then return L["KILL_" .. classification:upper()] end
     local groupText = string.format(L["KILL_" .. group:upper()], attackers, 1 + (helpers or 0))
-    if classification == "fair" or classification == "unknown" then return groupText end
+    if classification == "fair" or classification == "giant" or classification == "unknown" then return groupText end
     return L["KILL_" .. classification:upper()] .. " · " .. groupText
 end
 
