@@ -371,9 +371,10 @@ end
 -- [Help]: a waypoint to the newest fight where the client allows it (Classic Era does
 -- not), and chat always says where it is. title: "Battle", ...
 -- HH-111: the players fighting there get a quiet "help on the way" note (an addon
--- message, never chat). When the newest fighter is on another layer, one whisper asks
--- them for a group invite, like the posse (alerts.whisperInvite). Runs inside the
--- popup click, which allows the whisper.
+-- message, never chat). One whisper asks a fighter there for a group invite, like the
+-- posse (alerts.whisperInvite): from any zone, or inside the zone when they are on
+-- another layer, and each HeadHunter at most once an hour (HH-145, Alerts/Invites.lua).
+-- Runs inside the popup or map click, which allows the whisper.
 function Hotspots:Help(zone, title)
     local data = zones[zone]
     local x, y
@@ -387,21 +388,50 @@ function Hotspots:Help(zone, title)
     ns.Transport:Queue(ns.Protocol.TYPES.HELP, ns.Protocol.EncodeHelp(zone, U.ServerTime()),
         ns.Transport.PRIORITY.alert, "B:" .. zone)
 
-    local target = data and self.InviteTarget(data, U.CompactName(U.UnitKey("player")))
-    if target and ns.Layer:Compare(target.layer, zone) == "different" and ns.db.settings.alerts.whisperInvite then
+    local state, target = self:InviteState(zone)
+    if state == "ok" then
         local ok = pcall(SendChatMessage, string.format(L.HOTSPOT_WHISPER, zoneName), "WHISPER", nil, target.sender)
-        if ok then ns:Print(string.format(L.POSSE_WHISPERED, U.DisplayName(U.PlayerKey(target.sender)) or target.sender)) end
+        if ok then
+            ns.Invites:Mark(target.sender)
+            ns:Print(string.format(L.POSSE_WHISPERED, U.DisplayName(U.PlayerKey(target.sender)) or target.sender))
+        end
+    elseif state == "asked" then
+        ns:Print(string.format(L.INVITE_ALREADY_ASKED, ns.Invites.Minutes(target)))
     end
     return how
 end
 
--- The newest other fighter who said which layer they are on and can be whispered
-function Hotspots.InviteTarget(data, me)
-    local best
+-- The newest other fighter who said which layer they are on, can be whispered and was
+-- not asked for an invite in the last hour; also the seconds until the first of the
+-- ones we asked is free again. With a zone: inside it only fighters on another layer
+-- than ours (from another zone layers cannot be compared, and any fighter can invite).
+function Hotspots.InviteTarget(data, me, zone, now)
+    local here = zone and ns.Zones.ZoneOf(ns.Utils.PlayerMapID()) == zone
+    local best, left
     for who, fighter in pairs(data.fighters) do
-        if who ~= me and fighter.sender and fighter.layer and (not best or fighter.t > best.t) then best = fighter end
+        if who ~= me and fighter.sender and fighter.layer
+                and (not here or ns.Layer:Compare(fighter.layer, zone) == "different") then
+            local wait = ns.Invites:Left(fighter.sender, now)
+            if wait then
+                left = math.min(left or wait, wait)
+            elseif not best or fighter.t > best.t then
+                best = fighter
+            end
+        end
     end
-    return best
+    return best, left
+end
+
+-- Whether Help asks for an invite now (HH-145): "ok" and the fighter to whisper,
+-- "asked" and the seconds until one is free again, or "none" (nobody to ask, the
+-- option alerts.whisperInvite is off, or every fighter there is on our layer)
+function Hotspots:InviteState(zone, now)
+    local data = zones[zone]
+    if not data or not ns.db.settings.alerts.whisperInvite then return "none" end
+    local target, left = self.InviteTarget(data, ns.Utils.CompactName(ns.Utils.UnitKey("player")), zone, now)
+    if target then return "ok", target end
+    if left then return "asked", left end
+    return "none"
 end
 
 -- Someone clicked [Help] for a zone: tell us if we are fighting there

@@ -29,6 +29,7 @@ DB.HOME_TABLES = {
     deaths = true, reports = true, enemies = true, justice = true, posters = true, posse = true,
     bountyPay = true, duels = true, eventResults = true, marks = true, demoMarks = true, player = true,
     witness = true, pinned = true, glasses = true, screenshots = true, honorKills = true, wars = true,
+    invites = true,
 }
 
 DB.LIMITS = {
@@ -38,6 +39,7 @@ DB.LIMITS = {
     enemyMaxAgeDays = 7,
     honorKills = 5000,
     honorKillMaxAgeDays = 30,
+    inviteSeconds = 3600,
 }
 
 local DEFAULTS = {
@@ -93,6 +95,8 @@ local HOME_DEFAULTS = {
     honorKills = {},
     -- HH-136: wars, a hotzone's fight from start to end (Alerts/Wars.lua), oldest first
     wars = {},
+    -- HH-145: compact name -> when we asked that HeadHunter for a group invite (Alerts/Invites.lua)
+    invites = {},
     -- Tournament match results confirmed in game (Tournament/Matches.lua): every
     -- HeadHunter's bracket; our own go to the website with HeadHunter Sync
     eventResults = {},
@@ -286,6 +290,9 @@ function DB:Prune(now)
     end
     db.deaths = kept
     db.honorKills = DB.KeepRecent(db.honorKills, now - limits.honorKillMaxAgeDays * DAY, limits.honorKills)
+    for name, t in pairs(db.invites or {}) do
+        if (tonumber(t) or 0) < now - limits.inviteSeconds then db.invites[name] = nil end
+    end
 
     local minSeen = now - limits.enemyMaxAgeDays * DAY
     local byAge = {}

@@ -221,6 +221,7 @@ L.DEV_NO_SHARING = "|cffff8000Test mode|r (HeadHunter_Dev noSharing): nothing is
 -- Map markers (HH-046)
 L.MAP_HOTSPOT_TITLE = "|cffff3300PvP zone|r · |cffff9933%s|r in %s"
 L.HOTSPOT_MAP_CLICK = "|cff00ff00Left-click: the way to the fight, and a group invite from a HeadHunter there on another layer|r"
+L.HOTSPOT_MAP_CLICK_WAY = "|cff00ff00Left-click: the way to the fight|r"
 L.MAP_PVP = "PVP"
 
 -- Duel spots (HH-134)
@@ -243,6 +244,10 @@ L.DUEL_SPOT_LAYER_LINE = "%s: %s"
 L.DUEL_SPOT_WHISPER = "HeadHunter: I want to see the duels in %s. Please invite me so I can switch to your layer."
 L.DUEL_SPOT_SAME_LAYER = "You are already on this layer."
 L.DUEL_SPOT_NOBODY = "No HeadHunter in %s can be asked for an invite now."
+L.DUEL_SPOT_GO_THERE = "Come to %s first: an invite to the duels can only be asked from inside the zone."
+L.DUEL_SPOT_CLICK_AWAY = "|cff999999Come to %s to ask a HeadHunter for a group invite|r"
+L.INVITE_ALREADY_ASKED = "You already asked every HeadHunter there for an invite. You can ask again in %d min."
+L.INVITE_ASKED_HINT = "|cff999999Invite asked, again in %d min|r"
 L.DUEL_SPOT_NONE = "No duel spots right now."
 L.HELP_DUELSPOTS = "|cffffff00/hh duelspots|r: places with many duels now, their layer and who to ask for an invite"
 L.SET_DUEL_SPOTS = "Duel spot alerts"

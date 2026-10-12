@@ -92,7 +92,15 @@ local function HotspotPin(spot, mapID, now)
         ns.Hotspots.Describe(spot.a, spot.e, spot.d),
         ns.Utils.Ago(math.max(0, now - spot.t)),
     }
-    if clickable then lines[#lines + 1] = L.HOTSPOT_MAP_CLICK end
+    if clickable then
+        local state, left = ns.Hotspots:InviteState(spot.zone, now)
+        if state == "ok" then
+            lines[#lines + 1] = L.HOTSPOT_MAP_CLICK
+        else
+            lines[#lines + 1] = L.HOTSPOT_MAP_CLICK_WAY
+            if state == "asked" then lines[#lines + 1] = string.format(L.INVITE_ASKED_HINT, ns.Invites.Minutes(left)) end
+        end
+    end
     return {
         kind = "hotspot",
         id = "hot:" .. spot.zone,
@@ -109,7 +117,8 @@ end
 -- One mark per zone with duel spots (author, 2026-10-06): every layer with its duels, the
 -- HeadHunters to ask on the layer a click asks for, and the click hint. group: from
 -- DuelSpots:ByZone. layerKey is the layer the click asks an invite for (else the busiest
--- layer, so the click says we are on it or nobody can be asked).
+-- layer, so the click says we are on it or nobody can be asked). HH-145: the click hint
+-- says when we are not in that zone, or asked every HeadHunter there in the last hour.
 local function DuelPin(group, mapID, now)
     local x, y, zoneWidth = MapMarkers.Project(group.zone, group.x, group.y, mapID)
     if not x then return nil end
@@ -126,9 +135,19 @@ local function DuelPin(group, mapID, now)
         lines[#lines + 1] = string.format(L.DUEL_SPOT_HEADHUNTERS, DuelSpots:InviterNames(target.zone, target.layerKey))
     end
     lines[#lines + 1] = ns.Utils.Ago(math.max(0, now - group.t))
-    if target then lines[#lines + 1] = string.format(L.DUEL_SPOT_CLICK, DuelSpots:LayerText(target)) end
+    local inZone = DuelSpots:InZone(group.zone)
+    if target then
+        local state, left = DuelSpots:InviteState(target.zone, target.layerKey, now)
+        if state == "away" then
+            lines[#lines + 1] = string.format(L.DUEL_SPOT_CLICK_AWAY, ns.Utils.MapName(group.zone) or L.UNKNOWN_ZONE)
+        elseif state == "asked" then
+            lines[#lines + 1] = string.format(L.INVITE_ASKED_HINT, ns.Invites.Minutes(left))
+        else
+            lines[#lines + 1] = string.format(L.DUEL_SPOT_CLICK, DuelSpots:LayerText(target))
+        end
+    end
     local choices = DuelSpots:MenuSpots(group)
-    if #choices > 0 then lines[#lines + 1] = L.DUEL_SPOT_RIGHT_CLICK end
+    if #choices > 0 and inZone then lines[#lines + 1] = L.DUEL_SPOT_RIGHT_CLICK end
     return {
         kind = "duels",
         id = "duels:" .. group.zone,
@@ -146,8 +165,11 @@ end
 function MapMarkers.DuelMenu(data)
     local entries = {}
     for _, spot in ipairs(data.choices or {}) do
+        local label = string.format(L.DUEL_SPOT_LAYER_LINE, ns.DuelSpots:LayerText(spot), string.format(L.DUEL_SPOT_ROW, spot.duels, spot.players))
+        local state, left = ns.DuelSpots:InviteState(spot.zone, spot.layerKey)
+        if state == "asked" then label = label .. " " .. string.format(L.INVITE_ASKED_HINT, ns.Invites.Minutes(left)) end
         entries[#entries + 1] = {
-            label = string.format(L.DUEL_SPOT_LAYER_LINE, ns.DuelSpots:LayerText(spot), string.format(L.DUEL_SPOT_ROW, spot.duels, spot.players)),
+            label = label,
             func = function() ns.DuelSpots:AskInvite(spot.zone, spot.layerKey) end,
         }
     end
@@ -375,11 +397,19 @@ end
 local DISCS = { { size = 1, alpha = 0.45 }, { size = 0.66, alpha = 0.7 }, { size = 0.33, alpha = 1 } }
 local AREA_KINDS = { hotspot = true, duels = true }
 
--- Left-click: an invite to the top duel layer; right-click: choose the layer from a menu
+-- After a click asked for an invite: redraw at once and show the hovered mark's new
+-- tooltip ("Invite asked, again in 60 min"), as the mouse is still on it
+local function Retooltip(label)
+    MapMarkers:Refresh()
+    if label.data and label:IsShown() then ShowTooltip(label) end
+end
+
+-- Left-click: an invite to the top duel layer; right-click: choose the layer from a menu.
+-- From another zone both only say to come there first (HH-145).
 local function DuelClick(label, button)
     local data = label.data
     if not data or data.kind ~= "duels" then return end
-    if button == "RightButton" then
+    if button == "RightButton" and ns.DuelSpots:InZone(data.zone) then
         local entries = MapMarkers.DuelMenu(data)
         if #entries == 0 then
             ns:Print(L.DUEL_SPOT_SAME_LAYER)
@@ -389,6 +419,7 @@ local function DuelClick(label, button)
         return
     end
     ns.DuelSpots:AskInvite(data.zone, data.layerKey)
+    Retooltip(label)
 end
 
 -- Left-click on a PvP mark of 2+ fires: Help, as in the Battle popup
@@ -396,6 +427,7 @@ local function HotspotClick(label)
     local data = label.data
     if not data or data.kind ~= "hotspot" or not data.clickable then return end
     ns.Hotspots:Help(data.zone, L["HOTSPOT_LEVEL_" .. data.level])
+    Retooltip(label)
 end
 
 local function NewArea(kind)
@@ -575,7 +607,7 @@ ns.Events:Register("HH_INITIALIZED", function()
     end
     local request = function() MapMarkers:RequestRefresh() end
     for _, event in ipairs({ "HH_WANTED_UPDATED", "HH_HOTSPOT_CHANGED", "HH_POSSE_CHANGED", "HH_OUTLAW_SPOTTED",
-            "HH_DUEL_SPOTS_CHANGED" }) do
+            "HH_DUEL_SPOTS_CHANGED", "HH_INVITE_ASKED" }) do
         ns.Events:Register(event, request, OWNER)
     end
     ns.Events:Register("HH_SETTING_CHANGED", function(_, path)

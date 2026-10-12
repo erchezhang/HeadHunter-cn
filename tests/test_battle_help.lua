@@ -127,6 +127,29 @@ return function(T, H)
         T.noErrors()
     end)
 
+    T.case("HH-145: Help asks each fighter once an hour, from any zone, and the map says so", function()
+        local ns = H.Boot({ client = "era" })
+        Ping(ns, 1417, "Alpha-Firemaw", Ids(1, 10), nil, 9)
+        H.chatSent = {}
+        ns.Hotspots:Help(1417, "Battle")
+        T.eq(#H.chatSent, 1, "from Elwynn Forest: one whisper to the fight in Arathi Highlands")
+        T.eq(H.chatSent[1].target, "Alpha-Firemaw", "to the fighter")
+        local pin = ns.MapMarkers:PinsFor(1417)[1]
+        local text = table.concat(pin.lines, "\n")
+        T.ok(text:find("Invite asked, again in 60 min", 1, true) ~= nil, "the tooltip says it was asked")
+        T.ok(text:find("Left-click: the way to the fight|r", 1, true) ~= nil, "a click still shows the way")
+        H.waypoints = {}
+        ns.Hotspots:Help(1417, "Battle")
+        T.eq(#H.chatSent, 1, "no second whisper within the hour")
+        T.ok(H.Printed("already asked every HeadHunter there"), "told")
+        T.eq(#H.waypoints, 1, "the way is still set")
+        Ping(ns, 1417, "Bravo-Firemaw", Ids(11, 12), nil, 4)
+        ns.Hotspots:Help(1417, "Battle")
+        T.eq(#H.chatSent, 2, "another fighter there can be asked")
+        T.eq(H.chatSent[2].target, "Bravo-Firemaw", "the one not asked")
+        T.noErrors()
+    end)
+
     T.case("the Duels list whispers players of our own faction", function()
         local ns = H.Boot({ client = "era" })
         local told

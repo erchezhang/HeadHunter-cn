@@ -314,6 +314,7 @@ return function(T, H)
         local names = D:Inviters(1436, 3)
         T.eq(#names, 2, "our faction, that layer")
         T.eq(names[1], "Zulgar-Firemaw", "newest first")
+        H.playerMap = 1436
         H.chatSent = {}
         local how, target = D:AskInvite(1436, 3)
         T.eq(how, "whispered", "whispered")
@@ -321,8 +322,48 @@ return function(T, H)
         T.eq(H.chatSent[1].chatType, "WHISPER", "whisper")
         T.ok(H.chatSent[1].text:find("duels in Westfall", 1, true) ~= nil, "says why")
         T.ok(H.Printed("Asked Zulgar for a group invite"), "told")
-        T.eq(D:AskInvite(1417, 3), nil, "nobody there")
-        T.ok(H.Printed("No HeadHunter in Arathi Highlands"), "says so")
+        T.eq(D:AskInvite(1436, 4), nil, "nobody there")
+        T.ok(H.Printed("No HeadHunter in Westfall"), "says so")
+        T.noErrors()
+    end)
+
+    T.case("HH-145: each HeadHunter is asked once an hour, then the next one, saved and pruned", function()
+        local ns = H.Boot({ client = "era" })
+        local D = ns.DuelSpots
+        OurLayer(5)
+        Ping(ns, 1436, "Zulgar-Firemaw", DuelList(ns, 10, 5), 3)
+        H.serverTime = H.serverTime + 5
+        Ping(ns, 1436, "Iron-Firemaw", DuelList(ns, 2, 5), 3)
+        H.playerMap = 1436
+        H.chatSent = {}
+        local _, first = D:AskInvite(1436, 3)
+        local how, second = D:AskInvite(1436, 3)
+        T.eq(first, "Iron-Firemaw", "the newest first")
+        T.eq(how, "whispered", "a second click asks someone else")
+        T.eq(second, "Zulgar-Firemaw", "the next HeadHunter there")
+        T.eq(D:AskInvite(1436, 3), "asked", "everyone there was asked")
+        T.eq(#H.chatSent, 2, "no third whisper")
+        T.ok(H.Printed("already asked every HeadHunter there for an invite%. You can ask again in 60 min"), "told when")
+        T.eq(D:InviteState(1436, 3), "asked", "the state says so")
+        T.ok(next(ns.db.invites) ~= nil, "saved")
+        ns.Database:Prune(H.serverTime + 1800)
+        T.ok(next(ns.db.invites) ~= nil, "kept within the hour")
+        H.serverTime = H.serverTime + 3601
+        T.eq(ns.Invites:Left("Zulgar-Firemaw"), nil, "free again after an hour")
+        ns.Database:Prune()
+        T.eq(next(ns.db.invites), nil, "pruned after the hour")
+        T.noErrors()
+    end)
+
+    T.case("HH-145: an invite to duels only from inside their zone", function()
+        local ns = H.Boot({ client = "era" })
+        OurLayer(5)
+        Ping(ns, 1436, "Zulgar-Firemaw", DuelList(ns, 10, 5), 3)
+        H.chatSent = {}
+        T.eq(ns.DuelSpots:AskInvite(1436, 3), "away", "we are in Elwynn Forest")
+        T.eq(#H.chatSent, 0, "no whisper")
+        T.ok(H.Printed("Come to Westfall first"), "told to go there")
+        T.eq(next(ns.db.invites), nil, "nobody counted as asked")
         T.noErrors()
     end)
 
@@ -351,8 +392,21 @@ return function(T, H)
         T.ok(text:find("Layer 3 | 10 duels, 5 players", 1, true) ~= nil, "a row for the layer with its duels")
         T.eq(pin.id, "duels:1436", "one mark for the zone")
         T.ok(text:find("HeadHunters there:", 1, true) ~= nil and text:find("Brakka", 1, true) ~= nil, "who is there")
+        T.ok(text:find("Come to Westfall to ask a HeadHunter for a group invite", 1, true) ~= nil, "from another zone: come there")
+        T.ok(text:find("Right-click", 1, true) == nil, "no layer menu from another zone")
+        H.playerMap = 1436
+        for _, p in ipairs(ns.MapMarkers:PinsFor(1436)) do if p.kind == "duels" then pin = p end end
+        text = Flat(pin.lines)
         T.ok(text:find("Left-click: ask a HeadHunter for a group invite to Layer 3", 1, true) ~= nil, "left click names the layer")
         T.ok(text:find("Right-click: choose the layer", 1, true) ~= nil, "right click hint")
+        ns.DuelSpots:AskInvite(1436, 3)
+        ns.DuelSpots:AskInvite(1436, 3)
+        for _, p in ipairs(ns.MapMarkers:PinsFor(1436)) do if p.kind == "duels" then pin = p end end
+        text = Flat(pin.lines)
+        T.ok(text:find("Invite asked, again in 60 min", 1, true) ~= nil, "after asking everyone: the tooltip says so")
+        T.ok(text:find("Left-click", 1, true) == nil, "no click hint")
+        T.ok(ns.MapMarkers.DuelMenu(pin)[1].label:find("Invite asked", 1, true) ~= nil, "the menu row too")
+        H.playerMap = 1429
         H.mapRects["1436:1415"] = { 0.3, 0.4, 0.6, 0.8 }
         local onContinent = false
         for _, p in ipairs(ns.MapMarkers:PinsFor(1415)) do if p.kind == "duels" then onContinent = true end end
@@ -388,9 +442,11 @@ return function(T, H)
         _G.ToggleDropDownMenu = function() end
         T.eq(ns.Select.ContextMenu(UIParent, "Title", menu), "classic", "the menu opens on Classic")
         H.chatSent = {}
-        T.eq(ns.DuelSpots:AskInvite(1429, 6), "sim", "made-up HeadHunter")
+        T.eq(ns.DuelSpots:AskInvite(1429, 6), "asked", "a made-up HeadHunter is asked once too")
+        T.eq(ns.DuelSpots:AskInvite(1429, 7), "sim", "the other layer's made-up HeadHunter")
         T.eq(#H.chatSent, 0, "no whisper")
         T.ok(H.Printed("Test: no whisper sent"), "the whisper is printed")
+        T.eq(next(ns.db.invites), nil, "test asks are never saved")
         H.serverTime = H.serverTime + 120
         for _ = 1, 10 do H.Advance(1) end
         for _, m in ipairs(H.sent or {}) do

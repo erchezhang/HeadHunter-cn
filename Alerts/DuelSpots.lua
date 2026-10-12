@@ -329,12 +329,18 @@ function DuelSpots:ByZone(now)
 end
 
 -- The layer a click on a zone's mark asks an invite for: the busiest one we are not on
--- with a HeadHunter to ask, or nil
+-- with a HeadHunter we did not ask in the last hour (HH-145), else the busiest one with
+-- any HeadHunter to ask, or nil
 function DuelSpots:InviteSpot(group)
+    local asked
     for _, spot in ipairs(group.spots) do
-        if not self:OnOurLayer(spot.zone, spot.layerKey) and self:Inviters(spot.zone, spot.layerKey)[1] then return spot end
+        local names = not self:OnOurLayer(spot.zone, spot.layerKey) and self:Inviters(spot.zone, spot.layerKey)
+        if names and names[1] then
+            if ns.Invites:Pick(names) then return spot end
+            asked = asked or spot
+        end
     end
-    return nil
+    return asked
 end
 
 -- The layers of a zone's mark to choose from (right-click): every one we are not on,
@@ -399,6 +405,11 @@ function DuelSpots:Inviters(zone, layerKey, now)
     return names, list
 end
 
+-- True when we are in that zone now, on any layer
+function DuelSpots:InZone(zone)
+    return ns.Zones.ZoneOf(ns.Utils.PlayerMapID()) == zone
+end
+
 -- True when we are in that zone on that layer now
 function DuelSpots:OnOurLayer(zone, layerKey)
     if layerKey == self.UNKNOWN_LAYER then return false end
@@ -459,29 +470,53 @@ end
 -- Invite
 -------------------------------------------------
 
--- Asks the newest HeadHunter on that zone and layer for a group invite, by whisper.
--- Runs inside a click (the map mark), which allows the whisper. A made-up HeadHunter
--- from /hh sim duels gets no whisper: chat shows what would be sent.
+-- Whether a click may ask for an invite to that zone and layer now (HH-145, author,
+-- 2026-10-12): "same" (we are on it), "away" (only from inside the zone of the duels),
+-- "nobody" (no HeadHunter there to ask), "asked" and the seconds until one of them may
+-- be asked again (each HeadHunter once an hour), or "ok" with the newest HeadHunter we
+-- did not ask and their reporter record.
+function DuelSpots:InviteState(zone, layerKey, now)
+    if self:OnOurLayer(zone, layerKey) then return "same" end
+    if not self:InZone(zone) then return "away" end
+    local names, reporters = self:Inviters(zone, layerKey, now)
+    if not names[1] then return "nobody" end
+    local target, left = ns.Invites:Pick(names, now)
+    if not target then return "asked", left end
+    for i, name in ipairs(names) do
+        if name == target then return "ok", target, reporters[i] end
+    end
+end
+
+-- Asks a HeadHunter on that zone and layer for a group invite, by whisper: the newest
+-- one we did not ask in the last hour. Runs inside a click (the map mark), which allows
+-- the whisper. A made-up HeadHunter from /hh sim duels gets no whisper: chat shows what
+-- would be sent, and it counts as asked until /hh sim duels clear.
 function DuelSpots:AskInvite(zone, layerKey)
     local U = ns.Utils
     local zoneName = U.MapName(zone) or L.UNKNOWN_ZONE
-    if self:OnOurLayer(zone, layerKey) then
+    local state, target, reporter = self:InviteState(zone, layerKey)
+    if state == "same" then
         ns:Print(L.DUEL_SPOT_SAME_LAYER)
         return "same"
-    end
-    local names, reporters = self:Inviters(zone, layerKey)
-    local target = names[1]
-    if not target then
+    elseif state == "away" then
+        ns:Print(string.format(L.DUEL_SPOT_GO_THERE, zoneName))
+        return "away"
+    elseif state == "nobody" then
         ns:Print(string.format(L.DUEL_SPOT_NOBODY, zoneName))
         return nil
+    elseif state == "asked" then
+        ns:Print(string.format(L.INVITE_ALREADY_ASKED, ns.Invites.Minutes(target)))
+        return "asked"
     end
     local text = string.format(L.DUEL_SPOT_WHISPER, zoneName)
-    if reporters[1].sim then
+    if reporter.sim then
         ns:Print(string.format(L.SIM_DUELS_WHISPER, target, text))
+        ns.Invites:Mark(target, nil, true)
         return "sim", target
     end
     local ok = pcall(SendChatMessage, text, "WHISPER", nil, target)
     if not ok then return nil end
+    ns.Invites:Mark(target)
     ns:Print(string.format(L.POSSE_WHISPERED, U.DisplayName(U.PlayerKey(target)) or target))
     return "whispered", target
 end
@@ -599,6 +634,7 @@ function DuelSpots:ClearSim()
             end
         end
     end
+    ns.Invites:ClearSim()
     ns.Events:Fire("HH_DUEL_SPOTS_CHANGED")
     return removed
 end
