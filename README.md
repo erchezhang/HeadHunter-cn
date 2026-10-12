@@ -23,10 +23,7 @@
 
 **被人偷袭了？HeadHunter 会记录是谁杀了你，把报告共享给你阵营的玩家，并在地图上标记 WANTED 通缉犯。组建追捕队，把他们绳之以法。**
 
-
 For **WoW Forever**.
-
-适用于 **WoW Forever**。
 
 适用于 **WoW Forever**。
 
