@@ -59,6 +59,7 @@ local function NewFrame(name)
     function frame:SetSize(w, h) self.width, self.height = w, h end
     function frame:SetVertexColor(r, g, b, a) self.color = { r, g, b, a } end
     function frame:SetText(text) self.shownText = text end
+    function frame:GetText() return rawget(self, "shownText") or "" end
     function frame:GetVerticalScrollRange() return 0 end
     frames[#frames + 1] = frame
     if name then _G[name] = frame end

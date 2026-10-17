@@ -6,6 +6,8 @@
 --   /hht (top level) opens it too; with arguments it runs them as /hh <args>
 --   Each button shows its short description right under it (Toolbox.Desc); the
 --   tooltip still shows the full help line on hover.
+--   The outlaw button opens a name prompt (Toolbox:AskOutlaw) instead of running
+--   the bare command; Toolbox.SubmitOutlaw(name) runs "/hh outlaw <name>".
 --   Toolbox.LayerLines()  the card's texts (pure, tested offline)
 --   Toolbox:RunCommand(c) what a button does: the same as typing /hh c
 --
@@ -59,6 +61,74 @@ end
 
 function Toolbox:RunCommand(cmd)
     ns.SlashCommands:Run(cmd)
+end
+
+-------------------------------------------------
+-- The name prompt behind the "/hh outlaw <name>" button
+-------------------------------------------------
+
+local askFrame
+local CreateAskFrame -- forward declaration, defined below
+
+function Toolbox:IsAskShown()
+    return askFrame ~= nil and askFrame:IsShown()
+end
+
+-- Runs "/hh outlaw <name>"; empty input does nothing (returns false)
+function Toolbox.SubmitOutlaw(name)
+    name = type(name) == "string" and name:match("^%s*(.-)%s*$") or ""
+    if name == "" then return false end
+    ns.SlashCommands:Run("outlaw " .. name)
+    if askFrame then askFrame:Hide() end
+    return true
+end
+
+function Toolbox:AskOutlaw()
+    askFrame = askFrame or CreateAskFrame()
+    askFrame.name:SetText("")
+    askFrame:Show()
+    if askFrame.name.SetFocus then askFrame.name:SetFocus() end
+end
+
+CreateAskFrame = function()
+    local f = CreateFrame("Frame", "HeadHunterToolboxAskFrame", UIParent)
+    f:SetSize(360, 132)
+    f:SetPoint("CENTER")
+    f:SetFrameStrata("DIALOG")
+    f:SetToplevel(true)
+    f:SetMovable(true)
+    f:EnableMouse(true)
+    f:RegisterForDrag("LeftButton")
+    f:SetScript("OnDragStart", f.StartMoving)
+    f:SetScript("OnDragStop", f.StopMovingOrSizing)
+    f:SetClampedToScreen(true)
+    tinsert(UISpecialFrames, "HeadHunterToolboxAskFrame")
+
+    local Theme = ns.Theme
+    Theme.StyleFrame(f, L.TOOLBOX_ASK_OUTLAW_TITLE)
+
+    local hint = Theme.Text(f, "text", 12, "muted")
+    hint:SetPoint("TOPLEFT", 18, -58)
+    hint:SetWidth(324)
+    hint:SetJustifyH("LEFT")
+    hint:SetText(L.TOOLBOX_ASK_OUTLAW_HINT)
+
+    f.name = CreateFrame("EditBox", nil, f, "InputBoxTemplate")
+    f.name:SetSize(324, 22)
+    f.name:SetPoint("TOPLEFT", 18, -88)
+    f.name:SetAutoFocus(true)
+    f.name:SetMaxLetters(40)
+    f.name:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+    f.name:SetScript("OnEnterPressed", function(self) Toolbox.SubmitOutlaw(self:GetText()) end)
+
+    f.ok = Theme.Button(f, OKAY or "OK", "gold", 100, 26)
+    f.ok:SetPoint("BOTTOMRIGHT", -128, 14)
+    f.ok:SetScript("OnClick", function() Toolbox.SubmitOutlaw(f.name:GetText()) end)
+    f.cancel = Theme.Button(f, CANCEL or "Cancel", "outline", 100, 26)
+    f.cancel:SetPoint("BOTTOMRIGHT", -18, 14)
+    f.cancel:SetScript("OnClick", function() f:Hide() end)
+    f:Hide()
+    return f
 end
 
 local frame
@@ -169,7 +239,12 @@ CreateToolboxFrame = function()
             GameTooltip:Show()
         end)
         button:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
-        button:SetScript("OnClick", function() Toolbox:RunCommand(cmd) end)
+        -- The outlaw button asks for a name; the rest run their bare command
+        if cmd == "outlaw" then
+            button:SetScript("OnClick", function() Toolbox:AskOutlaw() end)
+        else
+            button:SetScript("OnClick", function() Toolbox:RunCommand(cmd) end)
+        end
         f.buttons[cmd] = button
         -- The description right under the button: small, muted, up to two lines
         local desc = Theme.Text(f, "text", 10, "muted")
