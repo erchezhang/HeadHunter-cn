@@ -92,7 +92,9 @@ end
 
 CreateAskFrame = function()
     local f = CreateFrame("Frame", "HeadHunterToolboxAskFrame", UIParent)
-    f:SetSize(360, 132)
+    -- 170 tall: the EditBox occupies y=90..112 and the button row starts at
+    -- y=130 (BOTTOMRIGHT, -14), so the buttons no longer overlap the input.
+    f:SetSize(360, 170)
     f:SetPoint("CENTER")
     f:SetFrameStrata("DIALOG")
     f:SetToplevel(true)
@@ -108,14 +110,14 @@ CreateAskFrame = function()
     Theme.StyleFrame(f, L.TOOLBOX_ASK_OUTLAW_TITLE)
 
     local hint = Theme.Text(f, "text", 12, "muted")
-    hint:SetPoint("TOPLEFT", 18, -58)
+    hint:SetPoint("TOPLEFT", 18, -60)
     hint:SetWidth(324)
     hint:SetJustifyH("LEFT")
     hint:SetText(L.TOOLBOX_ASK_OUTLAW_HINT)
 
     f.name = CreateFrame("EditBox", nil, f, "InputBoxTemplate")
     f.name:SetSize(324, 22)
-    f.name:SetPoint("TOPLEFT", 18, -88)
+    f.name:SetPoint("TOPLEFT", 18, -90)
     f.name:SetAutoFocus(true)
     f.name:SetMaxLetters(40)
     f.name:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
