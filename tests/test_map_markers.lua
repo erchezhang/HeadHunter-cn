@@ -159,13 +159,13 @@ return function(T, H)
         T.eq(battle.level, 2, "Battle")
         T.ok(battle.clickable, "clickable")
         T.eq(battle.zone, 1417, "knows its zone")
-        T.ok(Find("Left-click", battle.lines), "says what a click does")
+        T.ok(Find("Shift-click", battle.lines), "says what a click does")
 
         Ping(ns, 1436, "Alpha-Firemaw", Ids(1, 4))
         local skirmish = ns.MapMarkers:PinsFor(1436)[1]
         T.eq(skirmish.level, 1, "Skirmish")
         T.ok(not skirmish.clickable, "no click")
-        T.ok(not Find("Left-click", skirmish.lines), "no click hint")
+        T.ok(not Find("Shift-click", skirmish.lines), "no click hint")
         T.noErrors()
     end)
 
@@ -378,18 +378,57 @@ return function(T, H)
             if rawget(frame, "discs") and frame.shown then drawn = frame end
         end
         T.ok(drawn:GetFrameLevel() > 5000, "above the highest other pin")
+        local function OverlayStrata()
+            for _, frame in ipairs(H.AllFrames()) do
+                if frame.scripts.OnUpdate and rawget(frame, "strata") then return frame.strata end
+            end
+        end
+        T.eq(OverlayStrata(), "DIALOG", "one strata above the map's pins")
 
         notes.strata = "DIALOG"
         M:Refresh()
-        local overlayStrata
-        for _, frame in ipairs(H.AllFrames()) do
-            if frame.scripts.OnUpdate and rawget(frame, "strata") then overlayStrata = frame.strata end
+        T.eq(OverlayStrata(), "FULLSCREEN", "one above a higher strata, but never TOOLTIP")
+
+        local overlordPin = { strata = "FULLSCREEN", frameLevel = 3 }
+        local viewport = { strata = "HIGH", frameLevel = 110, children = { overlordPin } }
+        for _, frame in ipairs({ overlordPin, viewport }) do
+            frame.GetFrameStrata, frame.GetFrameLevel = notes.GetFrameStrata, notes.GetFrameLevel
+            function frame:GetChildren() return unpack(self.children or {}) end
         end
-        T.eq(overlayStrata, "DIALOG", "follows a higher strata, but never TOOLTIP")
+        map.ScrollContainer.children = { canvas, viewport }
+        M:Refresh()
+        T.eq(OverlayStrata(), "FULLSCREEN_DIALOG", "above another addon's pins on the map's scroll area (Overlord)")
+        overlordPin.strata = "FULLSCREEN_DIALOG"
+        M:Refresh()
+        T.eq(OverlayStrata(), "FULLSCREEN_DIALOG", "the highest it goes")
 
         notes.strata, notes.frameLevel = "HIGH", 9999
         M:Refresh()
         T.ok(drawn:GetFrameLevel() < M.MAX_FRAME_LEVEL, "never past the game's highest level")
+        T.noErrors()
+    end)
+
+    T.case("an area's mark takes clicks only while Shift is held", function()
+        local ns = H.Boot({ client = "era", worldMap = true })
+        local map = H.worldMap
+        map:Open(1417)
+        Battle(ns, 1417)
+        H.Advance(0.2)
+        local label
+        for _, frame in ipairs(H.AllFrames()) do
+            if rawget(frame, "discs") and frame.shown then label = frame.label end
+        end
+        T.eq(label.clicks, false, "a plain click goes through to the map")
+        label.scripts.OnClick(label, "LeftButton")
+        T.eq(#H.waypoints + #H.whispers, 0, "and does nothing")
+        H.shiftDown = true
+        H.Fire("MODIFIER_STATE_CHANGED", "LSHIFT", 1)
+        T.eq(label.clicks, true, "Shift held: the mark takes the click")
+        label.scripts.OnClick(label, "LeftButton")
+        T.ok(H.Printed("Arathi Highlands"), "Help: the way to the fight")
+        H.shiftDown = false
+        H.Fire("MODIFIER_STATE_CHANGED", "LSHIFT", 0)
+        T.eq(label.clicks, false, "Shift let go")
         T.noErrors()
     end)
 

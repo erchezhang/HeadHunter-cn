@@ -136,8 +136,11 @@ return function(T, H)
         T.eq(H.chatSent[1].target, "Alpha-Firemaw", "to the fighter")
         local pin = ns.MapMarkers:PinsFor(1417)[1]
         local text = table.concat(pin.lines, "\n")
-        T.ok(text:find("Invite asked, again in 60 min", 1, true) ~= nil, "the tooltip says it was asked")
-        T.ok(text:find("Left-click: the way to the fight|r", 1, true) ~= nil, "a click still shows the way")
+        T.ok(text:find("Shift-click: the way to the fight, and a whisper", 1, true) ~= nil, "the map can still open a whisper")
+        ns.Hotspots:Help(1417, "Battle", true)
+        T.eq(#H.chatSent, 1, "from the map: nothing sent")
+        T.eq(H.whispers[1].target, "Alpha", "a whisper opened to the fighter, asked or not")
+        T.ok(H.whispers[1].text:find("invite", 1, true) ~= nil, "asking for an invite, for the player to send")
         H.waypoints = {}
         ns.Hotspots:Help(1417, "Battle")
         T.eq(#H.chatSent, 1, "no second whisper within the hour")

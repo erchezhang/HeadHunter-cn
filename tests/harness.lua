@@ -85,7 +85,9 @@ local function NewWorldMap()
     local canvas = NewFrame()
     function canvas:GetWidth() return 1000 end
     function canvas:GetHeight() return 700 end
-    map.ScrollContainer = { Child = canvas }
+    map.ScrollContainer = NewFrame()
+    map.ScrollContainer.Child = canvas
+    map.ScrollContainer.children = { canvas }
     return map
 end
 H.NewWorldMap = NewWorldMap
@@ -234,6 +236,14 @@ function H.Install(opts)
     _G.SendChatMessage = function(text, chatType, language, target)
         H.chatSent[#H.chatSent + 1] = { text = text, chatType = chatType, target = target }
     end
+    -- Whispers opened in the chat box for the player to send: { target, text }
+    H.whispers = {}
+    local chatBox = {}
+    function chatBox:Insert(text) H.whispers[#H.whispers].text = (H.whispers[#H.whispers].text or "") .. text end
+    _G.ChatFrame_SendTell = function(name) H.whispers[#H.whispers + 1] = { target = name } end
+    _G.ChatEdit_GetActiveWindow = function() return H.whispers[1] and chatBox or nil end
+    H.shiftDown = false
+    _G.IsShiftKeyDown = function() return H.shiftDown end
     _G.UnitAffectingCombat = function(unit)
         local u = H.units[unit]
         if u and unit ~= "player" and u.inCombat ~= nil then return u.inCombat end

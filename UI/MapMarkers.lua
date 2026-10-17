@@ -44,8 +44,9 @@ MapMarkers.HUNTED_SIZE = 20                -- an outlaw our posse is hunting
 MapMarkers.REFRESH = 10                    -- seconds, while the map is shown (timers, cooling)
 MapMarkers.FRAME_LEVEL = 2000              -- above the map's own pins
 MapMarkers.MAX_FRAME_LEVEL = 10000         -- the game's highest frame level
--- Strata from low to high. Other addons' map pins may sit in a higher one; ours follow
--- up to FULLSCREEN_DIALOG, never TOOLTIP, so tooltips stay on top.
+-- Strata from low to high. Ours sit one above the highest other pins on the map (author,
+-- 2026-10-16: Overlord's marks covered ours), up to FULLSCREEN_DIALOG, never TOOLTIP, so
+-- tooltips stay on top.
 MapMarkers.STRATA = { "BACKGROUND", "LOW", "MEDIUM", "HIGH", "DIALOG", "FULLSCREEN", "FULLSCREEN_DIALOG" }
 MapMarkers.MAX_PER_KIND = 10               -- PvP areas and skulls each, per map (author,
                                            -- 2026-09-26): the hottest and highest ranked
@@ -93,13 +94,8 @@ local function HotspotPin(spot, mapID, now)
         ns.Utils.Ago(math.max(0, now - spot.t)),
     }
     if clickable then
-        local state, left = ns.Hotspots:InviteState(spot.zone, now)
-        if state == "ok" then
-            lines[#lines + 1] = L.HOTSPOT_MAP_CLICK
-        else
-            lines[#lines + 1] = L.HOTSPOT_MAP_CLICK_WAY
-            if state == "asked" then lines[#lines + 1] = string.format(L.INVITE_ASKED_HINT, ns.Invites.Minutes(left)) end
-        end
+        local state = ns.Hotspots:InviteState(spot.zone, now, true)
+        lines[#lines + 1] = state == "ok" and L.HOTSPOT_MAP_CLICK or L.HOTSPOT_MAP_CLICK_WAY
     end
     return {
         kind = "hotspot",
@@ -118,7 +114,7 @@ end
 -- HeadHunters to ask on the layer a click asks for, and the click hint. group: from
 -- DuelSpots:ByZone. layerKey is the layer the click asks an invite for (else the busiest
 -- layer, so the click says we are on it or nobody can be asked). HH-145: the click hint
--- says when we are not in that zone, or asked every HeadHunter there in the last hour.
+-- says when we are not in that zone.
 local function DuelPin(group, mapID, now)
     local x, y, zoneWidth = MapMarkers.Project(group.zone, group.x, group.y, mapID)
     if not x then return nil end
@@ -137,11 +133,9 @@ local function DuelPin(group, mapID, now)
     lines[#lines + 1] = ns.Utils.Ago(math.max(0, now - group.t))
     local inZone = DuelSpots:InZone(group.zone)
     if target then
-        local state, left = DuelSpots:InviteState(target.zone, target.layerKey, now)
+        local state = DuelSpots:InviteState(target.zone, target.layerKey, now)
         if state == "away" then
             lines[#lines + 1] = string.format(L.DUEL_SPOT_CLICK_AWAY, ns.Utils.MapName(group.zone) or L.UNKNOWN_ZONE)
-        elseif state == "asked" then
-            lines[#lines + 1] = string.format(L.INVITE_ASKED_HINT, ns.Invites.Minutes(left))
         else
             lines[#lines + 1] = string.format(L.DUEL_SPOT_CLICK, DuelSpots:LayerText(target))
         end
@@ -161,13 +155,12 @@ local function DuelPin(group, mapID, now)
     }
 end
 
--- Right-click on a duel mark: the layers to choose from, each asking for an invite there
+-- Shift-right-click on a duel mark: the layers to choose from, each opening a whisper
+-- asking for an invite there
 function MapMarkers.DuelMenu(data)
     local entries = {}
     for _, spot in ipairs(data.choices or {}) do
         local label = string.format(L.DUEL_SPOT_LAYER_LINE, ns.DuelSpots:LayerText(spot), string.format(L.DUEL_SPOT_ROW, spot.duels, spot.players))
-        local state, left = ns.DuelSpots:InviteState(spot.zone, spot.layerKey)
-        if state == "asked" then label = label .. " " .. string.format(L.INVITE_ASKED_HINT, ns.Invites.Minutes(left)) end
         entries[#entries + 1] = {
             label = label,
             func = function() ns.DuelSpots:AskInvite(spot.zone, spot.layerKey) end,
@@ -292,45 +285,61 @@ end
 local attached = false
 local shownMap           -- from the SetMapID hook; never read from WorldMapFrame
 local canvas, overlay
+local scroller           -- the map's scroll area, the canvas's parent
 local pools, active = { hotspot = {}, duels = {}, wanted = {} }, {}
 local lastScale
 local sinceRefresh = 0
 
 local function ReadCanvas()
-    local found
+    local found, container
     securecall(function()
-        local container = WorldMapFrame and WorldMapFrame.ScrollContainer
+        container = WorldMapFrame and WorldMapFrame.ScrollContainer
         found = container and container.Child
     end)
-    return found
+    return found, container
 end
 
 local STRATA_RANK = {}
 for rank, strata in ipairs(MapMarkers.STRATA) do STRATA_RANK[strata] = rank end
 
--- Other addons draw on the same canvas (map notes, quest helpers, fog clearing) and may
--- put their pins high. The highest strata and frame level among them (the canvas's own
--- when none is higher), read again at every redraw, as addons add pins later.
-local function TopOfCanvas()
+-- Other addons draw on the same canvas (map notes, quest helpers, fog clearing), or on
+-- frames of their own over it on the map's scroll area (Overlord), and may put their
+-- pins high. The highest strata and frame level among them, two frames deep (the
+-- canvas's own when none is higher), read again at every redraw, as addons add pins later.
+local function TopOfMap()
     local strata, level = canvas:GetFrameStrata(), canvas:GetFrameLevel() or 0
+    local function Look(frame, depth)
+        if frame == overlay then return end
+        local frameStrata = frame:GetFrameStrata()
+        local rank = frameStrata and STRATA_RANK[frameStrata]
+        if rank and rank > (STRATA_RANK[strata] or 0) then
+            strata, level = frameStrata, frame:GetFrameLevel() or 0
+        elseif rank and frameStrata == strata then
+            level = math.max(level, frame:GetFrameLevel() or 0)
+        end
+        if depth > 1 then
+            for _, child in ipairs({ frame:GetChildren() }) do Look(child, depth - 1) end
+        end
+    end
     pcall(function()
-        for _, child in ipairs({ canvas:GetChildren() }) do
-            local childStrata = child ~= overlay and child:GetFrameStrata()
-            local rank = childStrata and STRATA_RANK[childStrata]
-            if rank and rank > (STRATA_RANK[strata] or 0) then
-                strata, level = childStrata, child:GetFrameLevel() or 0
-            elseif rank and childStrata == strata then
-                level = math.max(level, child:GetFrameLevel() or 0)
+        if scroller and scroller.GetChildren then
+            for _, child in ipairs({ scroller:GetChildren() }) do
+                if child ~= canvas then Look(child, 2) end
             end
         end
+        for _, child in ipairs({ canvas:GetChildren() }) do Look(child, 2) end
     end)
     return strata, level
 end
 
--- Just above everything else on the canvas, with room left for our own pins
+-- One strata above everything else on the map (a frame level alone does not lift us
+-- over another addon's frames on the scroll area), with room left for our own pins
 local function RaiseOverlay()
-    local strata, top = TopOfCanvas()
-    if STRATA_RANK[strata] then overlay:SetFrameStrata(strata) end
+    local strata, top = TopOfMap()
+    local rank = STRATA_RANK[strata]
+    if rank then
+        overlay:SetFrameStrata(MapMarkers.STRATA[math.min(rank + 1, #MapMarkers.STRATA)])
+    end
     local reserve = MapMarkers.MAX_PER_KIND * 3 + 2
     local level = math.max((canvas:GetFrameLevel() or 0) + MapMarkers.FRAME_LEVEL, top + 1)
     overlay:SetFrameLevel(math.min(level, MapMarkers.MAX_FRAME_LEVEL - reserve))
@@ -338,8 +347,9 @@ end
 
 -- The overlay covers the canvas, so pins pan and zoom with the map
 local function EnsureOverlay()
-    local current = ReadCanvas()
+    local current, container = ReadCanvas()
     if not current then return false end
+    scroller = container
     if not overlay then
         overlay = CreateFrame("Frame", nil, current)
         overlay:SetScript("OnUpdate", function(_, elapsed) MapMarkers:OnUpdate(elapsed) end)
@@ -393,7 +403,9 @@ end
 -- size on screen. Only that mark takes the mouse, so the area never blocks clicks on
 -- the map.
 -- A duel spot (kind "duels") is drawn the same way in blue with "DUELS", and its mark
--- takes a left click: ask a HeadHunter there for an invite.
+-- takes a shift-click: open a whisper to a HeadHunter there asking for an invite.
+-- Marks take clicks only while Shift is held (author, 2026-10-16), so a plain click
+-- goes through to the map.
 local DISCS = { { size = 1, alpha = 0.45 }, { size = 0.66, alpha = 0.7 }, { size = 0.33, alpha = 1 } }
 local AREA_KINDS = { hotspot = true, duels = true }
 
@@ -404,11 +416,15 @@ local function Retooltip(label)
     if label.data and label:IsShown() then ShowTooltip(label) end
 end
 
--- Left-click: an invite to the top duel layer; right-click: choose the layer from a menu.
--- From another zone both only say to come there first (HH-145).
+local function ShiftDown()
+    return IsShiftKeyDown ~= nil and IsShiftKeyDown() == true
+end
+
+-- Shift-click: a whisper asking for an invite to the top duel layer; shift-right-click:
+-- choose the layer from a menu. From another zone both only say to come there first (HH-145).
 local function DuelClick(label, button)
     local data = label.data
-    if not data or data.kind ~= "duels" then return end
+    if not data or data.kind ~= "duels" or not ShiftDown() then return end
     if button == "RightButton" and ns.DuelSpots:InZone(data.zone) then
         local entries = MapMarkers.DuelMenu(data)
         if #entries == 0 then
@@ -422,11 +438,12 @@ local function DuelClick(label, button)
     Retooltip(label)
 end
 
--- Left-click on a PvP mark of 2+ fires: Help, as in the Battle popup
+-- Shift-click on a PvP mark of 2+ fires: Help, as in the Battle popup, with a whisper
+-- opened instead of sent
 local function HotspotClick(label)
     local data = label.data
-    if not data or data.kind ~= "hotspot" or not data.clickable then return end
-    ns.Hotspots:Help(data.zone, L["HOTSPOT_LEVEL_" .. data.level])
+    if not data or data.kind ~= "hotspot" or not data.clickable or not ShiftDown() then return end
+    ns.Hotspots:Help(data.zone, L["HOTSPOT_LEVEL_" .. data.level], true)
     Retooltip(label)
 end
 
@@ -455,7 +472,6 @@ local function NewArea(kind)
     label.text:SetShadowOffset(1, -1)
     MakeInteractive(label)
     if kind == "duels" then
-        if label.SetMouseClickEnabled then pcall(label.SetMouseClickEnabled, label, true) end
         if label.RegisterForClicks then label:RegisterForClicks("LeftButtonUp", "RightButtonUp") end
         label:SetScript("OnClick", DuelClick)
     elseif label.RegisterForClicks then
@@ -504,13 +520,20 @@ local function Style(pin)
             disc:SetVertexColor(r, g, b, data.alpha * DISCS[i].alpha)
         end
         pin.label.data = data
-        if pin.kind == "hotspot" and pin.label.SetMouseClickEnabled then
-            pcall(pin.label.SetMouseClickEnabled, pin.label, data.clickable == true)
-        end
+        MapMarkers.SetClicks(pin)
     else
         local size = data.hunted and MapMarkers.HUNTED_SIZE or MapMarkers.WANTED_SIZE
         pin:SetSize(size, size)
     end
+end
+
+-- An area's mark takes clicks only while Shift is held, and a PvP mark only when it can help
+function MapMarkers.SetClicks(pin)
+    local label, data = pin.label, pin.data
+    if not (label and label.SetMouseClickEnabled and data) then return end
+    local enabled = ShiftDown() and (pin.kind == "duels" or data.clickable == true)
+    pcall(label.SetMouseClickEnabled, label, enabled)
+    label.clicks = enabled
 end
 
 local function Acquire(kind)
@@ -610,6 +633,11 @@ ns.Events:Register("HH_INITIALIZED", function()
             "HH_DUEL_SPOTS_CHANGED", "HH_INVITE_ASKED" }) do
         ns.Events:Register(event, request, OWNER)
     end
+    ns.Events:Register("MODIFIER_STATE_CHANGED", function()
+        for _, pin in ipairs(active) do
+            if AREA_KINDS[pin.kind] then MapMarkers.SetClicks(pin) end
+        end
+    end, OWNER)
     ns.Events:Register("HH_SETTING_CHANGED", function(_, path)
         if path == "mapPins" then request() end
     end, OWNER)

@@ -299,16 +299,20 @@ end
 
 -- HH-112: open the chat box with a whisper to a player (same faction only: the game
 -- does not let the factions whisper each other). key: player key; on our own realm the
--- realm is dropped.
-function Utils.OpenWhisper(key)
+-- realm is dropped. text: written in the box for the player to send or change.
+function Utils.OpenWhisper(key, text)
     local target = key and Utils.DisplayName(key)
     if not target or target == "" then return false end
     if _G.ChatFrame_SendTell then
         SafeCall(_G.ChatFrame_SendTell, target)
+        local box = text and _G.ChatEdit_GetActiveWindow and SafeCall(_G.ChatEdit_GetActiveWindow)
+        if box and box.Insert then
+            SafeCall(box.Insert, box, text)
+        end
         return true
     end
     if _G.ChatFrame_OpenChat then
-        SafeCall(_G.ChatFrame_OpenChat, "/w " .. target .. " ")
+        SafeCall(_G.ChatFrame_OpenChat, "/w " .. target .. " " .. (text or ""))
         return true
     end
     return false

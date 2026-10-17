@@ -1,10 +1,10 @@
--- HH-145: the HeadHunters we asked for a group invite from a map mark (a duel spot or a
--- PvP area), so each of them gets at most one invite whisper from us per LIMIT (author,
--- 2026-10-12). Three players asking the same HeadHunter are still three whispers; one
--- player clicking again asks the next HeadHunter there, or nobody.
+-- HH-145: the HeadHunters we asked for a group invite from the Battle popup's Help, so
+-- each of them gets at most one invite whisper from us per LIMIT (author, 2026-10-12).
+-- Three players asking the same HeadHunter are still three whispers; one player clicking
+-- again asks the next HeadHunter there, or nobody. The map marks only open a whisper for
+-- the player to send, without a limit (author, 2026-10-16).
 -- Saved per home in db.invites (compact name -> time asked), so a /reload does not ask
--- again; Core/Database.lua prunes it. Made-up HeadHunters from /hh sim duels are kept in
--- memory only. Fires HH_INVITE_ASKED(name) after each ask, so the map tooltips change.
+-- again; Core/Database.lua prunes it. Fires HH_INVITE_ASKED(name) after each ask.
 
 local addonName, ns = ...
 
@@ -12,14 +12,11 @@ local Invites = ns:RegisterModule("Invites", {})
 
 Invites.LIMIT = ns.Database.LIMITS.inviteSeconds
 
-local simAsked = {}
-
 local function Key(name)
     return name and ns.Utils.CompactName(name)
 end
 
 local function AskedAt(key)
-    if simAsked[key] then return simAsked[key] end
     local saved = ns.db and ns.db.invites
     return saved and saved[key]
 end
@@ -33,14 +30,12 @@ function Invites:Left(name, now)
     return left > 0 and left or nil
 end
 
--- We just asked that HeadHunter. sim: a made-up one, remembered in memory only
-function Invites:Mark(name, now, sim)
+-- We just asked that HeadHunter
+function Invites:Mark(name, now)
     local key = Key(name)
     if not key then return end
     now = now or ns.Utils.ServerTime()
-    if sim then
-        simAsked[key] = now
-    elseif ns.db and ns.db.invites then
+    if ns.db and ns.db.invites then
         ns.db.invites[key] = now
     end
     ns.Events:Fire("HH_INVITE_ASKED", name)
@@ -55,10 +50,6 @@ function Invites:Pick(names, now)
         if not shortest or left < shortest then shortest = left end
     end
     return nil, shortest
-end
-
-function Invites:ClearSim()
-    simAsked = {}
 end
 
 -- Whole minutes for the texts, at least 1
