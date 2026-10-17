@@ -2,7 +2,7 @@
 
 给 [HeadHunter - Wanted: Dead or Alive](https://headhunterwow.com) 插件做的简体中文本地化版本。
 
-- **原始项目地址**：https://github.com/GudaAddons/HeadHunter（原作者 Vati / GudaAddons，当前 **v0.5.6**，官网 [headhunterwow.com](https://headhunterwow.com)）
+- **原始项目地址**：https://github.com/GudaAddons/HeadHunter（原作者 Vati / GudaAddons，当前 **v0.5.7**，官网 [headhunterwow.com](https://headhunterwow.com)）
 - **汉化分支地址**：https://github.com/erchezhang/HeadHunter-cn
 - **汉化：车长不二 完成**
 - 适用客户端：WoW Forever（Interface 16001）——上游 0.5.5 起 Classic Era 已移出支持
@@ -55,8 +55,8 @@
 
 | 检查 | 结果 |
 |---|---|
-| 官方离线测试套件（Lua 5.1，57 个套件，v0.5.6） | **682 通过 / 0 失败**（含上游 `test_locales`：每个键 zhCN 必须存在且格式符/颜色码一致） |
-| zhCN 键覆盖 | enUS 652 键 / zhCN 662 键，缺失 0（0.5.6 新增邀请相关 6 键由上游翻译，“位面”与工具箱键保持） |
+| 官方离线测试套件（Lua 5.1，57 个套件，v0.5.7） | **683 通过 / 0 失败**（含上游 `test_locales`：每个键 zhCN 必须存在且格式符/颜色码一致） |
+| zhCN 键覆盖 | enUS 651 键 / zhCN 661 键，缺失 0（0.5.7 同步，“位面”译名与工具箱键保持） |
 | 术语修正（2026-10-05） | 汉化中 layer 统一译作**位面**（原“分层”），共修正 `Locales_zhCN.lua` 24 处、README/报告 4 处，残留 0 |
 | README 中英对照完整性 | 上游英文行 100% 保留，每段均配中文译文 |
 
