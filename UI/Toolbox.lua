@@ -22,7 +22,19 @@ local Toolbox = ns:RegisterModule("Toolbox", {})
 local OWNER = "Toolbox"
 
 Toolbox.WIDTH = 440
-Toolbox.HEIGHT = 690
+-- 690 holds the layer card and the command table. The WeChat tag sits under the
+-- table, and opening the QR card under the tag makes the window taller.
+Toolbox.HEIGHT = 734
+Toolbox.HEIGHT_OPEN = 924
+Toolbox.TAG_TOP = 690
+Toolbox.QR_TOP = 728
+Toolbox.QR_CARD_HEIGHT = 180
+-- Half of the 328 texel crop, so every module lands on whole pixels (crisp code)
+Toolbox.QR_SIZE = 164
+-- The texture is 512 with the 248 code centred on white. The frame shows only the
+-- code plus the 4-module quiet zone around it (328 of 512), so the white margin
+-- doubles as the light background the code needs on the dark card.
+Toolbox.QR_TEXCOORD = { 92 / 512, 92 / 512, 420 / 512, 420 / 512 } -- left, top, right, bottom
 
 -- The commands of the website's table, in its order. Labels differ where the command
 -- takes arguments; the buttons run the bare command (a usage line explains the rest).
@@ -168,6 +180,20 @@ function Toolbox:Toggle()
     end
 end
 
+-- The WeChat tag: shows the mini program's QR code and makes room for it.
+-- Returns whether the code is open now.
+function Toolbox:ToggleQR()
+    if not frame or not frame.qrPanel then return false end
+    local open = not frame.qrPanel:IsShown()
+    if open then frame.qrPanel:Show() else frame.qrPanel:Hide() end
+    frame:SetHeight(open and Toolbox.HEIGHT_OPEN or Toolbox.HEIGHT)
+    return open
+end
+
+function Toolbox:IsQROpen()
+    return frame ~= nil and frame.qrPanel ~= nil and frame.qrPanel:IsShown()
+end
+
 -- Assigns the forward declaration above; a new `local` here would shadow it
 CreateToolboxFrame = function()
     local f = CreateFrame("Frame", "HeadHunterToolboxFrame", UIParent)
@@ -258,6 +284,39 @@ CreateToolboxFrame = function()
         desc:SetText(Toolbox.Desc(cmd))
         f.descs[cmd] = desc
     end
+
+    -- The WeChat mini program: a tag that opens the QR code and its line
+    f.wechat = Theme.Button(f, L.TOOLBOX_WECHAT_TAG, "outline", 198, 28)
+    f.wechat:SetPoint("TOPLEFT", 18, -Toolbox.TAG_TOP)
+    f.wechat:SetScript("OnClick", function() Toolbox:ToggleQR() end)
+
+    local qr = Theme.Card(f)
+    qr:SetPoint("TOPLEFT", 16, -Toolbox.QR_TOP)
+    qr:SetPoint("TOPRIGHT", -16, -Toolbox.QR_TOP)
+    qr:SetHeight(Toolbox.QR_CARD_HEIGHT)
+    f.qrPanel = qr
+
+    -- The texture is a 512 square with the code centred on white; the tex coords keep
+    -- the 4-module quiet zone and cut the rest of the padding away
+    local image = qr:CreateTexture(nil, "ARTWORK")
+    image:SetSize(Toolbox.QR_SIZE, Toolbox.QR_SIZE)
+    image:SetPoint("TOPLEFT", 8, -8)
+    image:SetTexture(Theme.TEXTURES.qr)
+    image:SetTexCoord(Toolbox.QR_TEXCOORD[1], Toolbox.QR_TEXCOORD[2],
+        Toolbox.QR_TEXCOORD[3], Toolbox.QR_TEXCOORD[4])
+    f.qrImage = image
+
+    -- Anchored left and vertically centred in the card, so the line block stays
+    -- balanced next to the tall image whatever it wraps to in each language
+    local note = Theme.Text(qr, "text", 12, "foreground")
+    note:SetPoint("LEFT", 8 + Toolbox.QR_SIZE + 12, 0)
+    note:SetWidth(Toolbox.WIDTH - 32 - (8 + Toolbox.QR_SIZE + 12) - 10)
+    note:SetJustifyH("LEFT")
+    note:SetWordWrap(true)
+    note:SetText(L.TOOLBOX_WECHAT_HINT)
+    f.qrNote = note
+
+    qr:Hide()
 
     return f
 end

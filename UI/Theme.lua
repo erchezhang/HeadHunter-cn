@@ -29,6 +29,7 @@ Theme.TEXTURES = {
     glow = ASSETS .. "Textures\\glow",
     pin = ASSETS .. "Textures\\pin",
     mark = ASSETS .. "Textures\\mark",
+    qr = ASSETS .. "Textures\\qr",
 }
 
 -- The website's dark theme colours (oklch in app.css, as sRGB)

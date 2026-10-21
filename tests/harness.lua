@@ -57,6 +57,7 @@ local function NewFrame(name)
     function frame:SetPoint(...) self.point = { ... } end
     function frame:SetTexture(texture) self.texture = texture end
     function frame:SetSize(w, h) self.width, self.height = w, h end
+    function frame:SetHeight(h) self.height = h end
     function frame:SetVertexColor(r, g, b, a) self.color = { r, g, b, a } end
     function frame:SetText(text) self.shownText = text end
     function frame:GetText() return rawget(self, "shownText") or "" end
