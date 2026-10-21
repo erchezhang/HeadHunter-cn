@@ -1542,11 +1542,11 @@ function MainWindow:SendToWebsite()
 end
 
 -- The WeChat mini program code, opened from the tab at the right end of the header
--- (MainWindow:ShowWeChat). The code fills the card at 240: its white quiet zone is
--- the light backdrop a code needs, so no dark fill goes behind it.
-MainWindow.WECHAT_WIDTH = 320
-MainWindow.WECHAT_HEIGHT = 376 -- header + the card + a three-line hint (the longest)
-MainWindow.WECHAT_QR = 240
+-- (MainWindow:ShowWeChat). The code is a round one, so it is shown large enough to
+-- scan across a desk; its white margin is the light backdrop it needs.
+MainWindow.WECHAT_WIDTH = 360
+MainWindow.WECHAT_HEIGHT = 424 -- header + the code + a three-line hint (the longest)
+MainWindow.WECHAT_QR = 288
 
 local wechatFrame
 

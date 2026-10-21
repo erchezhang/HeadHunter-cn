@@ -37,10 +37,13 @@ Theme.TEXTURES = {
 -- is the light backdrop the code needs on the dark window, so no fill is drawn behind it.
 -- The texture must stay 512 (a power of two) and uncompressed: the client draws a
 -- white box for anything else, so tests/test_theme.lua checks the file itself.
-Theme.QR_TEXCOORD = { 92 / 512, 92 / 512, 420 / 512, 420 / 512 } -- left, top, right, bottom
+--
+-- Texture:SetTexCoord takes (left, right, top, bottom). Passing the pair in the
+-- top/bottom order makes left == right, the crop collapses to one texel and the
+-- whole code renders as a plain white square.
+Theme.QR_TEXCOORD = { 92 / 512, 420 / 512, 92 / 512, 420 / 512 } -- left, right, top, bottom
 
 -- The code as a picture of `size`, already cropped to the code and its quiet zone.
--- The texture must stay uncompressed TGA: the client does not load RLE TGA.
 function Theme.QRCode(parent, size)
     local image = parent:CreateTexture(nil, "ARTWORK")
     image:SetSize(size, size)

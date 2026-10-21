@@ -85,6 +85,7 @@ return function(T, H)
     -- The client draws a white box instead of a texture it cannot load, so the code
     -- file itself has to stay uncompressed and a power of two (both were broken once)
     T.case("the mini program code: uncompressed TGA, 512 square", function()
+        local ns = H.Boot({ client = "era" })
         local file = assert(io.open(H.ROOT .. "/Assets/Textures/qr.tga", "rb"))
         local data = file:read("*a")
         file:close()
@@ -100,5 +101,13 @@ return function(T, H)
         T.eq(height, 512, "height")
         T.eq(bits, 32, "32 bits of colour")
         T.eq(#data, 18 + width * height * bits / 8 + 26, "the pixels and the TGA footer, nothing else")
+
+        -- SetTexCoord is (left, right, top, bottom): the numbers have to grow in each
+        -- pair, or the crop collapses and the code draws as a plain white square
+        local coord = ns.Theme.QR_TEXCOORD
+        T.ok(coord[1] < coord[2], "left " .. coord[1] .. " before right " .. coord[2])
+        T.ok(coord[3] < coord[4], "top " .. coord[3] .. " before bottom " .. coord[4])
+        T.ok(coord[2] - coord[1] > 0.5 and coord[4] - coord[3] > 0.5,
+            "a crop of most of the texture, not a sliver")
     end)
 end
