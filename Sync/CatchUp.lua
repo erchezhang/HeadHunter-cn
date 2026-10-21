@@ -7,7 +7,8 @@
 --   2. offer   peer -> us (whisper)     O "<count>"   after a random delay, only if it
 --                                                     has records newer than <since>
 --   3. pull    us -> two best peers     Q "p<since>" the peers with the most records
---   4. data    peer -> us (whisper)     S "D<death>" / "K<catch>" / "U<duel>" ... then "E<count>"
+--   4. data    peer -> us (whisper)     S "D<death>" / "K<catch>" / "F<punishment>" / "U<duel>" ...
+--                                                     then "E<count>"
 --
 -- Offers are tiny, and only SOURCES peers send data, so a busy realm does not flood a
 -- player who logs in. With many online only about OFFER_TARGET peers offer (HH-116);
@@ -182,6 +183,8 @@ function CatchUp:OnData(record, sender)
         if ns.Reports:AddRelayed(body, sender) then received.reports = received.reports + 1 end
     elseif kind == "K" then
         if ns.Justice:AddRelayed(body, sender) then received.catches = received.catches + 1 end
+    elseif kind == "F" then
+        ns.Punishments:AddRelayed(body, sender)
     elseif kind == "U" then
         if ns.Duels:OnRecord(body, sender, "relay") then received.duels = (received.duels or 0) + 1 end
     elseif kind == "W" then
@@ -212,6 +215,9 @@ function CatchUp.Records(sinceTime)
     local records = {}
     for _, record in ipairs(ns.Justice:Since(sinceTime)) do
         records[#records + 1] = "K" .. ns.Justice.Encode(record)
+    end
+    for _, record in ipairs(ns.Punishments:Since(sinceTime)) do
+        records[#records + 1] = "F" .. ns.Punishments.Encode(record)
     end
     for _, report in ipairs(ns.Reports:Since(sinceTime, CatchUp.MAX_RECORDS)) do
         if #records >= CatchUp.MAX_RECORDS then break end

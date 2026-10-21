@@ -1,5 +1,5 @@
 -- Raise a glass (author, 2026-10-04): any HeadHunter can raise a glass to a catch in the
--- Busted list, the saloon's way to say well done, with or without a website account.
+-- Busted list (or a punishment in the Punished list, Sync/Punishments.lua, author 2026-10-20), the saloon's way to say well done, with or without a website account.
 -- One per HeadHunter and catch, never to their own catch, no bounty. A glass stays
 -- raised: a "lowered" message some players missed would leave the counts different.
 -- Shared with the HeadHunters online (type "Y"; the sender speaks only for themselves),
@@ -53,11 +53,16 @@ function Glasses:Count(catch)
     return math.max(count, ns.SiteData:Glasses(catch.outlaw, catch.t) or 0)
 end
 
--- A catch by this character: who landed the blow or who reported it
+-- A catch (or punishment) by this character: who landed the blow or who reported it
 function Glasses.Own(catch, who)
     local U = ns.Utils
     return (catch.killer and U.SameCharacter(catch.killer, who)) or (catch.hunter and U.SameCharacter(catch.hunter, who))
-        or false
+        or (catch.by and U.SameCharacter(catch.by, who)) or false
+end
+
+-- The catch or the punishment (Sync/Punishments.lua) a glass was raised to, when we know it
+function Glasses.Target(outlaw, caughtAt)
+    return ns.Justice:Get(outlaw .. ":" .. caughtAt) or ns.Punishments:At(outlaw, caughtAt)
 end
 
 function Glasses:CanRaise(catch)
@@ -131,8 +136,8 @@ function Glasses:OnPeer(record, sender)
     if not g.by then return nil end
     local now = U.ServerTime()
     if g.t > now + self.MAX_SKEW or g.caughtAt < now - ns.Reports.MAX_AGE then return nil end
-    -- Never to their own catch, when we know the catch
-    local catch = ns.Justice:Get(g.outlaw .. ":" .. g.caughtAt)
+    -- Never to their own catch or punishment, when we know it
+    local catch = Glasses.Target(g.outlaw, g.caughtAt)
     if catch and Glasses.Own(catch, g.by) then return nil end
     if not UnderRateLimit(sender) then return nil end
     return self:Add(g, "peer", sender)

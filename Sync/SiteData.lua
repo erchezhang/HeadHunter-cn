@@ -8,6 +8,8 @@
 --     duels = { alliance = {...}, horde = {...} }, deadbeats = {...}, bullies = {...},
 --     tournaments = {...} (WEB-080: the Tournaments tab and the organizer stars read them),
 --     busted = { { name, realm, caught_at, map_id, hunter, killer_name, glasses } } (the catches),
+--     punished = { { name, realm, caught_at, kind, map_id, hunter, killer_name, glasses } } (bullies
+--       and Deadbeats brought down while not WANTED, author 2026-10-20),
 --     barflies = { { name, realm, glasses, last_glass_at, title, position } } (the most glasses raised),
 --     bounties = { { t, owner, target, reason, gold, until } } (HH-118: the running players' bounties) }
 --   forever_servers = { ["4620"] = "pve", ... }: WoW Forever server numbers and their realm type
@@ -42,7 +44,7 @@ local RACES = {
 }
 local FACTIONS = { alliance = "Alliance", horde = "Horde" }
 
-local world, wanted, duelists, deadbeats, bullies, tournaments, busted, glasses, posters, bountyTargets
+local world, wanted, duelists, deadbeats, bullies, tournaments, busted, glasses, posters, bountyTargets, punished
 
 -------------------------------------------------
 -- Names
@@ -272,7 +274,7 @@ end
 
 function SiteData:Load()
     world, wanted, duelists, deadbeats, bullies, tournaments, busted, glasses = nil, nil, nil, nil, nil, nil, nil, nil
-    posters, bountyTargets = nil, nil
+    posters, bountyTargets, punished = nil, nil, nil
     local data = Data()
     world = data and FindWorld(data)
     if not world then return false end
@@ -315,6 +317,15 @@ function SiteData:Load()
         if catch then
             busted[#busted + 1] = catch
             glasses[catch.outlaw .. ":" .. catch.t] = catch.glasses
+        end
+    end
+    -- The world's punishments, the same way (UI Punished list)
+    punished = {}
+    for _, b in ipairs(type(world.punished) == "table" and world.punished or {}) do
+        local record = type(b) == "table" and SiteData.Punished(b)
+        if record then
+            punished[#punished + 1] = record
+            glasses[record.outlaw .. ":" .. record.t] = record.glasses
         end
     end
     -- HH-118: the running players' bounties, also those we never heard in game
@@ -386,6 +397,21 @@ end
 -- The website's catches of our world, newest first
 function SiteData:BustedList()
     return busted or {}
+end
+
+-- A punishment from the website as the addon keeps one (Sync/Punishments.lua), or nil
+function SiteData.Punished(b)
+    local catch = SiteData.Busted(b)
+    local kind = Text(b.kind)
+    if not catch or not (kind and ns.Punishments.KINDS[kind]) then return nil end
+    catch.kind, catch.by, catch.hunter = kind, catch.hunter, nil
+    catch.id = ns.Punishments.Id(catch.outlaw, catch.t, catch.by or catch.killer or "?")
+    return catch
+end
+
+-- The website's punishments of our world, newest first
+function SiteData:PunishedList()
+    return punished or {}
 end
 
 -- Barflies (author, 2026-10-04): the players who raised the most glasses from the popup,

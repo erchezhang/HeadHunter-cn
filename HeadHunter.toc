@@ -23,11 +23,13 @@
 ## Notes-itIT: Registra i ganker, appendi manifesti RICERCATO e dagli la caccia insieme alla tua fazione.
 ## Author: Vati
 ## X-Translated-By: 车长不二 (zhCN, zhTW)
-## Version: 0.5.7
+## Version: 0.5.9
 ## SavedVariables: HeadHunter_DB
 ## OptionalDeps: HeadHunter_Data, HeadHunter_Dev
 ## IconTexture: Interface\Icons\INV_Misc_Head_Human_01
 ## X-Category: PvP
+## X-Curse-Project-ID: 1708496
+## X-Wago-ID: n6VYwZNd
 
 # Localization (load first)
 Locales.lua
@@ -72,6 +74,7 @@ Sync\Relay.lua
 Sync\Reports.lua
 Sync\ReportPrompt.lua
 Sync\Justice.lua
+Sync\Punishments.lua
 Sync\CatchUp.lua
 Sync\Duels.lua
 Sync\SiteData.lua

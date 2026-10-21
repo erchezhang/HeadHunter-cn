@@ -1,7 +1,7 @@
 -- HH-060: the main window. /hh (no arguments) or the minimap button toggles it.
 --
 -- Sections (author, 2026-10-01): the top tabs, each with its own sub-tabs in the
--- toolbar: Bounty board (WANTED · Bullies · Deadbeats), Busted, Duels, Events (Ongoing ·
+-- toolbar: Bounty board (WANTED · Bullies · Deadbeats), Busted (Busted · Punished · Barflies), Duels, Events (Ongoing ·
 -- Upcoming · Finished), Me (My deaths · My marks). The views:
 --   WANTED         players' bounties first (HH-118, merged per target, newest first),
 --                  then who is WANTED now; sort by rank, kills or last kill
@@ -9,6 +9,7 @@
 --   Deadbeats      players who did not pay their bounties (HH-118, blocked 30 days)
 --   (the Hall of Shame of older versions, split as on the website: author, 2026-10-02)
 --   Busted         the WANTED players caught, newest first, and who busted them
+--   Punished       bullies and Deadbeats brought down while not WANTED (author, 2026-10-20)
 --   High Noon      the best duelists (HH-093); All ranks both factions in one list
 -- The Bounty board and Duels have the faction switch top right (author, 2026-10-01):
 -- All, Alliance or Horde, All first; the board's views share one choice, Duels has its own
@@ -51,13 +52,13 @@ MainWindow.BUTTON_PADDING = 12
 -- The top tabs and their views (the sub-tabs); a view is what the list shows
 MainWindow.SECTIONS = {
     { id = "board", views = { "wanted", "bullies", "deadbeats" } },
-    { id = "busted", views = { "busted", "barflies" } },
+    { id = "busted", views = { "busted", "punished", "barflies" } },
     { id = "duels", views = { "duels" } },
     -- Upcoming first and opened by default (author, 2026-10-05)
     { id = "events", views = { "upcoming", "ongoing", "finished" } },
     { id = "me", views = { "deaths", "marks" } },
 }
-MainWindow.TABS = { "wanted", "bullies", "deadbeats", "busted", "barflies", "duels", "upcoming", "ongoing", "finished", "deaths", "marks" }
+MainWindow.TABS = { "wanted", "bullies", "deadbeats", "busted", "punished", "barflies", "duels", "upcoming", "ongoing", "finished", "deaths", "marks" }
 -- Tabs of older versions
 MainWindow.OLD_TABS = { tours = "upcoming", shame = "bullies" }
 -- The faction crests in the Alliance / Horde switch: the game's PvP flag icons,
@@ -71,10 +72,11 @@ MainWindow.FACTION_ICON_COORDS = { 0.03, 0.62, 0.02, 0.62 }
 MainWindow.ALL = "All"
 MainWindow.BOARD_TABS = { wanted = true, bullies = true, deadbeats = true }
 -- Tabs with a search box, each with its own search (the long lists)
-MainWindow.SEARCH_TABS = { wanted = true, bullies = true, deadbeats = true, busted = true, barflies = true, duels = true,
-    deaths = true }
+MainWindow.SEARCH_TABS = { wanted = true, bullies = true, deadbeats = true, busted = true, punished = true,
+    barflies = true, duels = true, deaths = true }
 -- What a sub-tab lists, on hover (author, 2026-10-02)
-MainWindow.TAB_TIPS = { wanted = "TIP_TAB_WANTED", bullies = "TIP_TAB_BULLIES", deadbeats = "TIP_TAB_DEADBEATS" }
+MainWindow.TAB_TIPS = { wanted = "TIP_TAB_WANTED", bullies = "TIP_TAB_BULLIES", deadbeats = "TIP_TAB_DEADBEATS",
+    punished = "TIP_TAB_PUNISHED" }
 -- The box fits between three sub-tabs and the faction switch on one row
 MainWindow.SEARCH_WIDTH = 140
 
@@ -105,6 +107,13 @@ MainWindow.COLUMNS = {
         { key = "name", header = "COL_NAME", width = 245, font = "name" },
         { key = "by", header = "COL_BUSTED_BY", width = 215, font = "name" },
         { key = "zone", header = "COL_ZONE", width = 105 }, -- then the Raise a glass button
+    },
+    punished = {
+        { key = "time", header = "COL_WHEN", width = 115 },
+        { key = "name", header = "COL_NAME", width = 210, font = "name" },
+        { key = "kind", header = "COL_SHAME", width = 100 },
+        { key = "by", header = "COL_PUNISHED_BY", width = 175, font = "name" },
+        { key = "zone", header = "COL_ZONE", width = 90 },
     },
     barflies = {
         { key = "position", header = "COL_POSITION", width = 40 },
@@ -560,6 +569,63 @@ local function BustedRows(now)
     return rows
 end
 
+-- Punished (author, 2026-10-20): every punishment we know of (Sync/Punishments.lua) and the
+-- website's of our world, newest first, each a bully or a Deadbeat; a glass as on Busted
+MainWindow.PUNISHED_KINDS = { bully = "PUNISHED_BULLY", deadbeat = "PUNISHED_DEADBEAT" }
+
+local function PunishedRows(now)
+    local U = ns.Utils
+    local list = {}
+    for _, record in ns.Punishments:All() do
+        if type(record) == "table" and record.outlaw then list[#list + 1] = record end
+    end
+    local known = #list
+    for _, site in ipairs(ns.SiteData:PunishedList()) do
+        local seen = false
+        for i = 1, known do
+            if list[i].outlaw == site.outlaw and math.abs((list[i].t or 0) - site.t) <= ns.Punishments.DEDUPE then
+                seen = true
+                break
+            end
+        end
+        if not seen then list[#list + 1] = site end
+    end
+    table.sort(list, function(a, b) return (a.t or 0) > (b.t or 0) end)
+    local rows = {}
+    for _, record in ipairs(list) do
+        local entry = ns.Wanted:Get(record.outlaw)
+        local who = entry or ns.EnemyCache:ByKey(record.outlaw) or record.outlawWho or {}
+        local plain = (entry and OutlawName(entry))
+            or (not record.outlaw:find("^guid:") and U.DisplayName(record.outlaw)) or "?"
+        local by = record.killer or record.by
+        local byName = by and U.DisplayName(by) or "?"
+        local byWho = ns.Justice.KillerWho(record) or ns.Justice.Identity(by) or (by and ns.EnemyCache:ByKey(by))
+        local zone = U.MapName(record.mapID) or L.UNKNOWN_ZONE
+        local when = date("%m-%d %H:%M", record.t)
+        local tooltip = entry and MainWindow.EntryTooltip(entry, now) or { Named(plain, who), L.WINDOW_ROW_HINT }
+        table.insert(tooltip, 2, string.format(L.TIP_PUNISHED, when, zone, byName))
+        local glasses = ns.Glasses:Count(record)
+        local canRaise = ns.Glasses:CanRaise(record)
+        local _, raised = ns.Glasses:Of(record)
+        local own = ns.Glasses.Own(record, U.UnitKey("player"))
+        table.insert(tooltip, 3, string.format(canRaise and L.TIP_GLASSES_RAISE or L.TIP_GLASSES, glasses))
+        rows[#rows + 1] = {
+            id = entry and entry.id or nil,
+            time = when,
+            plain = plain,
+            name = Named(plain, who),
+            kind = L[MainWindow.PUNISHED_KINDS[record.kind] or "PUNISHED_BULLY"],
+            by = byWho and MainWindow.Labeled(byName, byWho, byWho.faction or ns.Utils.RaceFaction(byWho.race)) or byName,
+            byPlain = byName,
+            zone = zone,
+            glasses = glasses,
+            tooltip = tooltip,
+            actions = { { kind = "glass", catch = record, count = glasses, canRaise = canRaise, raised = raised, own = own } },
+        }
+    end
+    return rows
+end
+
 -- Barflies (author, 2026-10-04): the players who raised the most glasses from the popup
 -- at the moment of a bust, in the last 30 days, from the website's ranking (the download)
 MainWindow.BARFLY_TITLES = { barfly = "BARFLY_BARFLY", regular = "BARFLY_REGULAR", saloon_legend = "BARFLY_LEGEND",
@@ -770,6 +836,8 @@ function MainWindow.Rows(tab, sortKey, now, faction, search)
         rows = DeathRows(now)
     elseif tab == "busted" then
         rows = BustedRows(now)
+    elseif tab == "punished" then
+        rows = PunishedRows(now)
     elseif tab == "barflies" then
         rows = BarflyRows(now)
     else
@@ -1616,7 +1684,7 @@ end
 ns.Events:Register("HH_INITIALIZED", function()
     local request = function() MainWindow:RequestRefresh() end
     for _, event in ipairs({ "HH_WANTED_UPDATED", "HH_DEATH_RECORDED", "HH_REPORT_UPDATED", "HH_MARKS_CHANGED",
-            "HH_HIGHNOON_UPDATED", "HH_BOUNTY_UPDATED", "HH_MATCHES_CHANGED", "HH_GLASS_ADDED" }) do
+            "HH_HIGHNOON_UPDATED", "HH_BOUNTY_UPDATED", "HH_MATCHES_CHANGED", "HH_GLASS_ADDED", "HH_PUNISHMENT_ADDED" }) do
         ns.Events:Register(event, request, OWNER)
     end
     -- New duels while the Duels tab is open: its lists are counted again (HH-137)

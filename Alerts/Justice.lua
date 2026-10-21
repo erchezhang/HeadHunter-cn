@@ -56,7 +56,9 @@ end
 -- Not in combat (it waits up to GLASS_WAIT seconds for the fight to end) and never in an
 -- instance (Alerts:Show and its queue), off in Settings. At most one every few minutes
 -- (the glassPopupGap setting, 3 to 15, default 5): five busts in a minute ask once, for
--- the first; the others stay in the Busted list.
+-- the first; the others stay in the Busted list. A peer's punishment of a bully or Deadbeat
+-- (Sync/Punishments.lua, author 2026-10-20) asks the same way, under the same limits, with
+-- a PUNISHED stamp.
 JusticeAlerts.GLASS_WAIT = 30
 JusticeAlerts.GLASS_ICON = "Interface\\Icons\\INV_Drink_05"
 JusticeAlerts.GLASS_GAP = { default = 5, min = 3, max = 15 } -- minutes
@@ -80,7 +82,8 @@ function JusticeAlerts.WhoLine(who, faction)
     return icons == "" and level or (icons .. "  " .. level)
 end
 
--- test (/hh dev glass): a made-up bust; the glass is never saved or sent
+-- record: a catch, or a punishment (it has a kind); test (/hh dev glass): a made-up bust,
+-- the glass is never saved or sent
 function JusticeAlerts:AskGlass(record, outlaw, test)
     local db = ns.db
     if not (db and db.settings.alerts.glassPopup) or not ns.Glasses:CanRaise(record) then return nil end
@@ -89,7 +92,8 @@ function JusticeAlerts:AskGlass(record, outlaw, test)
     -- One waiting for a fight to end is enough
     if glassAskedAt and now - glassAskedAt < self.GLASS_WAIT then return nil end
     glassAskedAt = now
-    local by = record.killer or record.hunter
+    local by = record.killer or record.hunter or record.by
+    local punished = record.kind ~= nil
     local outlawWho = ns.Wanted:Get(record.outlaw) or ns.EnemyCache:ByKey(record.outlaw) or record.outlawWho or {}
     local byWho = ns.Justice.KillerWho(record) or ns.Justice.Identity(by) or (by and ns.EnemyCache:ByKey(by)) or {}
     return ns.Alerts:Show({
@@ -101,8 +105,8 @@ function JusticeAlerts:AskGlass(record, outlaw, test)
             heading = L.POSTER_WANTED,
             title = outlaw,
             titleInfo = JusticeAlerts.WhoLine(outlawWho, outlawWho.faction or ns.MainWindow.EntryFaction(outlawWho)),
-            stamp = L.GLASS_STAMP,
-            text = string.format(L.GLASS_BUSTED_BY, Name(by)),
+            stamp = punished and L.GLASS_STAMP_PUNISHED or L.GLASS_STAMP,
+            text = string.format(punished and L.GLASS_PUNISHED_BY or L.GLASS_BUSTED_BY, Name(by)),
             textInfo = JusticeAlerts.WhoLine(byWho, byWho.faction or ns.Utils.RaceFaction(byWho.race)),
             icon = self.GLASS_ICON,
             accept = L.GLASS_RAISE,
@@ -117,6 +121,16 @@ function JusticeAlerts:AskGlass(record, outlaw, test)
             end,
         },
     })
+end
+
+-- A peer's punishment just now: the glass popup, as for a bust
+function JusticeAlerts:OnPunished(record)
+    if record.origin ~= "peer" then return nil end
+    local U = ns.Utils
+    local entry = ns.Wanted:Get(record.outlaw)
+    local outlaw = (entry and (entry.key and U.DisplayName(entry.key) or entry.name))
+        or (not record.outlaw:find("^guid:") and U.DisplayName(record.outlaw)) or "?"
+    return self:AskGlass(record, outlaw)
 end
 
 -- Forget when the last glass popup was (tests)
@@ -148,7 +162,7 @@ local thanks = {} -- catch id -> the HeadHunters who raised a glass, first first
 
 function JusticeAlerts:OnGlass(g)
     if g.origin ~= "peer" or not (ns.db and ns.db.settings.alerts.glassThanks) then return end
-    local catch = ns.Justice:Get(g.outlaw .. ":" .. g.caughtAt)
+    local catch = ns.Glasses.Target(g.outlaw, g.caughtAt)
     if not catch or not ns.Glasses.Own(catch, ns.Utils.UnitKey("player")) then return end
     local id = g.outlaw .. ":" .. g.caughtAt
     if thanks[id] then
@@ -174,6 +188,7 @@ end
 
 ns.Events:Register("HH_INITIALIZED", function()
     ns.Events:Register("HH_GLASS_ADDED", function(_, g) JusticeAlerts:OnGlass(g) end, OWNER)
+    ns.Events:Register("HH_PUNISHMENT_ADDED", function(_, record) JusticeAlerts:OnPunished(record) end, OWNER)
     ns.Events:Register("HH_WANTED_CAUGHT", function(_, entry, before) JusticeAlerts:OnCaught(entry, before) end, OWNER)
     ns.Events:Register("HH_ALERT_SHOWN", function(_, alert)
         if alert.key and alert.key:find("^glass:") then glassShownAt = ns.Utils.Now() end

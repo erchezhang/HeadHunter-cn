@@ -1,0 +1,6 @@
+package-as: HeadHunter
+
+ignore:
+  - tests
+  - .github
+  - README.md

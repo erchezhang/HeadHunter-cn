@@ -29,7 +29,7 @@ DB.HOME_TABLES = {
     deaths = true, reports = true, enemies = true, justice = true, posters = true, posse = true,
     bountyPay = true, duels = true, eventResults = true, marks = true, demoMarks = true, player = true,
     witness = true, pinned = true, glasses = true, screenshots = true, honorKills = true, wars = true,
-    invites = true,
+    invites = true, punishments = true,
 }
 
 DB.LIMITS = {
@@ -90,6 +90,7 @@ local HOME_DEFAULTS = {
     witness = {}, -- HH-121: witness id -> a hunted player who died near a HeadHunter (Sync/Witness.lua)
     pinned = {},  -- HH-121: sighting id -> a sighting kept as evidence for a bounty claim (Sync/Evidence.lua)
     glasses = {}, -- glass id -> a HeadHunter raised a glass to a catch (Sync/Glasses.lua)
+    punishments = {}, -- punishment id -> a bully or Deadbeat, not WANTED, brought down by a HeadHunter (Sync/Punishments.lua)
     screenshots = {}, -- HH-132: pictures taken for the sync app (Sync/Screenshots.lua)
     -- Our honorable kills by map and time, oldest first (Detection/HonorKills.lua)
     honorKills = {},

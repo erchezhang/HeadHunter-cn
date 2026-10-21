@@ -41,6 +41,9 @@ Protocol.TYPES = {
     DUEL_SPOT = "Z", -- HH-134: duels the sender saw lately, with their place and layer (Alerts/DuelSpots.lua)
     -- HH-141: the sender's own download of the website's lists (Sync/SharedSite.lua)
     SITE_LIST = "C",
+    -- Punished (author, 2026-10-20): a bully or the other faction's Deadbeat brought down by
+    -- the sender or their group while not WANTED (Sync/Punishments.lua); older addons ignore it
+    PUNISHMENT = "F",
 }
 
 local FACTION_CODE = { Alliance = "A", Horde = "H" }
@@ -389,11 +392,29 @@ end
 -- older clients read the first four). Older clients read no name from it (a comma
 -- is never in a name) and take the sender, as for a catch without a killer.
 -- who: { class, race, faction, sex } or nil
-function Protocol.EncodeJustice(outlawId, t, mapID, killer, who)
+local function EncodeKiller(killer, who)
     if killer and who then
         killer = table.concat({ killer, CLASS_CODE[who.class] or "", RaceCode(who.race, who.faction),
             (who.sex == 2 or who.sex == 3) and tostring(who.sex) or "", EncodeLevel(who.level) }, ",")
     end
+    return killer
+end
+
+-- killer (nil when blank), who (nil when not sent)
+local function DecodeKiller(s)
+    local killer, who = not Blank(s) and s or nil, nil
+    if killer and killer:find(",", 1, true) then
+        local parts = Split(killer, ",")
+        killer = not Blank(parts[1]) and parts[1] or nil
+        local race, faction = RaceFromCode(parts[3])
+        who = { class = CLASS_NAME[parts[2]], race = race, faction = faction, sex = tonumber(parts[4]),
+            level = parts[5] and DecodeLevel(parts[5]) or nil }
+    end
+    return killer, who
+end
+
+function Protocol.EncodeJustice(outlawId, t, mapID, killer, who)
+    killer = EncodeKiller(killer, who)
     return table.concat({ outlawId, Protocol.ToB36(t), mapID and Protocol.ToB36(mapID) or "", killer or "" }, ";")
 end
 
@@ -404,15 +425,34 @@ function Protocol.DecodeJustice(s)
     if #f ~= 4 or Blank(f[1]) then return nil end
     local t = Protocol.FromB36(f[2])
     if not t then return nil end
-    local killer, who = not Blank(f[4]) and f[4] or nil, nil
-    if killer and killer:find(",", 1, true) then
-        local parts = Split(killer, ",")
-        killer = not Blank(parts[1]) and parts[1] or nil
-        local race, faction = RaceFromCode(parts[3])
-        who = { class = CLASS_NAME[parts[2]], race = race, faction = faction, sex = tonumber(parts[4]),
-            level = parts[5] and DecodeLevel(parts[5]) or nil }
-    end
+    local killer, who = DecodeKiller(f[4])
     return f[1], t, Protocol.FromB36(f[3]), killer, who
+end
+
+-------------------------------------------------
+-- Punishment (author, 2026-10-20): outlaw ; time ; mapID ; kind ("b" bully, "d" Deadbeat) ;
+-- by (the HeadHunter credited) ; killer (who landed the blow, "key,class,race,sex,level"
+-- as in a catch)
+-------------------------------------------------
+
+local KIND_CODE = { bully = "b", deadbeat = "d" }
+local KIND_NAME = Invert(KIND_CODE)
+
+function Protocol.EncodePunishment(p)
+    return table.concat({ p.outlaw, Protocol.ToB36(p.t), p.mapID and Protocol.ToB36(p.mapID) or "", KIND_CODE[p.kind] or "",
+        p.by, EncodeKiller(p.killer, p.killerWho) or "" }, ";")
+end
+
+-- Returns { outlaw, t, mapID, kind, by, killer, killerWho } or nil
+function Protocol.DecodePunishment(s)
+    if type(s) ~= "string" then return nil end
+    local f = Split(s, ";")
+    if #f ~= 6 or Blank(f[1]) or Blank(f[5]) or not KIND_NAME[f[4]] then return nil end
+    local t = Protocol.FromB36(f[2])
+    if not t then return nil end
+    local killer, who = DecodeKiller(f[6])
+    return { outlaw = f[1], t = t, mapID = Protocol.FromB36(f[3]), kind = KIND_NAME[f[4]], by = f[5], killer = killer,
+        killerWho = who }
 end
 
 -------------------------------------------------
