@@ -81,4 +81,24 @@ return function(T, H)
         end
         T.noErrors()
     end)
+
+    -- The client draws a white box instead of a texture it cannot load, so the code
+    -- file itself has to stay uncompressed and a power of two (both were broken once)
+    T.case("the mini program code: uncompressed TGA, 512 square", function()
+        local file = assert(io.open(H.ROOT .. "/Assets/Textures/qr.tga", "rb"))
+        local data = file:read("*a")
+        file:close()
+        local function Word(offset) return data:byte(offset + 1) + data:byte(offset + 2) * 256 end
+        local function IsPowerOfTwo(n)
+            while n > 1 and n % 2 == 0 do n = n / 2 end
+            return n == 1
+        end
+        local width, height, bits = Word(12), Word(14), data:byte(17)
+        T.eq(data:byte(3), 2, "uncompressed; the client reads no RLE TGA")
+        T.ok(IsPowerOfTwo(width) and IsPowerOfTwo(height), width .. "x" .. height .. ": a power of two")
+        T.eq(width, 512, "width: what UI/Theme.lua crops its tex coords from")
+        T.eq(height, 512, "height")
+        T.eq(bits, 32, "32 bits of colour")
+        T.eq(#data, 18 + width * height * bits / 8 + 26, "the pixels and the TGA footer, nothing else")
+    end)
 end

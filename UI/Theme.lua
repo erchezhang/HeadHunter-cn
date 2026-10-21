@@ -35,6 +35,8 @@ Theme.TEXTURES = {
 -- The WeChat mini program code: a 512 square with the 248 code centred on white.
 -- Only the code plus its 4-module quiet zone is shown (328 of 512); the white margin
 -- is the light backdrop the code needs on the dark window, so no fill is drawn behind it.
+-- The texture must stay 512 (a power of two) and uncompressed: the client draws a
+-- white box for anything else, so tests/test_theme.lua checks the file itself.
 Theme.QR_TEXCOORD = { 92 / 512, 92 / 512, 420 / 512, 420 / 512 } -- left, top, right, bottom
 
 -- The code as a picture of `size`, already cropped to the code and its quiet zone.
