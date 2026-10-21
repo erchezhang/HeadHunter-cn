@@ -29,12 +29,9 @@ Toolbox.HEIGHT_OPEN = 924
 Toolbox.TAG_TOP = 690
 Toolbox.QR_TOP = 728
 Toolbox.QR_CARD_HEIGHT = 180
--- Half of the 328 texel crop, so every module lands on whole pixels (crisp code)
+-- Half of the 328 texel crop (Theme.QR_TEXCOORD), so every module lands on whole
+-- pixels and the code stays crisp
 Toolbox.QR_SIZE = 164
--- The texture is 512 with the 248 code centred on white. The frame shows only the
--- code plus the 4-module quiet zone around it (328 of 512), so the white margin
--- doubles as the light background the code needs on the dark card.
-Toolbox.QR_TEXCOORD = { 92 / 512, 92 / 512, 420 / 512, 420 / 512 } -- left, top, right, bottom
 
 -- The commands of the website's table, in its order. Labels differ where the command
 -- takes arguments; the buttons run the bare command (a usage line explains the rest).
@@ -286,7 +283,7 @@ CreateToolboxFrame = function()
     end
 
     -- The WeChat mini program: a tag that opens the QR code and its line
-    f.wechat = Theme.Button(f, L.TOOLBOX_WECHAT_TAG, "outline", 198, 28)
+    f.wechat = Theme.Button(f, L.WECHAT_TAG, "outline", 198, 28)
     f.wechat:SetPoint("TOPLEFT", 18, -Toolbox.TAG_TOP)
     f.wechat:SetScript("OnClick", function() Toolbox:ToggleQR() end)
 
@@ -296,14 +293,8 @@ CreateToolboxFrame = function()
     qr:SetHeight(Toolbox.QR_CARD_HEIGHT)
     f.qrPanel = qr
 
-    -- The texture is a 512 square with the code centred on white; the tex coords keep
-    -- the 4-module quiet zone and cut the rest of the padding away
-    local image = qr:CreateTexture(nil, "ARTWORK")
-    image:SetSize(Toolbox.QR_SIZE, Toolbox.QR_SIZE)
+    local image = Theme.QRCode(qr, Toolbox.QR_SIZE)
     image:SetPoint("TOPLEFT", 8, -8)
-    image:SetTexture(Theme.TEXTURES.qr)
-    image:SetTexCoord(Toolbox.QR_TEXCOORD[1], Toolbox.QR_TEXCOORD[2],
-        Toolbox.QR_TEXCOORD[3], Toolbox.QR_TEXCOORD[4])
     f.qrImage = image
 
     -- Anchored left and vertically centred in the card, so the line block stays
@@ -313,7 +304,7 @@ CreateToolboxFrame = function()
     note:SetWidth(Toolbox.WIDTH - 32 - (8 + Toolbox.QR_SIZE + 12) - 10)
     note:SetJustifyH("LEFT")
     note:SetWordWrap(true)
-    note:SetText(L.TOOLBOX_WECHAT_HINT)
+    note:SetText(L.WECHAT_HINT)
     f.qrNote = note
 
     qr:Hide()

@@ -32,6 +32,22 @@ Theme.TEXTURES = {
     qr = ASSETS .. "Textures\\qr",
 }
 
+-- The WeChat mini program code: a 512 square with the 248 code centred on white.
+-- Only the code plus its 4-module quiet zone is shown (328 of 512); the white margin
+-- is the light backdrop the code needs on the dark window, so no fill is drawn behind it.
+Theme.QR_TEXCOORD = { 92 / 512, 92 / 512, 420 / 512, 420 / 512 } -- left, top, right, bottom
+
+-- The code as a picture of `size`, already cropped to the code and its quiet zone.
+-- The texture must stay uncompressed TGA: the client does not load RLE TGA.
+function Theme.QRCode(parent, size)
+    local image = parent:CreateTexture(nil, "ARTWORK")
+    image:SetSize(size, size)
+    image:SetTexture(Theme.TEXTURES.qr)
+    image:SetTexCoord(Theme.QR_TEXCOORD[1], Theme.QR_TEXCOORD[2],
+        Theme.QR_TEXCOORD[3], Theme.QR_TEXCOORD[4])
+    return image
+end
+
 -- The website's dark theme colours (oklch in app.css, as sRGB)
 Theme.COLORS = {
     background = { 0.05, 0.032, 0.02 },

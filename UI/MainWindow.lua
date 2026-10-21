@@ -58,6 +58,9 @@ MainWindow.SECTIONS = {
     { id = "events", views = { "upcoming", "ongoing", "finished" } },
     { id = "me", views = { "deaths", "marks" } },
 }
+-- The WeChat mini program: a tab right of Me that opens the code instead of a view. It
+-- is in the tab row (Theme sizes the row to fit) but not in SECTIONS, which own views.
+MainWindow.WECHAT_TAB = "wechat"
 MainWindow.TABS = { "wanted", "bullies", "deadbeats", "busted", "punished", "barflies", "duels", "upcoming", "ongoing", "finished", "deaths", "marks" }
 -- Tabs of older versions
 MainWindow.OLD_TABS = { tours = "upcoming", shame = "bullies" }
@@ -889,10 +892,12 @@ local function CreateMainFrame()
     local Theme = ns.Theme
     Theme.StyleFrame(f, L.WINDOW_TITLE)
     Theme.ResizeGrip(f)
+    -- One tab per section, then the WeChat mini program at the right end of the row
     local tabs = {}
     for i, section in ipairs(MainWindow.SECTIONS) do
         tabs[i] = { id = section.id, label = L["SECTION_" .. section.id:upper()] }
     end
+    tabs[#tabs + 1] = { id = MainWindow.WECHAT_TAB, label = L.WECHAT_TAG }
     f.tabs = Theme.CreateTopTabs(f, tabs, function(id) MainWindow:SelectSection(id) end)
 
     f.options = Theme.HeaderGear(f, function() ns.SettingsPanel:Open() end)
@@ -1536,7 +1541,55 @@ function MainWindow:SendToWebsite()
     return true
 end
 
+-- The WeChat mini program code, opened from the tab at the right end of the header
+-- (MainWindow:ShowWeChat). The code fills the card at 240: its white quiet zone is
+-- the light backdrop a code needs, so no dark fill goes behind it.
+MainWindow.WECHAT_WIDTH = 320
+MainWindow.WECHAT_HEIGHT = 376 -- header + the card + a three-line hint (the longest)
+MainWindow.WECHAT_QR = 240
+
+local wechatFrame
+
+function MainWindow:ShowWeChat()
+    if not wechatFrame then
+        local Theme = ns.Theme
+        local f = CreateFrame("Frame", "HeadHunterWeChatFrame", UIParent)
+        f:SetSize(self.WECHAT_WIDTH, self.WECHAT_HEIGHT)
+        f:SetPoint("CENTER")
+        f:SetFrameStrata("DIALOG")
+        f:SetToplevel(true)
+        f:SetMovable(true)
+        f:EnableMouse(true)
+        f:RegisterForDrag("LeftButton")
+        f:SetScript("OnDragStart", f.StartMoving)
+        f:SetScript("OnDragStop", f.StopMovingOrSizing)
+        f:SetClampedToScreen(true)
+        tinsert(UISpecialFrames, "HeadHunterWeChatFrame")
+        Theme.StyleFrame(f, L.WECHAT_TAG)
+
+        local top = Theme.HEADER_HEIGHT + 14
+        f.image = Theme.QRCode(f, self.WECHAT_QR)
+        f.image:SetPoint("TOP", 0, -top)
+
+        local note = Theme.Text(f, "text", 12, "foreground")
+        note:SetPoint("TOPLEFT", 16, -(top + self.WECHAT_QR + 12))
+        note:SetPoint("TOPRIGHT", -16, -(top + self.WECHAT_QR + 12))
+        note:SetJustifyH("LEFT")
+        note:SetWordWrap(true)
+        note:SetText(L.WECHAT_HINT)
+        f.note = note
+        wechatFrame = f
+    end
+    wechatFrame:Show()
+end
+
 function MainWindow:SelectSection(id)
+    -- The WeChat tab is not a view: it opens the code and leaves the tab it came from
+    if id == self.WECHAT_TAB then
+        self:ShowWeChat()
+        if frame and frame.tabs then frame.tabs:Select(self.SectionOf(current.tab).id) end
+        return
+    end
     for _, section in ipairs(self.SECTIONS) do
         if section.id == id then
             self:SelectTab(current.lastView[id] or section.views[1])

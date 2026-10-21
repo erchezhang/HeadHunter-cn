@@ -190,7 +190,7 @@ return function(T, H)
         local f = _G.HeadHunterMainFrame
         local ids = {}
         for i, tab in ipairs(f.tabs.buttons) do ids[i] = tab.id end
-        T.eq(table.concat(ids, ","), "board,busted,duels,events,me", "the top tabs")
+        T.eq(table.concat(ids, ","), "board,busted,duels,events,me,wechat", "the top tabs")
         T.ok(f.subtabs.board:IsShown(), "WANTED and Bullies under the board")
         T.ok(not f.subtabs.events:IsShown(), "only the section's own sub-tabs")
         M:SelectSection("me")
@@ -203,6 +203,31 @@ return function(T, H)
         T.eq(select(1, M:Current()), "marks", "back on the view last shown")
         M:SelectTab("tours")
         T.eq(select(1, M:Current()), "upcoming", "the old Tournaments tab is the Events tab")
+        T.noErrors()
+    end)
+
+    T.case("the WeChat tab after Me opens the mini program code, not a view", function()
+        local ns = H.Boot({ client = "era" })
+        local M = ns.MainWindow
+        H.Slash("")
+        local f = _G.HeadHunterMainFrame
+        local wechat = f.tabs.buttons[#f.tabs.buttons]
+        T.eq(wechat.id, "wechat", "the right end of the row, after Me")
+        T.eq(wechat.label:GetText(), ns.L.WECHAT_TAG, "labelled like the toolbox tag")
+
+        M:SelectSection("me")
+        M:SelectSection("wechat")                 -- what a click on the tab does
+        local popup = _G.HeadHunterWeChatFrame
+        T.ok(popup and popup:IsShown(), "the code opens")
+        T.eq(popup.image.texture, ns.Theme.TEXTURES.qr, "the code texture")
+        T.eq(popup.image.width, ns.MainWindow.WECHAT_QR, "as wide as it is tall")
+        T.eq(popup.image.height, ns.MainWindow.WECHAT_QR, "")
+        T.eq(popup.note.shownText, ns.L.WECHAT_HINT, "the line under the code")
+        T.eq(popup.width, ns.MainWindow.WECHAT_WIDTH, "the card")
+
+        T.eq(select(1, M:Current()), "deaths", "the view behind stays what it was")
+        T.ok(not wechat.selected, "the tab itself never draws selected")
+        T.ok(f.tabs.buttons[5].selected, "Me stays the selected section")
         T.noErrors()
     end)
 
@@ -220,7 +245,7 @@ return function(T, H)
         M:SelectTab("deaths")
         T.eq(select(1, M:Current()), "deaths", "tab")
         local tabs = _G.HeadHunterMainFrame.tabs.buttons
-        T.eq(#tabs, 5, "five sections")
+        T.eq(#tabs, 6, "five sections and the WeChat tab")
         T.ok(tabs[5].selected and not tabs[1].selected, "My deaths: the Me section drawn selected")
         T.eq(tabs[1].point[2], _G.HeadHunterMainFrame.header, "in the header, like the website's menu")
         T.eq(#M.shownRows, 0, "no deaths of ours")
