@@ -73,6 +73,7 @@ local DEFAULTS = {
         minimap = { angle = 200, hidden = false }, -- HH-060 minimap button
         uiScale = 100, -- HH-125: window size, 70..150 %, set with the corner grip of the main window
         screenshots = true, -- HH-132: pictures of our PvP deaths and catches, for the admins (needs HeadHunter Sync)
+        relay = true, -- HH-151: carry other HeadHunters' records to the players of other home servers
     },
     zones = {}, -- zone mapID -> { name, continent, locale }: names for the website (Alerts/Zones.lua)
     homes = {}, -- home key -> HOME_DEFAULTS

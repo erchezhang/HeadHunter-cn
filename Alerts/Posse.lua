@@ -150,9 +150,11 @@ function Posse.DiedAgain(report)
     return false
 end
 
--- Already riding with this posse (also after a reload): nothing to join, nothing earned
+-- Already riding with this posse (also after a reload): nothing to join, nothing earned.
+-- Out of the outlaw's level window (HH-047) neither: every way in (popup, poster) stops here
 function Posse:Join(entry, report)
     if self:IsMember(entry.id) then return false end
+    if not ns.Wanted.InLevelWindow(entry) then return false end
     local U = ns.Utils
     local name = entry.key and U.DisplayName(entry.key) or entry.name
     local zone = U.MapName(report.mapID) or L.UNKNOWN_ZONE

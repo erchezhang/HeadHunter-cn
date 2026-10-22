@@ -98,9 +98,12 @@ function Poster.Content(id, now)
             U.DisplayName(report.victim and report.victim.key) or "?", U.MapName(report.mapID) or L.UNKNOWN_ZONE,
             ns.Classify.Label(kind, attackers, ns.Classify.Helpers(report)))
     end
-    -- Join needs a kill to go to (and WANTED status); not twice
+    -- Join needs a kill to go to (and WANTED status); not twice; and our level must be
+    -- in the outlaw's window (HH-047, as the popup): out of it the button says so, greyed
     c.newestReport = kills[1] and kills[1].report
-    c.canJoin = Wanted.Hunted(entry) and c.newestReport ~= nil and not ns.Posse:IsMember(entry.id)
+    local joinable = Wanted.Hunted(entry) and c.newestReport ~= nil and not ns.Posse:IsMember(entry.id)
+    c.canJoin = joinable and Wanted.InLevelWindow(entry)
+    c.notYourLevel = joinable and not c.canJoin
     return c
 end
 
@@ -305,7 +308,9 @@ function Poster:Refresh()
     if #c.recent == 0 then frame.recent[1]:SetText(L.POSTER_NO_KILLS) end
     frame.posse:SetText(c.posse or "")
     frame.bounty:SetText(c.bounty or "")
-    if c.canJoin then frame.joinButton:Show() else frame.joinButton:Hide() end
+    frame.joinButton:SetShown(c.canJoin or c.notYourLevel)
+    frame.joinButton:SetEnabled(c.canJoin == true)
+    frame.joinButton:SetText(c.notYourLevel and L.POSSE_NOT_YOUR_LEVEL or L.POSSE_JOIN)
     frame.postButton:SetShown(c.canPost or c.postLocked)
     frame.postButton:SetEnabled(c.canPost == true)
     self.shown = c

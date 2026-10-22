@@ -44,6 +44,12 @@ Protocol.TYPES = {
     -- Punished (author, 2026-10-20): a bully or the other faction's Deadbeat brought down by
     -- the sender or their group while not WANTED (Sync/Punishments.lua); older addons ignore it
     PUNISHMENT = "F",
+    -- HH-151: a record carried for another HeadHunter, with its author and world, to
+    -- the players of other home servers (Sync/Bridge.lua); older addons ignore it
+    ENVELOPE = "E",
+    -- HH-151: "a HeadHunter of server N": the hidden whisper to a player whose nameplate
+    -- showed, from another home server (Sync/Bridge.lua)
+    LINK = "H",
 }
 
 local FACTION_CODE = { Alliance = "A", Horde = "H" }
@@ -794,6 +800,33 @@ function Protocol.Pack(factionCode, typeCode, records, maxLength)
         consumed[#consumed] = consumed[#consumed] + count
     end
     return messages, consumed
+end
+
+-------------------------------------------------
+-- Envelope (HH-151)
+-------------------------------------------------
+
+-- world;author;faction code;server;hops;first sent;type char then the record itself.
+-- The record is last, so its own ";" fields need no escaping.
+function Protocol.EncodeEnvelope(env)
+    if type(env.world) ~= "string" or env.world:find(";") or type(env.author) ~= "string"
+        or not FACTION_CODE[env.faction] or type(env.type) ~= "string" or #env.type ~= 1
+        or type(env.record) ~= "string" or env.record == "" then
+        return nil
+    end
+    return table.concat({ env.world, env.author, FACTION_CODE[env.faction], Protocol.ToB36(env.server or 0),
+        Protocol.ToB36(env.hops), Protocol.ToB36(env.at) }, ";") .. ";" .. env.type .. env.record
+end
+
+function Protocol.DecodeEnvelope(s)
+    if type(s) ~= "string" then return nil end
+    local world, author, factionCode, server, hops, at, typeCode, record =
+        s:match("^([^;]+);([^;]+);([AH]);(%w+);(%w+);(%w+);(%u)(.+)$")
+    if not world then return nil end
+    hops, at, server = Protocol.FromB36(hops), Protocol.FromB36(at), Protocol.FromB36(server)
+    if not hops or not at then return nil end
+    return { world = world, author = author, faction = FACTION_NAME[factionCode], server = server ~= 0 and server or nil,
+        hops = hops, at = at, type = typeCode, record = record }
 end
 
 -- Returns faction name, type code, records; or nil for anything we do not speak

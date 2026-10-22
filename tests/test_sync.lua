@@ -76,6 +76,70 @@ return function(T, H)
         T.noErrors()
     end)
 
+    T.case("HH-150: grouped on Forever, also sent to the party, or the raid", function()
+        local ns = H.Boot({ client = "forever" })
+        H.inGroup = true
+        RealDeath(ns)
+        H.Advance(3)
+        T.eq(#H.sent, 2, "channel and party")
+        T.eq(H.sent[1].chatType, "CHANNEL", "the channel first")
+        T.eq(H.sent[2].chatType, "PARTY", "then the party")
+
+        H.sent = {}
+        H.inRaid = true
+        RealDeath(ns, H.serverTime - 30)
+        H.Advance(3)
+        T.eq(H.sent[2].chatType, "RAID", "the raid instead of the party")
+        T.noErrors()
+    end)
+
+    T.case("HH-150: the same message on the channel and the party is taken once", function()
+        local ns = H.Boot({ client = "forever" })
+        local message = PeerMessage(ns, PeerReport("Peer-Firemaw"))[1]
+        H.Fire("CHAT_MSG_ADDON", "HeadHunter", message, "CHANNEL", "Peer-Firemaw")
+        H.Fire("CHAT_MSG_ADDON", "HeadHunter", message, "PARTY", "Peer-Firemaw")
+        for _ = 1, 20 do H.Advance(0) end
+        T.eq(ns.Transport.stats.received, 1, "one record taken")
+        T.eq(ns.Transport.stats.duplicates, 1, "the copy dropped")
+
+        H.Advance(ns.Transport.DUPLICATE_WINDOW)
+        H.Fire("CHAT_MSG_ADDON", "HeadHunter", message, "CHANNEL", "Peer-Firemaw")
+        for _ = 1, 20 do H.Advance(0) end
+        T.eq(ns.Transport.stats.received, 2, "taken again after the window")
+        T.noErrors()
+    end)
+
+    T.case("HH-150: a channel that never joins warns once, and the group carries on", function()
+        H.Install({ client = "forever" })
+        H.joinWorks = false
+        local ns = H.Load()
+        H.Fire("ADDON_LOADED", "HeadHunter")
+        H.Fire("PLAYER_ENTERING_WORLD", true, false)
+        for _ = 1, 30 do H.Advance(5) end
+        T.eq(ns.Transport:ChannelID(), nil, "never joined")
+        T.ok(H.Printed("cannot be used here"), "warned")
+        local warnings = 0
+        for _, line in ipairs(H.printed) do
+            if line:find("cannot be used here") then warnings = warnings + 1 end
+        end
+        T.eq(warnings, 1, "once")
+
+        H.inGroup = true
+        RealDeath(ns)
+        H.Advance(3)
+        T.eq(H.sent[#H.sent].chatType, "PARTY", "sent to the party")
+        T.noErrors()
+    end)
+
+    T.case("HH-150: a password on the channel warns, and the channel is not used", function()
+        local ns = H.Boot({ client = "forever" })
+        H.Fire("CHANNEL_PASSWORD_REQUEST", "HeadHunterSync")
+        T.ok(H.Printed("cannot be used here"), "warned")
+        for _, route in ipairs(ns.Transport:AutoRoutes()) do
+            T.ok(route.chatType ~= "CHANNEL", "no channel route")
+        end
+    end)
+
     T.case("simulated deaths are stored but never broadcast", function()
         local ns = H.Boot({ client = "era" })
         H.Slash("sim death Gank 60 ROGUE Orc")

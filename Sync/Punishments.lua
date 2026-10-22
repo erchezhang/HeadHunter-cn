@@ -168,16 +168,33 @@ end
 
 function Punishments:OnPeer(record, sender)
     local p = Checked(ns.Protocol.DecodePunishment(record))
-    if not p or not ns.Utils.SameCharacter(sender, p.by) or Known(p) then return nil end
+    if not p or not ns.Utils.SameCharacter(sender, p.by) then return nil end
+    local store = Store()
+    local have = store and store[Punishments.Id(p.outlaw, p.t, p.by)]
+    if have then
+        if ns.Relay.Confirm(have, "peer", sender) then ns.Events:Fire("HH_PUNISHMENT_ADDED", have) end
+        return nil
+    end
+    if Known(p) then return nil end
     if not UnderRateLimit(sender) then return nil end
     return self:Add(p, "peer", sender)
 end
 
--- Passed on by another HeadHunter during login catch-up (HH-023): no rate limit (one
--- pull brings many), the time checks still apply
+-- Passed on by another HeadHunter (login catch-up, HH-023; a carrier of another server,
+-- HH-151): no rate limit (one pull brings many), the time checks still apply. It counts
+-- (the popup) once a second source has it (Sync/Relay.lua).
 function Punishments:AddRelayed(record, sender)
     local p = Checked(ns.Protocol.DecodePunishment(record))
-    if not p or Known(p) then return nil end
+    if not p then return nil end
+    local store = Store()
+    local have = store and store[Punishments.Id(p.outlaw, p.t, p.by)]
+    if have then
+        if ns.Relay.Vouch(have, sender, have.by) then ns.Events:Fire("HH_PUNISHMENT_ADDED", have) end
+        return nil
+    end
+    if Known(p) then return nil end
+    p.origin = "relay"
+    ns.Relay.Vouch(p, sender, p.by)
     return self:Add(p, "relay", sender)
 end
 

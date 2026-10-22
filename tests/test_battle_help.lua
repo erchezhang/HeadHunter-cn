@@ -89,15 +89,17 @@ return function(T, H)
     T.case("players fighting there see who is coming; others do not", function()
         local ns = H.Boot({ client = "era" })
         local U = ns.Utils
-        local help = ns.Protocol.Pack("A", "B", { ns.Protocol.EncodeHelp(1436, H.serverTime) })
-        H.Deliver(help, "Iron-Firemaw")
+        local function Help(seconds)
+            return ns.Protocol.Pack("A", "B", { ns.Protocol.EncodeHelp(1436, H.serverTime + seconds) })
+        end
+        H.Deliver(Help(0), "Iron-Firemaw")
         T.ok(not H.Printed("is coming to the fight"), "not fighting there: nothing")
 
         ns.Hotspots:AddFighter(1436, U.CompactName(U.UnitKey("player")), H.serverTime, 0.4, 0.6, {})
-        H.Deliver(help, "Iron-Firemaw")
+        H.Deliver(Help(1), "Iron-Firemaw")
         T.ok(H.Printed("|cffff7fff|Hplayer:Iron|h%[Iron%]|h|r is coming to the fight in Westfall"), "fighting there: told, a click whispers them")
         H.printed = {}
-        H.Deliver(help, "Iron-Firemaw")
+        H.Deliver(Help(2), "Iron-Firemaw")
         T.ok(not H.Printed("is coming to the fight"), "once a minute per helper")
         T.noErrors()
     end)

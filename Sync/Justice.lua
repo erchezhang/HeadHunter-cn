@@ -412,7 +412,8 @@ end
 -- A catch passed on by another HeadHunter during login catch-up (HH-023): no rate
 -- limit (one pull brings many), the time checks still apply. It ends WANTED only
 -- once a second source has it (HH-121, Sync/Relay.lua).
-function Justice:AddRelayed(record, sender)
+-- hunter: who made the catch, when an envelope says it (HH-151); else the killer
+function Justice:AddRelayed(record, sender, hunter)
     local outlaw, t, mapID, killer, who = ns.Protocol.DecodeJustice(record)
     if not outlaw then return nil end
     local U = ns.Utils
@@ -428,10 +429,11 @@ function Justice:AddRelayed(record, sender)
         if ns.Relay.Vouch(have, sender, have.killer) then ns.Events:Fire("HH_JUSTICE_UPDATED", have) end
         return nil
     end
-    local catch = { id = outlaw .. ":" .. t, outlaw = outlaw, t = t, mapID = mapID, killer = killer, hunter = killer,
+    hunter = hunter and U.PlayerKey(hunter) or killer
+    local catch = { id = outlaw .. ":" .. t, outlaw = outlaw, t = t, mapID = mapID, killer = killer, hunter = hunter,
         origin = "relay" }
     Justice.SetKillerWho(catch, who)
-    ns.Relay.Vouch(catch, sender, killer)
+    ns.Relay.Vouch(catch, sender, killer, hunter)
     return self:Add(catch, "relay", sender)
 end
 

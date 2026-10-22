@@ -155,6 +155,21 @@ local function Choose()
     end)
 end
 
+-- HH-151: pull the records since `sinceTime` from one HeadHunter we just linked with (of
+-- another home server), unless a catch-up is under way
+function CatchUp:PullFrom(peer, sinceTime)
+    local id = ns.Utils.CompactName(peer)
+    if not id or state == "asking" or state == "pulling" or not ns.Guards:IsActive() then return false end
+    state, offers, sources, pending = "pulling", {}, { peer }, { [id] = true }
+    received = { reports = 0, catches = 0 }
+    ns.Transport:SendDirect(ns.Protocol.TYPES.QUERY, { "p" .. B36(sinceTime) }, peer)
+    ns:Debug("Catch-up: pulling from linked", peer)
+    C_Timer.After(CatchUp.GIVE_UP, function()
+        if state == "pulling" then CatchUp:Finish("timeout") end
+    end)
+    return true
+end
+
 function CatchUp:OnOffer(record, sender)
     local count = FromB36(record)
     if state ~= "asking" or not count or count <= 0 then return end

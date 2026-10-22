@@ -54,6 +54,25 @@ local function Prune(now)
     end
 end
 
+-- HH-151: a HeadHunter heard lately (a compact name)
+function Presence:Knows(name)
+    local peer = seen[name]
+    return peer ~= nil and ns.Utils.Now() - peer.t <= self.WINDOW
+end
+
+-- HH-151: the others online on our home server, and on other servers (unknown: ours,
+-- as only the channel leaves the server out, and it is ours)
+function Presence:Servers()
+    local mine, now = ns.Utils.PlayerServer(), ns.Utils.Now()
+    local ours, others = 0, 0
+    for _, peer in pairs(seen) do
+        if now - peer.t <= self.WINDOW then
+            if peer.server and mine and peer.server ~= mine then others = others + 1 else ours = ours + 1 end
+        end
+    end
+    return ours, others
+end
+
 function Presence:Count()
     local now = ns.Utils.Now()
     if now - lastPrune >= self.PRUNE_EVERY then Prune(now) end
@@ -91,7 +110,8 @@ function Presence.AnswerChance(online)
 end
 
 -- Called by Transport for every message received (version only from presence ones)
-function Presence:Heard(sender, faction, version)
+-- server: the sender's home server when the route tells it (HH-151); kept once known
+function Presence:Heard(sender, faction, version, server)
     local name = ns.Utils.CompactName(sender)
     if not name or (faction ~= "Alliance" and faction ~= "Horde") then return end
     local now = ns.Utils.Now()
@@ -107,6 +127,7 @@ function Presence:Heard(sender, faction, version)
         t = now,
         faction = faction,
         version = version and tostring(version):sub(1, 16) or (before and before.version) or "?",
+        server = server or (before and before.server),
     }
     if isNew and not capped and now - lastAnswer >= self.ANSWER_COOLDOWN
         and math.random() < Presence.AnswerChance(self:Count().total) then
@@ -167,8 +188,13 @@ function Presence.Short(count)
 end
 
 ns.SlashCommands:Register("online", function()
-    ns:Print(Presence.Describe(Presence:Count()))
+    local count = Presence:Count()
+    ns:Print(Presence.Describe(count))
     if capped then return end
+    if count.scope ~= "group" then
+        local ours, others = Presence:Servers()
+        ns:Print(string.format(L.ONLINE_SERVERS, ours + 1, others))
+    end
     local parts = {}
     for version, players in pairs(Presence:Versions()) do
         parts[#parts + 1] = string.format("%s (%d)", version, players)

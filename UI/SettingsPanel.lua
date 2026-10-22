@@ -43,6 +43,7 @@ SettingsPanel.OPTIONS = {
     -- HH-132: needs HeadHunter Sync, which uploads and deletes the pictures
     { key = "screenshots", kind = "toggle", path = "screenshots", label = "SET_SCREENSHOTS", tip = "SET_SCREENSHOTS_TIP",
         available = function() return ns.Screenshots.SyncInstalled() end, unavailable = "SET_NEEDS_SYNC" },
+    { key = "relay", kind = "toggle", path = "relay", label = "SET_RELAY", tip = "SET_RELAY_TIP" },
     { section = "SET_SECTION_RULES", page = "general" },
     { key = "serial", kind = "number", path = "serialKillerWindowMin", min = 5, max = 15, step = 1,
         label = "SET_SERIAL", tip = "SET_SERIAL_TIP" },

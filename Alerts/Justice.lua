@@ -124,8 +124,9 @@ function JusticeAlerts:AskGlass(record, outlaw, test)
 end
 
 -- A peer's punishment just now: the glass popup, as for a bust
+-- A peer's punishment, or a carried one once a second source has it (HH-151)
 function JusticeAlerts:OnPunished(record)
-    if record.origin ~= "peer" then return nil end
+    if record.origin ~= "peer" and not (record.origin == "relay" and ns.Relay.Counts(record)) then return nil end
     local U = ns.Utils
     local entry = ns.Wanted:Get(record.outlaw)
     local outlaw = (entry and (entry.key and U.DisplayName(entry.key) or entry.name))
