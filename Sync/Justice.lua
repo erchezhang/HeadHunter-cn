@@ -10,7 +10,9 @@
 --   Era      combat log PARTY_KILL by us, our pet or a group member; or an assist
 --            (author, 2026-10-01): someone else landed the blow, but we, our pet or
 --            our group hit them in the last ASSIST_WINDOW seconds (as the game gives
---            an honorable kill to everyone who helped)
+--            an honorable kill to everyone who helped). HH-153: the combat log also
+--            logs a hunter's Feign Death as UNIT_DIED, so an assist counts only when
+--            the game's honorable kill line names them within HONOR_WINDOW
 --   Forever  no combat log (author, 2026-10-04): a WANTED player we saw die (our target
 --            or a nameplate, Sync/Witness.lua) and the game's honor award for us ("You
 --            have been awarded 5 Honor.", no name) within HONOR_WINDOW of it: the game
@@ -54,6 +56,8 @@ local REACTION_HOSTILE = 0x00000040
 local senderLog = {}
 local toAnnounce = {}           -- Era: our catch ids waiting for the [Announce] click
 local hits = {}                 -- Era: enemy GUID -> Now() of our side's last hit on them
+-- Era: player key -> { guid, at } of a hit enemy's UNIT_DIED, waiting for the honor line (HH-153)
+local assistDeaths = {}
 local seenDeaths = {}           -- Forever: { outlaw, guid, at } waiting for our honor award
 local lastHonor = -math.huge    -- Forever: Now() of our last honor award
 
@@ -231,8 +235,9 @@ function Justice:OnCombatLog()
     else
         local hit = destGUID and hits[destGUID]
         if destGUID then hits[destGUID] = nil end
-        if hit and U.Now() - hit <= self.ASSIST_WINDOW then
-            self:OnEnemyKilled(U.PlayerKey(destName), destGUID, "assist")
+        local key = U.PlayerKey(destName)
+        if hit and key and U.Now() - hit <= self.ASSIST_WINDOW then
+            assistDeaths[key] = { guid = destGUID, at = U.Now() }
         end
     end
 end
@@ -317,7 +322,13 @@ function Justice:OnHonorGain(text)
             ns.Events:Fire("HH_HONOR_LINE", "kill", name, text)
             local key = Justice.HonorVictim(name)
             ns.Log:Add("info", "Honor line: " .. text .. " -> " .. (key or "no watched outlaw"))
-            return key and self:OnEnemyKilled(key, nil, "honor") or nil
+            if not key then return nil end
+            local assist = assistDeaths[key]
+            assistDeaths[key] = nil
+            if assist and ns.Utils.Now() - assist.at <= self.HONOR_WINDOW then
+                return self:OnEnemyKilled(key, assist.guid, "assist")
+            end
+            return self:OnEnemyKilled(key, nil, "honor")
         end
     end
     for _, pattern in ipairs(AwardPatterns()) do
