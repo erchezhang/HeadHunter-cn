@@ -6,7 +6,7 @@
 
 **Got ganked? HeadHunter records who killed you, shares it with your faction and marks WANTED outlaws on the map. Form a posse and bring them to justice.**
 
-For **WoW Forever**.
+For **Classic Era** and **WoW Forever**. On Classic Era it works in game only: the website and the HeadHunter Sync app are for WoW Forever.
 
 See the WANTED board, the best duelists and the top hunters on **[headhunterwow.com](https://headhunterwow.com)**.
 
