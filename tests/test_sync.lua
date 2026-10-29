@@ -602,6 +602,73 @@ return function(T, H)
         T.eq(#H.chatSent, 1, "/hh report sent it")
     end)
 
+    -- The game's own popups as the client has them, each counting its clicks
+    local function GameDialogs()
+        local calls = {}
+        for _, which in ipairs({ "DEATH", "RESURRECT", "RECOVER_CORPSE" }) do
+            _G.StaticPopupDialogs[which] = {
+                OnAccept = function() calls[#calls + 1] = which .. " accept" end,
+                OnCancel = function() calls[#calls + 1] = which .. " cancel" end,
+            }
+        end
+        return calls
+    end
+
+    T.case("era: Release Spirit sends the waiting reports, no Report popup while dead", function()
+        local ns = H.Boot({ client = "era" })
+        local calls = GameDialogs()
+        H.units.player.dead = true
+        RealDeath(ns, H.serverTime - 10)
+        RealDeath(ns, H.serverTime - 5)
+        T.eq(#H.popups, 0, "no Report popup while dead")
+        T.eq(ns.ReportPrompt:PendingCount(), 2, "two waiting")
+
+        _G.StaticPopupDialogs.DEATH.OnAccept()
+        T.eq(calls[1], "DEATH accept", "the game still releases")
+        T.eq(#H.chatSent, 1, "both deaths in one channel text line")
+        T.eq(H.chatSent[1].chatType, "CHANNEL", "realm-wide")
+        T.eq(ns.ReportPrompt:PendingCount(), 0, "nothing left waiting")
+
+        H.units.player.dead = false
+        H.Fire("PLAYER_UNGHOST")
+        T.eq(#H.popups, 0, "no popup once sent")
+        T.noErrors()
+    end)
+
+    T.case("era: a resurrection or the corpse sends too; the death popup's timeout does not", function()
+        local ns = H.Boot({ client = "era" })
+        GameDialogs()
+        H.units.player.dead = true
+        RealDeath(ns, H.serverTime - 30)
+        _G.StaticPopupDialogs.DEATH.OnCancel(nil, nil, "timeout")
+        T.eq(#H.chatSent, 0, "a timeout is no click")
+        _G.StaticPopupDialogs.RESURRECT.OnAccept()
+        T.eq(#H.chatSent, 1, "accepting the resurrection sent it")
+
+        RealDeath(ns, H.serverTime - 20)
+        _G.StaticPopupDialogs.DEATH.OnCancel(nil, nil, "clicked")
+        T.eq(#H.chatSent, 2, "the soulstone click sent it")
+
+        RealDeath(ns, H.serverTime - 10)
+        _G.StaticPopupDialogs.RECOVER_CORPSE.OnAccept()
+        T.eq(#H.chatSent, 3, "recovering the corpse sent it")
+        _G.StaticPopupDialogs.RECOVER_CORPSE.OnAccept()
+        T.eq(#H.chatSent, 3, "nothing waiting, nothing sent")
+    end)
+
+    T.case("era: alive again with reports waiting, the Report popup asks", function()
+        local ns = H.Boot({ client = "era" })
+        GameDialogs()
+        H.units.player.dead = true
+        RealDeath(ns)
+        H.Fire("PLAYER_ALIVE")
+        T.eq(#H.popups, 0, "a ghost is not asked")
+        H.units.player.dead = false
+        H.Fire("PLAYER_UNGHOST")
+        T.eq(H.popups[#H.popups].which, "HEADHUNTER_REPORT", "asked once alive")
+        T.eq(#H.chatSent, 0, "nothing sent without a click")
+    end)
+
     T.case("era: simulated deaths and Forever deaths never prompt", function()
         H.Boot({ client = "era" })
         H.Slash("sim death Gank 60 ROGUE Orc")
