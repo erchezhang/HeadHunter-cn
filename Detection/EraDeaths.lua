@@ -84,12 +84,33 @@ local function OwnerId(owner)
     return owner.guid or ("key:" .. owner.key)
 end
 
-local function Hit(id, owner, amount, overkill, now)
+local function KeyOf(who)
+    return who.key or (who.name and ns.Utils.PlayerKey(who.name))
+end
+
+-- The attacker a player or a pet's owner already is: by GUID, or by name when a pet's
+-- owner was learned without a GUID, so a hunter and their pet are one attacker (seen in
+-- game 2026-10-30: "Gang 3vs1" for a hunter, their pet and one more)
+local function AttackerIdOf(owner)
+    local id = OwnerId(owner)
+    if attackers[id] then return id end
+    local key = KeyOf(owner)
+    for otherId, entry in pairs(attackers) do
+        if (owner.guid and entry.guid == owner.guid) or (key and KeyOf(entry) == key) then
+            return otherId
+        end
+    end
+    return id
+end
+
+local function Hit(owner, amount, overkill, now)
+    local id = AttackerIdOf(owner)
     local entry = attackers[id]
     if not entry then
         entry = { guid = owner.guid, key = owner.key, name = owner.name, damage = 0 }
         attackers[id] = entry
     end
+    entry.guid = entry.guid or owner.guid
     entry.damage = entry.damage + (amount or 0)
     entry.lastHit = now
     if overkill and overkill >= 0 then
@@ -143,11 +164,11 @@ function EraDeaths:OnCombatLog()
     local now = ns.Utils.Now()
 
     if IsPlayer(sourceFlags) then
-        Hit(sourceGUID, { guid = sourceGUID, name = sourceName }, amount, overkill, now)
+        Hit({ guid = sourceGUID, name = sourceName }, amount, overkill, now)
     elseif IsPlayerPet(sourceFlags) then
         local owner = ns.PetOwners:Owner(sourceGUID)
         if owner then
-            Hit(OwnerId(owner), owner, amount, overkill, now)
+            Hit(owner, amount, overkill, now)
         else
             -- Owner unknown for now: resolved at death
             local pet = petHits[sourceGUID] or { name = sourceName, damage = 0 }
@@ -168,7 +189,7 @@ local function ResolvePetHits(now)
         if now - pet.lastHit <= ATTACKER_WINDOW then
             local owner = ns.PetOwners:Owner(petGUID) or ns.PetOwners:ScanFor(petGUID)
             if owner then
-                local id = OwnerId(owner)
+                local id = AttackerIdOf(owner)
                 local entry = attackers[id] or { guid = owner.guid, key = owner.key, name = owner.name, damage = 0, lastHit = 0 }
                 entry.damage = entry.damage + pet.damage
                 entry.lastHit = math.max(entry.lastHit, pet.lastHit)

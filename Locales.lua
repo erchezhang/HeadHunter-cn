@@ -15,7 +15,7 @@ ns.locale = type(dev) == "table" and type(dev.locale) == "string" and dev.locale
 L.LOADED = "v%s loaded. |cffffff00/hh help|r for commands."
 L.FOREVER_SAVED_VARS = "|cffff8800WoW Forever is in testing mode:|r this client does not load saved data back (a known client issue), so your lists and settings reset on every reload. Catch-up refills them from other HeadHunters when you log in."
 L.FOREVER_SAVED_VARS_SHORT = "Forever testing mode: saved data resets on reload (client issue)"
-L.UNSUPPORTED_CLIENT = "This client (interface %s) is not supported. HeadHunter runs on WoW Forever only."
+L.UNSUPPORTED_CLIENT = "This client (interface %s) is not supported. HeadHunter runs on Classic Era and WoW Forever only."
 
 L.HELP_HEADER = "|cffc41e3a========== HeadHunter ==========|r"
 L.HELP_HELP = "|cffffff00/hh help|r: List all commands"

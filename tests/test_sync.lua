@@ -602,6 +602,73 @@ return function(T, H)
         T.eq(#H.chatSent, 1, "/hh report sent it")
     end)
 
+    -- The game functions the death, resurrection and corpse clicks call, each counting its calls
+    local function GameFunctions()
+        local calls = {}
+        for _, name in ipairs({ "RepopMe", "UseSoulstone", "AcceptResurrect", "RetrieveCorpse" }) do
+            _G[name] = function() calls[#calls + 1] = name end
+        end
+        _G.C_DeathInfo = { UseSelfResurrectOption = function() calls[#calls + 1] = "UseSelfResurrectOption" end }
+        return calls
+    end
+
+    T.case("era: Release Spirit sends the waiting reports, no Report popup while dead", function()
+        local calls = GameFunctions()
+        local ns = H.Boot({ client = "era" })
+        H.units.player.dead = true
+        RealDeath(ns, H.serverTime - 10)
+        RealDeath(ns, H.serverTime - 5)
+        T.eq(#H.popups, 0, "no Report popup while dead")
+        T.eq(ns.ReportPrompt:PendingCount(), 2, "two waiting")
+
+        _G.RepopMe()
+        T.eq(calls[1], "RepopMe", "the game still releases")
+        T.eq(#H.chatSent, 1, "both deaths in one channel text line")
+        T.eq(H.chatSent[1].chatType, "CHANNEL", "realm-wide")
+        T.eq(ns.ReportPrompt:PendingCount(), 0, "nothing left waiting")
+
+        H.units.player.dead = false
+        H.Fire("PLAYER_UNGHOST")
+        T.eq(#H.popups, 0, "no popup once sent")
+        T.noErrors()
+    end)
+
+    T.case("era: Reincarnation, the soulstone, a resurrection and the corpse send too", function()
+        GameFunctions()
+        local ns = H.Boot({ client = "era" })
+        H.units.player.dead = true
+        RealDeath(ns, H.serverTime - 40)
+        _G.C_DeathInfo.UseSelfResurrectOption(1, 1)
+        T.eq(#H.chatSent, 1, "Reincarnation sent it")
+
+        RealDeath(ns, H.serverTime - 30)
+        _G.UseSoulstone()
+        T.eq(#H.chatSent, 2, "the soulstone sent it")
+
+        RealDeath(ns, H.serverTime - 20)
+        _G.AcceptResurrect()
+        T.eq(#H.chatSent, 3, "accepting the resurrection sent it")
+
+        RealDeath(ns, H.serverTime - 10)
+        _G.RetrieveCorpse()
+        T.eq(#H.chatSent, 4, "recovering the corpse sent it")
+        _G.RetrieveCorpse()
+        T.eq(#H.chatSent, 4, "nothing waiting, nothing sent")
+    end)
+
+    T.case("era: alive again with reports waiting, the Report popup asks", function()
+        GameFunctions()
+        local ns = H.Boot({ client = "era" })
+        H.units.player.dead = true
+        RealDeath(ns)
+        H.Fire("PLAYER_ALIVE")
+        T.eq(#H.popups, 0, "a ghost is not asked")
+        H.units.player.dead = false
+        H.Fire("PLAYER_UNGHOST")
+        T.eq(H.popups[#H.popups].which, "HEADHUNTER_REPORT", "asked once alive")
+        T.eq(#H.chatSent, 0, "nothing sent without a click")
+    end)
+
     T.case("era: simulated deaths and Forever deaths never prompt", function()
         H.Boot({ client = "era" })
         H.Slash("sim death Gank 60 ROGUE Orc")
