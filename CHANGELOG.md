@@ -1,5 +1,37 @@
 # Changelog
 
+## 1.0.0
+
+HeadHunter 1.0 for the WoW Forever release. Everything since 0.5.0:
+
+### WANTED and justice
+
+- A WANTED player now needs kills on **at least 3 different players**, and one player's deaths count at most twice an hour. Nobody can make someone WANTED alone. Kills, totals and badges still count every death.
+- **Punished:** Bullies and Deadbeats brought down while not WANTED are recorded, shared and shown next to Busted, with a PUNISHED popup, and they take glasses too.
+- Joining a posse needs the outlaw's level window, from the popup and from the poster. A player far below cannot join or earn the +1.
+
+### One world for every HeadHunter
+
+- HeadHunters of every home server share one world through group bridges and nameplate links. A group always shares over party or raid, and a blocked channel is said only once.
+- The website's lists are shared in game, and duel spots from one HeadHunter reach everyone and stay for 5 minutes.
+- Each home keeps its own region, so a player on two regions is never filed in the other.
+
+### Map
+
+- Our map marks sit above other addons' marks. Shift-click to use them; a plain click goes through to the map.
+- An invite whisper from the map is opened for you to send, at most once an hour per HeadHunter, and duel invites only from their zone.
+- A war says whether you were in its zone. Group members far away are not counted in the fight, and Underdog is a 1 vs 1 win only.
+
+### Classic Era
+
+- HeadHunter runs on **Classic Era** again, in game only: the website and HeadHunter Sync are for WoW Forever.
+- On Classic Era your death report goes to every HeadHunter on the realm with your Release Spirit, Reincarnation, resurrection or corpse click. The Report popup only asks once you are alive.
+- A hunter's Feign Death is never busted, and a hunter and their pet count as one attacker.
+
+### Releases
+
+- Every release is uploaded to Wago, and to CurseForge.
+
 ## 0.5.0
 
 This update covers everything since 0.3.6. Big fights now have a beginning and an end, duelers can find each other across layers, the Bounty board has new tabs, and HeadHunter runs smoothly even in the busiest dueling spots.
