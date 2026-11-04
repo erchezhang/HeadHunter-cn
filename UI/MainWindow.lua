@@ -55,13 +55,16 @@ MainWindow.SYNC_NOTE_COLOR = { 0.4, 0.7, 1 }
 MainWindow.GANG_EMPTY_SIZE = 18
 MainWindow.GANG_EMPTY_SPACING = 8
 
--- Sections new in this version carry a NEW tag on their top tab (HH-155: Gang in 1.0.0)
+-- Sections new in this version carry a small raised NEW tag on their top tab (HH-155: Gang
+-- in 1.0.0)
 MainWindow.NEW_SECTIONS = { gang = true }
 
 function MainWindow.SectionLabel(id)
-    local label = L["SECTION_" .. id:upper()]
-    if MainWindow.NEW_SECTIONS[id] then label = label .. " |cff40ff40" .. L.TAG_NEW .. "|r" end
-    return label
+    return L["SECTION_" .. id:upper()]
+end
+
+function MainWindow.SectionBadge(id)
+    return MainWindow.NEW_SECTIONS[id] and L.TAG_NEW or nil
 end
 
 -- The top tabs and their views (the sub-tabs); a view is what the list shows
@@ -945,7 +948,7 @@ local function CreateMainFrame()
     Theme.ResizeGrip(f)
     local tabs = {}
     for i, section in ipairs(MainWindow.SECTIONS) do
-        tabs[i] = { id = section.id, label = MainWindow.SectionLabel(section.id) }
+        tabs[i] = { id = section.id, label = MainWindow.SectionLabel(section.id), badge = MainWindow.SectionBadge(section.id) }
     end
     f.tabs = Theme.CreateTopTabs(f, tabs, function(id) MainWindow:SelectSection(id) end)
 
