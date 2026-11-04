@@ -702,6 +702,7 @@ local CN = {
     SEARCH_PLAYER = "查找玩家",
     SEARCH_EMPTY = "没有叫 %s 的玩家",
     -- HH-155: gangs
+    GANG_INVITE_UNCONFIRMED = "你的帮派还没有上传到网站：HeadHunter Sync 发送后（/reload 或登出后）即可邀请。",
     GANG_NO_ADDON = "%s 没有回应邀请：不在线，或没有安装 HeadHunter。",
     GANG_CREATE_BUTTON = "创建帮派",
     GANG_CREATE_POPUP = "为你的帮派命名（3 到 24 个字母或数字，可含空格、' 和 -）。HeadHunter Sync 会在网站上核对。",

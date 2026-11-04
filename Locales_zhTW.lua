@@ -703,6 +703,7 @@ local TW = {
     SEARCH_PLAYER = "尋找玩家",
     SEARCH_EMPTY = "沒有叫 %s 的玩家",
     -- HH-155: gangs
+    GANG_INVITE_UNCONFIRMED = "你的幫派還沒有上傳到網站：HeadHunter Sync 傳送後（/reload 或登出後）即可邀請。",
     GANG_NO_ADDON = "%s 沒有回應邀請：不在線上，或沒有安裝 HeadHunter。",
     GANG_CREATE_BUTTON = "建立幫派",
     GANG_CREATE_POPUP = "為你的幫派命名（3 到 24 個字母或數字，可含空格、' 和 -）。HeadHunter Sync 會在網站上核對。",

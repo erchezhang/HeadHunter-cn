@@ -138,7 +138,7 @@ function Gangs:Mine()
     local gang
     for _, g in ipairs(ns.SiteData:Gangs()) do
         for _, member in ipairs(g.members) do
-            if member.key == me then gang = g end
+            if member.key == me then gang = { name = g.name, leader = g.leader, members = g.members, confirmed = true } end
         end
     end
     local results = self:Results()
@@ -153,7 +153,8 @@ function Gangs:Mine()
             elseif action.kind == "leave" then
                 gang = nil
             elseif action.kind == "rename" and gang then
-                gang = { name = action.name, leader = gang.leader, members = gang.members, pending = true }
+                gang = { name = action.name, leader = gang.leader, members = gang.members, pending = true,
+                    confirmed = gang.confirmed }
             elseif action.kind == "invite" and action.accepted and gang then
                 local known = false
                 for _, member in ipairs(gang.members) do
@@ -163,7 +164,8 @@ function Gangs:Mine()
                     local members = {}
                     for i, member in ipairs(gang.members) do members[i] = member end
                     members[#members + 1] = { key = action.player, pending = true }
-                    gang = { name = gang.name, leader = gang.leader, members = members, pending = gang.pending }
+                    gang = { name = gang.name, leader = gang.leader, members = members, pending = gang.pending,
+                        confirmed = gang.confirmed }
                 end
             end
         end
@@ -222,6 +224,7 @@ function Gangs:Invite(key)
     local gang = self:Mine()
     if not gang then ns:Print(L.GANG_NOT_IN_A_GANG) return false end
     if not self:IsLeader(gang) then ns:Print(L.GANG_NOT_LEADER) return false end
+    if not gang.confirmed then ns:Print(L.GANG_INVITE_UNCONFIRMED) return false end
     if not key or ns.Utils.SameCharacter(key, Me()) then ns:Print(L.GANG_INVITE_WHO) return false end
     if #gang.members >= Gangs.MAX_MEMBERS then ns:Print(L.GANG_FULL) return false end
     local now = ns.Utils.Now()

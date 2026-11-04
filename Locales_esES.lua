@@ -707,6 +707,7 @@ local ES = {
     SEARCH_PLAYER = "Buscar un jugador",
     SEARCH_EMPTY = "Nadie se llama %s",
     -- HH-155: gangs
+    GANG_INVITE_UNCONFIRMED = "Tu banda aún no está en la web: podrás invitar cuando HeadHunter Sync la envíe (tras un /reload o al desconectar).",
     GANG_NO_ADDON = "%s no respondió a la invitación: no está conectado o no tiene HeadHunter.",
     GANG_CREATE_BUTTON = "Crear banda",
     GANG_CREATE_POPUP = "Ponle nombre a tu banda (3 a 24 letras o cifras, espacios, ' y -). HeadHunter Sync lo comprueba en la web.",

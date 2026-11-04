@@ -264,13 +264,21 @@ return function(T, H)
         T.eq(looks[FriendsFrameTab3], "selected", "and Raid looks selected")
         T.eq(title.value, "Raid", "and its title is back")
 
-        tab:GetScript("OnClick")()
-        T.ok(panel:IsShown(), "ours again")
         FriendsFrame.selectedTab = 1
         RaidFrame:Hide()
-        FriendsFrameTab1.hooks.OnClick(FriendsFrameTab1)
-        T.ok(not panel:IsShown(), "a click on Contacts closes ours")
-        T.ok(not RaidFrame:IsShown(), "Blizzard switched pages itself: we show nothing back")
+        FriendsListFrame:Show()
+        tab:GetScript("OnClick")()
+        T.ok(panel:IsShown(), "ours again, opened from Contacts")
+        FriendsFrame.selectedTab = 2
+        RaidFrame:Show()
+        title:SetText("Raid")
+        hooked.FriendsFrame_Update()
+        FriendsFrameTab3.hooks.OnClick(FriendsFrameTab3)
+        T.ok(not panel:IsShown(), "a click on Raid closes ours")
+        T.ok(RaidFrame:IsShown(), "the Raid page the game showed during the click is back")
+        T.ok(not FriendsListFrame:IsShown(), "the Contacts page stays hidden")
+        T.eq(title.value, "Raid", "the game's new title is back")
+        T.eq(looks[FriendsFrameTab3], "selected", "Raid looks selected")
 
         tab:GetScript("OnClick")()
         hooked.FriendsFrame_OnShow()
@@ -322,5 +330,18 @@ return function(T, H)
         H.Deliver(ns.Protocol.Pack("A", ns.Protocol.TYPES.GANG, { "i;Black Hand" }), "Kira Dawnblade")
         Settle()
         T.eq(#Whispers("r"), 1, "received")
+    end)
+
+    T.case("invite: only once the gang is on the website", function()
+        local ns = Boot()
+        H.Slash("gang create Black Hand")
+        H.printed = {}
+        H.Slash("gang invite Tobin Ashford")
+        T.ok(H.Printed("not on the website yet"), "waiting for Sync")
+        local invites = 0
+        for _, action in ipairs(ns.Gangs:Actions()) do
+            if action.kind == "invite" then invites = invites + 1 end
+        end
+        T.eq(invites, 0, "no invite kept")
     end)
 end

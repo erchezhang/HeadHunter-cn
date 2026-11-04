@@ -33,9 +33,11 @@ SocialTab.PAGES = { "FriendsTabHeader", "FriendsListFrame", "QuickJoinFrame", "R
 
 local holder, tab, panel
 local active = false
--- Blizzard's pages we hid on opening ours, and its selected tab then: a click on that same
--- tab redraws nothing, so we show them again ourselves
-local hidden = {}
+-- Blizzard's pages we hid on opening ours (`atOpen`) and the ones its own refreshes showed
+-- while ours was open (`later`), and its selected tab at opening. A click on that same tab
+-- redraws nothing, so both come back from us; a click on another tab shows its page during
+-- the click, which our refresh hook hid again, so `later` comes back.
+local hidden = { atOpen = {}, later = {} }
 local selectedAtOpen
 
 -- The Social window's own tab buttons, in order; numbers may be skipped
@@ -85,32 +87,32 @@ function SocialTab:Refresh()
         end
     end
     if gang and ns.Gangs:IsLeader(gang) then panel.invite:Show() else panel.invite:Hide() end
+    if panel.invite.SetEnabled then panel.invite:SetEnabled(gang and gang.confirmed == true or false) end
     if gang then panel.leave:Show() else panel.leave:Hide() end
     if gang then panel.create:Hide() else panel.create:Show() end
 end
 
 -- Blizzard's pages out of sight while ours is open; RaidFrame only out of combat
-local function HidePage(page)
+local function HidePage(page, list)
     if page and page.IsShown and page:IsShown() then
         page:Hide()
-        hidden[#hidden + 1] = page
+        list[#list + 1] = page
     end
 end
 
-local function HideBlizzardPages()
-    for _, name in ipairs(SocialTab.PAGES) do HidePage(_G[name]) end
+local function HideBlizzardPages(list)
+    for _, name in ipairs(SocialTab.PAGES) do HidePage(_G[name], list) end
     local raid = _G.RaidFrame
     local inCombat = InCombatLockdown and InCombatLockdown()
-    if raid and not inCombat and raid.GetParent and raid:GetParent() == _G.FriendsFrame then HidePage(raid) end
+    if raid and not inCombat and raid.GetParent and raid:GetParent() == _G.FriendsFrame then HidePage(raid, list) end
 end
 
--- The pages we hid, back on show; RaidFrame only out of combat
-local function ShowHiddenPages()
+-- Pages we hid, back on show; RaidFrame only out of combat
+local function ShowPages(list)
     local inCombat = InCombatLockdown and InCombatLockdown()
-    for _, page in ipairs(hidden) do
+    for _, page in ipairs(list) do
         if not (inCombat and page == _G.RaidFrame) then page:Show() end
     end
-    hidden = {}
 end
 
 -- The window's title text, as a font string
@@ -150,9 +152,9 @@ end
 function SocialTab:Open()
     if not panel then return end
     active = true
-    hidden = {}
+    hidden = { atOpen = {}, later = {} }
     selectedAtOpen = _G.FriendsFrame and _G.FriendsFrame.selectedTab
-    HideBlizzardPages()
+    HideBlizzardPages(hidden.atOpen)
     LookOurs()
     ShowOurTitle()
     panel:Show()
@@ -184,12 +186,11 @@ function SocialTab.OnBlizzardTabClick(button)
     local frame = _G.FriendsFrame
     local same = frame and frame.selectedTab == selectedAtOpen
     SocialTab:Close()
-    if same then
-        ShowHiddenPages()
-        ShowBlizzardTitle()
-        if PanelTemplates_SelectTab then pcall(PanelTemplates_SelectTab, button) end
-    end
-    hidden = {}
+    if same then ShowPages(hidden.atOpen) end
+    ShowPages(hidden.later)
+    ShowBlizzardTitle()
+    if PanelTemplates_SelectTab then pcall(PanelTemplates_SelectTab, button) end
+    hidden = { atOpen = {}, later = {} }
 end
 
 -- FriendsFrame_OnShow: a Blizzard tab was clicked or the window opened
@@ -201,7 +202,7 @@ end
 -- FriendsFrame_Update: the window refreshed itself and showed its page again
 function SocialTab.OnBlizzardUpdate()
     if active then
-        HideBlizzardPages()
+        HideBlizzardPages(hidden.later)
         LookOurs()
         ShowOurTitle()
     end
