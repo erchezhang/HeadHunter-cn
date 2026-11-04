@@ -1023,7 +1023,6 @@ local function CreateMainFrame()
     f.eventsInfo:SetText(L.EVENTS_INFO)
     f.eventsCreate:Hide()
     f.eventsInfo:Hide()
-    -- HH-155: our gang: its name and state, Invite (our target) and Leave
     f.gangLeave = Theme.Button(f, L.GANG_LEAVE_BUTTON, "outline", 90, 24)
     f.gangLeave:SetPoint("TOPRIGHT", -18, toolbarY)
     f.gangLeave:SetScript("OnClick", function() ns.Gangs:PromptLeave() end)
@@ -1104,8 +1103,6 @@ local function CreateMainFrame()
 
     f.count = Theme.Text(f, "text", 13, "muted")
     f.count:SetPoint("BOTTOMRIGHT", -26, 11)
-    -- HH-155: the Gang tab's note that members need HeadHunter Sync, in blue, kept inside the
-    -- window: from the left edge to the row count, on up to two lines
     f.gangNote = Theme.Text(f, "text", 13, "foreground")
     f.gangNote:SetPoint("BOTTOMLEFT", 18, 11)
     f.gangNote:SetPoint("RIGHT", f.count, "LEFT", -16, 0)

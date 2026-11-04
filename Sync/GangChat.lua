@@ -20,7 +20,7 @@ local GangChat = ns:RegisterModule("GangChat", {})
 local OWNER = "GangChat"
 
 -- gang chat channel names (the website's Gang::CHAT_PREFIX); older ones started with HHG
-GangChat.PREFIX = "Gang_HH"
+GangChat.PREFIX = ns.Gangs.CHAT_PREFIX
 GangChat.OLD_PREFIX = "HHG"
 -- seconds after login before joining, so the game's own channels take the first slots
 GangChat.JOIN_DELAY = 5
@@ -33,18 +33,17 @@ local ready = false
 -- player key -> { online = true (joined or spoke in the gang channel) or false (left it), t }
 local presence = {}
 
--- Our gang's channel and password while we are in a gang: the ones this character saved
--- (made as leader, or whispered by the leader) unless the download is newer, else the
+-- Our gang's channel and password while we are in a gang: { channel, password, at (the
+-- leader's action that set it) }. The ones this character saved (made as leader, or
+-- whispered by the leader) unless the website applied a channel at least as new, else the
 -- download's; nil once we left (the download still has it until the next sync)
 function GangChat.Credentials()
     if not ns.Gangs.Enabled() or ns.Gangs:Sim() then return nil end
     if not ns.Gangs:Mine() then return nil end
     local saved = ns.Gangs:SavedChat()
     local site = ns.SiteData:GangChat(ns.Utils.UnitKey("player"))
-    if saved and (not site or saved.t >= (ns.SiteData:GeneratedAt() or 0)) then
-        return { channel = saved.channel, password = saved.password }
-    end
-    return site or (saved and { channel = saved.channel, password = saved.password })
+    if saved and (not site or saved.at > (site.at or 0)) then return saved end
+    return site or saved
 end
 
 local function OurChannel(channelBaseName, channelName)
@@ -103,11 +102,6 @@ function GangChat:Join()
     end
     ShowInMainWindow(chat.channel)
     return true
-end
-
-function GangChat:Leave()
-    if current then pcall(LeaveChannelByName, current) end
-    current = nil
 end
 
 function GangChat:Channel()

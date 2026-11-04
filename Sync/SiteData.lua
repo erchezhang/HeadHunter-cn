@@ -328,7 +328,6 @@ function SiteData:Load()
             glasses[record.outlaw .. ":" .. record.t] = record.glasses
         end
     end
-    -- HH-155: the world's gangs and their members, longest first
     gangs = {}
     for _, g in ipairs(type(world.gangs) == "table" and world.gangs or {}) do
         local gang = type(g) == "table" and SiteData.Gang(g)
@@ -445,8 +444,9 @@ function SiteData:Glasses(outlaw, caughtAt)
     return glasses and outlaw and caughtAt and glasses[outlaw .. ":" .. caughtAt] or nil
 end
 
--- A gang of the download (HH-155): { id, name, faction, leader (key), members =
--- { { key, class, race, sex, level, joinedAt } } }, or nil
+-- A gang of the download (HH-155): { id, name, faction, leader (key), leaderAt, renamedAt
+-- (when the website applied them), members = { { key, class, race, sex, level, joinedAt } } },
+-- or nil
 function SiteData.Gang(g)
     local name = Text(g.name)
     if not name then return nil end
@@ -459,14 +459,16 @@ function SiteData.Gang(g)
         end
     end
     return { id = Number(g.id), name = name, faction = SiteData.Faction(g.faction),
-        leader = ns.Utils.PlayerKey(Text(g.leader)), members = members }
+        leader = ns.Utils.PlayerKey(Text(g.leader)), leaderAt = Number(g.leader_at), renamedAt = Number(g.renamed_at),
+        members = members }
 end
 
 function SiteData:Gangs()
     return gangs or {}
 end
 
--- Our character's gang chat channel and password (HH-155): { channel, password } or nil
+-- Our character's gang chat channel and password (HH-155): { channel, password, at (when the
+-- website applied it) } or nil
 function SiteData:GangChat(me)
     local data = Data()
     if not (data and me and type(data.characters) == "table") then return nil end
@@ -475,13 +477,14 @@ function SiteData:GangChat(me)
         if type(c) == "table" and IsOurWorld(c.world, realmType) and ns.Utils.SameCharacter(ns.Utils.PlayerKey(Text(c.name)), me)
                 and type(c.gang_chat) == "table" then
             local channel, password = Text(c.gang_chat.channel), Text(c.gang_chat.password)
-            if channel and password then return { channel = channel, password = password } end
+            if channel and password then return { channel = channel, password = password, at = Number(c.gang_chat.at) } end
         end
     end
     return nil
 end
 
--- What came of our character's gang actions (HH-155): uid -> { kind, status, reason, gang }
+-- What came of our character's gang actions (HH-155): uid -> { kind, status, reason, gang,
+-- requested (a create's name that was taken, so the gang got a number) }
 function SiteData:GangResults(me)
     local data = Data()
     local results = {}
@@ -492,7 +495,8 @@ function SiteData:GangResults(me)
             for _, r in ipairs(type(c.gang_results) == "table" and c.gang_results or {}) do
                 local uid = type(r) == "table" and Text(r.uid)
                 if uid then
-                    results[uid] = { kind = Text(r.kind), status = Text(r.status), reason = Text(r.reason), gang = Text(r.gang) }
+                    results[uid] = { kind = Text(r.kind), status = Text(r.status), reason = Text(r.reason), gang = Text(r.gang),
+                        requested = Text(r.requested) }
                 end
             end
         end

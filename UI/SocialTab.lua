@@ -359,10 +359,13 @@ function SocialTab.OnBlizzardUpdate()
     end
 end
 
+-- Our page: on the window at fixed offsets, not on its inset (the Raid page moves the inset
+-- up, having no header, which shrank the grey strip above our list). The blue note that
+-- members need HeadHunter Sync sits at the top, under the title bar, right after the round
+-- portrait, on up to two lines; set on the window itself, as the game moves the portrait
+-- when it changes pages.
 local function CreatePanel(frame)
     local p = CreateFrame("Frame", nil, holder)
-    -- On the window at fixed offsets, not on its inset: the Raid page moves the inset up (it
-    -- has no header), which shrank the grey strip above our list
     p:SetPoint("TOPLEFT", frame, "TOPLEFT", SocialTab.LIST_LEFT, -SocialTab.LIST_TOP)
     p:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -SocialTab.LIST_RIGHT, SocialTab.LIST_BOTTOM)
     p:SetFrameLevel((frame:GetFrameLevel() or 1) + 50)
@@ -376,9 +379,6 @@ local function CreatePanel(frame)
     p.empty:SetJustifyH("LEFT")
     p.empty:SetSpacing(SocialTab.EMPTY_SPACING)
     p.empty:Hide()
-    -- The note that members need HeadHunter Sync, in blue, at the top: under the title bar,
-    -- right after the round portrait, to the window's right edge, on up to two lines. Set on
-    -- the window itself: the game moves the portrait when it changes pages.
     p.note = p:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     p.note:SetJustifyH("LEFT")
     p.note:SetJustifyV("TOP")

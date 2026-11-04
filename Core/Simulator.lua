@@ -269,9 +269,6 @@ function Simulator:Event(kind)
     if ns.MainWindow and ns.MainWindow.Refresh then ns.MainWindow:Refresh() end
 end
 
--- /hh sim duels [clear] (HH-134): test duel spots in our zone, to see the map mark, the
--- chat line and the invite clicks before a release. Only on our screen: never sent, and
--- the made-up HeadHunters get no whisper (Alerts/DuelSpots.lua).
 -- /hh sim gang: the Wild Bunch as our confirmed gang for screenshots (me: we lead it), with a
 -- few gang chat lines; clear: gone
 function Simulator:Gang(mode)
@@ -307,6 +304,9 @@ function Simulator:Gang(mode)
     ns:Print(L.SIM_GANG_DONE)
 end
 
+-- /hh sim duels [clear] (HH-134): test duel spots in our zone, to see the map mark, the
+-- chat line and the invite clicks before a release. Only on our screen: never sent, and
+-- the made-up HeadHunters get no whisper (Alerts/DuelSpots.lua).
 function Simulator:Duels(kind)
     if kind == "clear" then
         ns:Print(string.format(L.SIM_DUELS_CLEARED, ns.DuelSpots:ClearSim()))

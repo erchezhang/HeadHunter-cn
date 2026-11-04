@@ -15,10 +15,12 @@
 -- A gang works in game at once, before any sync (author, 2026-11-04): the leader's addon
 -- makes its chat channel and password and sends them with the create (and a kick's new ones
 -- with the kick) for the website to keep; the leader whispers them to a member who accepts
--- ("p;<channel>;<password>"). The leader also whispers what changed to the members: "x" to
--- a kicked member, "k;<key>" (a member was kicked), "n;<name>" (renamed), "m;<key>" (new
--- leader). Each character keeps what it was told in ns.db.gangLocal[key] until a newer
--- download says otherwise.
+-- ("p;<channel>;<password>;<t>"). The leader also whispers what changed to the members:
+-- "x;<t>" to a kicked member, "k;<key>" (a member was kicked), "n;<name>;<t>" (renamed),
+-- "m;<key>;<t>" (new leader); <t> is the time of the leader's action. Each character keeps
+-- what it was told in ns.db.gangLocal[key] until the website applied a change at least as
+-- new (the download's chat `at`, the gang's `renamed_at` and `leader_at`, a membership
+-- joined after the kick).
 -- Fires HH_GANG_CHANGED.
 
 local addonName, ns = ...
@@ -63,7 +65,7 @@ Gangs.KINDS = { create = true, invite = true, accept = true, leave = true, kick 
 Gangs.REASONS = {
     name_invalid = true, name_taken = true, in_a_gang = true, not_in_a_gang = true, not_leader = true,
     not_member = true, full = true, cooldown = true, rename_too_soon = true, hidden = true, other_world = true,
-    unknown_gang = true, not_forever = true,
+    not_forever = true,
 }
 
 -- player key -> time we invited them
@@ -92,7 +94,8 @@ local function Me()
 end
 
 -- What this character was told or made itself, newer than the download until the next one:
--- { channel, password, t (chat), name, nameAt, leader, leaderAt, kickedAt, kickCleared }
+-- { channel, password, t (chat), name, nameAt, leader, leaderAt, kickedAt, kickCleared }; the
+-- times are those of the leader's actions
 function Gangs:Local()
     local me = Me()
     if not (ns.db and me) then return {} end
@@ -102,16 +105,16 @@ function Gangs:Local()
 end
 
 -- Keeps the gang chat channel and password for this character (nil, nil forgets them)
-function Gangs:SaveChat(channel, password)
+function Gangs:SaveChat(channel, password, at)
     local saved = self:Local()
-    saved.channel, saved.password, saved.t = channel, password, ns.Utils.ServerTime()
+    saved.channel, saved.password, saved.t = channel, password, channel and (at or ns.Utils.ServerTime()) or nil
 end
 
 -- The saved gang chat { channel, password, t }, or nil
 function Gangs:SavedChat()
     local saved = self:Local()
     if not (saved.channel and saved.password) then return nil end
-    return { channel = saved.channel, password = saved.password, t = saved.t or 0 }
+    return { channel = saved.channel, password = saved.password, at = saved.t or 0 }
 end
 
 -- A new gang chat channel and password: { channel, password }
@@ -195,12 +198,12 @@ end
 -- Our actions
 -------------------------------------------------
 
-function Gangs:Record(kind, fields)
+function Gangs:Record(kind, fields, at)
     local store = Store()
     local me = Me()
     if not store or not me or not Gangs.KINDS[kind] then return nil end
     counter = counter + 1
-    local t = ns.Utils.ServerTime()
+    local t = at or ns.Utils.ServerTime()
     local action = { uid = me .. ":" .. t .. ":" .. counter, by = me, kind = kind, t = t }
     for key, value in pairs(fields or {}) do action[key] = value end
     store[#store + 1] = action
@@ -264,17 +267,17 @@ function Gangs:Mine()
     if simGang then return simGang end
     if not me or not Gangs.Enabled() then return nil end
     local saved = self:Local()
-    local siteAt = ns.SiteData:GeneratedAt() or 0
     local kickedAt = saved.kickedAt
-    local gang
-    if not (kickedAt and kickedAt >= siteAt) then
-        for _, g in ipairs(ns.SiteData:Gangs()) do
-            for _, member in ipairs(g.members) do
-                if member.key == me then
-                    gang = { name = g.name, leader = g.leader, members = g.members, confirmed = true, faction = g.faction }
-                end
+    local gang, site
+    for _, g in ipairs(ns.SiteData:Gangs()) do
+        for _, member in ipairs(g.members) do
+            if member.key == me and not (kickedAt and (member.joinedAt or 0) <= kickedAt) then
+                site = g
+                gang = { name = g.name, leader = g.leader, members = g.members, confirmed = true, faction = g.faction }
+                break
             end
         end
+        if site then break end
     end
     local results = self:Results()
     for _, action in ipairs(self:Actions()) do
@@ -321,8 +324,10 @@ function Gangs:Mine()
             end
             if member and (member.joinedAt or 0) < at then gang = Gangs.Without(gang, key) end
         end
-        if saved.name and (saved.nameAt or 0) >= siteAt then gang = Gangs.With(gang, "name", saved.name) end
-        if saved.leader and (saved.leaderAt or 0) >= siteAt then gang = Gangs.With(gang, "leader", saved.leader) end
+        if saved.name and (saved.nameAt or 0) > (site and site.renamedAt or 0) then gang = Gangs.With(gang, "name", saved.name) end
+        if saved.leader and (saved.leaderAt or 0) > (site and site.leaderAt or 0) then
+            gang = Gangs.With(gang, "leader", saved.leader)
+        end
     end
     return gang
 end
@@ -460,9 +465,8 @@ function Gangs:TellResults()
             if result.status == "refused" then
                 local reason = Gangs.REASONS[result.reason] and L["GANG_REFUSED_" .. result.reason:upper()] or result.reason
                 ns:Print(string.format(L.GANG_REFUSED, L["GANG_KIND_" .. action.kind:upper()], tostring(reason)))
-            elseif action.kind == "create" and result.gang and action.name
-                    and Gangs.CleanName(result.gang) ~= Gangs.CleanName(action.name) then
-                self:AskSuffix(action.name, result.gang)
+            elseif action.kind == "create" and result.requested and result.gang then
+                self:AskSuffix(result.requested, result.gang)
             elseif action.kind == "create" or action.kind == "accept" or action.kind == "rename" then
                 ns:Print(string.format(L.GANG_CONFIRMED, result.gang or action.name or "?"))
             end
@@ -667,7 +671,7 @@ local function OnAnswer(code, sender, rest)
             action.memberSex = tonumber(sex) or action.memberSex
         end
         local chat = ns.GangChat.Credentials()
-        if chat then Gangs.Tell(key, "p;" .. chat.channel .. ";" .. chat.password) end
+        if chat then Gangs.Tell(key, "p;" .. chat.channel .. ";" .. chat.password .. ";" .. (chat.at or 0)) end
         ns.Events:Fire("HH_GANG_CHANGED", action)
     end
     ns:Print(string.format(accepted and L.GANG_INVITE_ACCEPTED or L.GANG_INVITE_DECLINED, ns.Utils.DisplayName(key)))
@@ -702,29 +706,31 @@ function Gangs:OnLeaderNote(code, rest, sender)
     if not (key and gang and ns.db and gang.leader and ns.Utils.SameCharacter(gang.leader, key)) then return end
     local saved = self:Local()
     local now = ns.Utils.ServerTime()
+    local text, at = (rest or ""):match("^(.*);(%d+)$")
+    text, at = text or rest or "", tonumber(at) or now
     if code == "p" then
-        local channel, password = (rest or ""):match("^([^;]+);([^;]+)$")
+        local channel, password = text:match("^([^;]+);([^;]+)$")
         if not ValidChat(channel, password) then return end
-        self:SaveChat(channel, password)
+        self:SaveChat(channel, password, at)
     elseif code == "x" then
         self:Forget()
-        saved.kickedAt, saved.kickCleared = now, nil
+        saved.kickedAt, saved.kickCleared = at, nil
         ns:Print(string.format(L.GANG_YOU_WERE_KICKED, gang.name))
     elseif code == "k" then
-        local kicked = ns.Utils.PlayerKey(rest)
+        local kicked = ns.Utils.PlayerKey(text)
         if not kicked then return end
         ns.db.gangDeparted = ns.db.gangDeparted or {}
         ns.db.gangDeparted[kicked] = now
         ns:Print(string.format(L.GANG_KICKED, ns.Utils.DisplayName(kicked)))
     elseif code == "n" then
-        local name = Gangs.CleanName(rest)
+        local name = Gangs.CleanName(text)
         if not Gangs.ValidName(name) then return end
-        saved.name, saved.nameAt = name, now
+        saved.name, saved.nameAt = name, at
         ns:Print(string.format(L.GANG_RENAMED, name))
     elseif code == "m" then
-        local leader = ns.Utils.PlayerKey(rest)
+        local leader = ns.Utils.PlayerKey(text)
         if not leader then return end
-        saved.leader, saved.leaderAt = leader, now
+        saved.leader, saved.leaderAt = leader, at
         ns:Print(string.format(L.GANG_NEW_LEADER, ns.Utils.DisplayName(leader), gang.name))
     end
     ns.Events:Fire("HH_GANG_CHANGED")
@@ -806,9 +812,10 @@ function Gangs:Command(args)
         local wait = self:CooldownLeft()
         if wait then ns:Print(string.format(L.GANG_RULE_COOLDOWN_SELF, Gangs.Hours(wait))) return end
         local chat = Gangs.NewChat()
+        local at = ns.Utils.ServerTime()
         self:Forget()
-        self:SaveChat(chat.channel, chat.password)
-        self:Record("create", { name = name, chatChannel = chat.channel, chatPassword = chat.password })
+        self:SaveChat(chat.channel, chat.password, at)
+        self:Record("create", { name = name, chatChannel = chat.channel, chatPassword = chat.password }, at)
         ns:Print(string.format(L.GANG_CREATE_WAITING, name))
     elseif sub == "invite" then
         local key, class, level = Named(args)
@@ -824,16 +831,17 @@ function Gangs:Command(args)
         if not self:IsLeader(gang) then ns:Print(L.GANG_NOT_LEADER) return end
         local key = Named(args)
         if not key or ns.Utils.SameCharacter(key, Me()) or not Member(gang, key) then ns:Print(L.GANG_NOT_MEMBER) return end
+        local at = ns.Utils.ServerTime()
         if sub == "kick" then
             local chat = Gangs.NewChat()
-            self:SaveChat(chat.channel, chat.password)
-            Gangs.Tell(key, "x")
+            self:SaveChat(chat.channel, chat.password, at)
+            Gangs.Tell(key, "x;" .. at)
             self:TellMembers("k;" .. key, gang, key)
-            self:TellMembers("p;" .. chat.channel .. ";" .. chat.password, gang, key)
-            self:Record("kick", { player = key, chatChannel = chat.channel, chatPassword = chat.password })
+            self:TellMembers("p;" .. chat.channel .. ";" .. chat.password .. ";" .. at, gang, key)
+            self:Record("kick", { player = key, chatChannel = chat.channel, chatPassword = chat.password }, at)
         else
-            self:TellMembers("m;" .. key, gang)
-            self:Record("lead", { player = key })
+            self:TellMembers("m;" .. key .. ";" .. at, gang)
+            self:Record("lead", { player = key }, at)
         end
         ns:Print(string.format(sub == "kick" and L.GANG_KICKED or L.GANG_LEAD_GIVEN, ns.Utils.DisplayName(key)))
     elseif sub == "testreset" and ns.Dev.Present() then
@@ -860,8 +868,9 @@ function Gangs:Command(args)
         local name = Gangs.CleanName(Rest(args, 2))
         if not Gangs.ValidName(name) then ns:Print(L.GANG_BAD_NAME) return end
         if self:NameTaken(name) then ns:Print(L.GANG_NAME_TAKEN) return end
-        self:TellMembers("n;" .. name, gang)
-        self:Record("rename", { name = name })
+        local at = ns.Utils.ServerTime()
+        self:TellMembers("n;" .. name .. ";" .. at, gang)
+        self:Record("rename", { name = name }, at)
         ns:Print(string.format(L.GANG_RENAME_WAITING, name))
     else
         ns:Print(L.GANG_USAGE)

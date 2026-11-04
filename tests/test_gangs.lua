@@ -418,6 +418,33 @@ return function(T, H)
         T.ok(ns.Gangs:CooldownLeft() ~= nil, "a day before joining again")
     end)
 
+    T.case("no reload: what the leader whispered wins until the website applied it, not a newer download", function()
+        local t = H.serverTime
+        local data = Data({ Gang("Black Hand", "Kira Dawnblade", { "Kira Dawnblade", "Vati Guda" }) })
+        data.worlds["forever|us|pvp"].gangs[1].members[2].joined_at = t - 500
+        data.worlds["forever|us|pvp"].gangs[1].renamed_at = t - 400
+        data.characters[1].gang_chat = { channel = "Gang_HHoldoldoldold", password = "Old1", at = t - 400 }
+        data.worlds["forever|us|pvp"].generated_at = t + 1000
+        local ns = Boot(data)
+        Note(ns, "p;Gang_HHnewnewnewnew;New1;" .. (t - 100), "Kira Dawnblade")
+        Note(ns, "n;Red Fang;" .. (t - 100), "Kira Dawnblade")
+        T.eq(ns.GangChat.Credentials().channel, "Gang_HHnewnewnewnew", "the whispered channel, though the download is newer")
+        T.eq(ns.Gangs:Mine().name, "Red Fang", "the whispered name")
+
+        data.characters[1].gang_chat = { channel = "Gang_HHnewnewnewnew", password = "New1", at = t - 100 }
+        data.worlds["forever|us|pvp"].gangs[1].name = "Red Fang 2"
+        data.worlds["forever|us|pvp"].gangs[1].renamed_at = t - 50
+        ns.SiteData:Load()
+        T.eq(ns.Gangs:Mine().name, "Red Fang 2", "the website's once it applied a newer rename")
+
+        Note(ns, "x;" .. (t - 10), "Kira Dawnblade")
+        ns.SiteData:Load()
+        T.eq(ns.Gangs:Mine(), nil, "kicked: a download that still lists us does not bring the gang back")
+        data.worlds["forever|us|pvp"].gangs[1].members[2].joined_at = t + 10
+        ns.SiteData:Load()
+        T.ok(ns.Gangs:Mine() ~= nil, "joined again after the kick")
+    end)
+
     T.case("no reload: a new leader is told", function()
         local ns = Boot()
         Note(ns, "i;Black Hand", "Kira Dawnblade")
@@ -470,7 +497,8 @@ return function(T, H)
         H.Slash("gang create Black Hand")
         local uid = ns.Gangs:Actions()[1].uid
         data.worlds["forever|us|pvp"].gangs = { Gang("Black Hand 2", "Vati Guda", { "Vati Guda" }) }
-        data.characters[1].gang_results = { { uid = uid, kind = "create", status = "done", gang = "Black Hand 2" } }
+        data.characters[1].gang_results = { { uid = uid, kind = "create", status = "done", gang = "Black Hand 2",
+            requested = "Black Hand" } }
         ns.SiteData:Load()
         H.popups = {}
         ns.Gangs:TellResults()

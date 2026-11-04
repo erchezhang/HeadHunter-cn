@@ -54,13 +54,13 @@ local function Prune(now)
     end
 end
 
--- HH-151: a HeadHunter heard lately (a compact name)
 -- When we last heard a player on the HeadHunter channel (Utils.Now()), or nil
 function Presence:LastHeard(name)
     local peer = seen[name]
     return peer and peer.t or nil
 end
 
+-- HH-151: a HeadHunter heard lately (a compact name)
 function Presence:Knows(name)
     local peer = seen[name]
     return peer ~= nil and ns.Utils.Now() - peer.t <= self.WINDOW

@@ -494,7 +494,6 @@ local function CreateTopTab(f, info, onClick)
     tab.label = Theme.Text(tab, "heading", Theme.TAB_FONT, "stone")
     tab.label:SetPoint("CENTER", 0, 1)
     tab.label:SetText(info.label)
-    -- A small tag raised at the label's top right, like a superscript ("NEW")
     if info.badge then
         tab.badge = Theme.Text(tab, "bold", Theme.BADGE_FONT)
         tab.badge:SetPoint("BOTTOMLEFT", tab.label, "TOPRIGHT", 1, Theme.BADGE_RAISE)

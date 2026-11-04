@@ -43,9 +43,11 @@ local DAY = 86400
 
 Bounties.REASONS = { "camped", "mobs", "lowlevel", "group" }
 Bounties.DAYS = { 1, 2, 3, 7 }
-Bounties.MIN_GOLD = 2 * 10000        -- copper (author, 2026-09-28: 2g to 15g, kept for the release 2026-11-03)
+-- copper (author, 2026-09-28: 2g to 15g, kept for the release 2026-11-03)
+Bounties.MIN_GOLD = 2 * 10000
 Bounties.MAX_GOLD = 15 * 10000
-Bounties.MIN_LEVEL = 15              -- the owner's level at the death (author, 2026-09-28)
+-- the owner's level at the death (author, 2026-09-28)
+Bounties.MIN_LEVEL = 15
 Bounties.MIN_TARGET_LEVEL = 15       -- the enemy's level at that death (author, 2026-09-28)
 Bounties.MAX_DURATION = 7 * DAY
 Bounties.POST_WINDOW = DAY           -- our deaths from the last 24 hours
