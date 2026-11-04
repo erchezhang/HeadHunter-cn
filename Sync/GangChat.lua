@@ -61,11 +61,6 @@ local function ShowInMainWindow(name)
     ns.Database:SetSetting("gangChatShown", name)
 end
 
--- The gang chat colour on the channel's own chat colour
-local function PaintChannel(name)
-    local id = ChannelId(name)
-    if id and ChangeChatColor then pcall(ChangeChatColor, "CHANNEL" .. id, GangChat.Color()) end
-end
 
 -- Old gang channels we are still in (a kick moved the gang, or we left it)
 local function LeaveOthers(keep)
@@ -90,7 +85,6 @@ function GangChat:Join()
         pcall(join, JoinChannelByName, chat.channel, chat.password, 0, 0)
     end
     ShowInMainWindow(chat.channel)
-    PaintChannel(chat.channel)
     return true
 end
 
@@ -130,7 +124,6 @@ function GangChat.SetColor(hex)
     hex = type(hex) == "string" and hex:gsub("^#", ""):lower() or ""
     if not hex:match("^%x%x%x%x%x%x$") then return false end
     ns.Database:SetSetting("gangChatColor", hex)
-    if current then PaintChannel(current) end
     return true
 end
 
@@ -194,22 +187,24 @@ function GangChat.OnHeaderUpdate(editBox)
     end
 end
 
--- The chat boxes' header updates, wherever this client does them: Blizzard's
--- ChatEdit_UpdateHeader (older interfaces), each box's own UpdateHeader method (newer
--- ones), and the box showing or its text changing (a sticky chat type is set then). Post-
--- hooks only; returns how many boxes were hooked.
+-- "Gang:" once now and once right after, as the game may set its own header after these
+-- scripts ran
+local function HeaderSoon(box)
+    GangChat.OnHeaderUpdate(box)
+    C_Timer.After(0, function() GangChat.OnHeaderUpdate(box) end)
+end
+
+-- The chat boxes' header: Blizzard's ChatEdit_UpdateHeader where the client has it, and each
+-- box showing or its text changing (a sticky chat type is set then). Script hooks only,
+-- never the boxes' own methods; returns how many boxes were hooked.
 function GangChat.HookHeaders()
-    if not hooksecurefunc then return 0 end
-    if _G.ChatEdit_UpdateHeader then hooksecurefunc("ChatEdit_UpdateHeader", GangChat.OnHeaderUpdate) end
+    if hooksecurefunc and _G.ChatEdit_UpdateHeader then hooksecurefunc("ChatEdit_UpdateHeader", GangChat.OnHeaderUpdate) end
     local hooked = 0
     for i = 1, (NUM_CHAT_WINDOWS or 10) do
         local box = _G["ChatFrame" .. i .. "EditBox"]
-        if box then
-            if type(box.UpdateHeader) == "function" then hooksecurefunc(box, "UpdateHeader", GangChat.OnHeaderUpdate) end
-            if box.HookScript then
-                box:HookScript("OnShow", GangChat.OnHeaderUpdate)
-                box:HookScript("OnTextChanged", GangChat.OnHeaderUpdate)
-            end
+        if box and box.HookScript then
+            box:HookScript("OnShow", HeaderSoon)
+            box:HookScript("OnTextChanged", HeaderSoon)
             hooked = hooked + 1
         end
     end

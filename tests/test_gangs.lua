@@ -432,16 +432,18 @@ return function(T, H)
         ns.GangChat.OnHeaderUpdate(box)
         T.eq(header.text, "Gang: ", "the chat box says Gang:")
         local hooks = {}
-        local tab = { header = header, GetAttribute = box.GetAttribute,
-            UpdateHeader = function() header:SetText("[5. HHGabcdefghijkl]: ") end,
+        local updateHeader = function() header:SetText("[5. HHGabcdefghijkl]: ") end
+        local tab = { header = header, GetAttribute = box.GetAttribute, UpdateHeader = updateHeader,
             HookScript = function(self, script, fn) hooks[script] = fn end }
         _G.ChatFrame4EditBox = tab
         T.ok(ns.GangChat.HookHeaders() >= 1, "every chat box hooked")
-        tab:UpdateHeader()
-        T.eq(header.text, "Gang: ", "a new window's box says Gang: after its own header update")
+        T.ok(rawequal(tab.UpdateHeader, updateHeader), "the box's own method is left alone")
         header:SetText("[5. HHGabcdefghijkl]: ")
         hooks.OnShow(tab)
-        T.eq(header.text, "Gang: ", "and when it shows")
+        T.eq(header.text, "Gang: ", "a new window's box says Gang: when it shows")
+        header:SetText("[5. HHGabcdefghijkl]: ")
+        H.Advance(0)
+        T.eq(header.text, "Gang: ", "and again right after, over the game's own header")
     end)
 
     T.case("gang chat: none without the website's channel, and leaving the gang leaves it", function()
