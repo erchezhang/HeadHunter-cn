@@ -34,7 +34,7 @@ SocialTab.ROW_HEIGHT = 24
 SocialTab.EMPTY_SPACING = 8
 -- the Sync note: its gap after the round portrait and its distance below the portrait's top
 SocialTab.NOTE_GAP = 8
-SocialTab.NOTE_TOP = 24
+SocialTab.NOTE_TOP = 44
 -- Our buttons sit in the window's bottom bar, under the content area, like Blizzard's own
 SocialTab.BAR_EDGE = 6
 SocialTab.BAR_BOTTOM = 4
