@@ -194,6 +194,28 @@ function GangChat.OnHeaderUpdate(editBox)
     end
 end
 
+-- The chat boxes' header updates, wherever this client does them: Blizzard's
+-- ChatEdit_UpdateHeader (older interfaces), each box's own UpdateHeader method (newer
+-- ones), and the box showing or its text changing (a sticky chat type is set then). Post-
+-- hooks only; returns how many boxes were hooked.
+function GangChat.HookHeaders()
+    if not hooksecurefunc then return 0 end
+    if _G.ChatEdit_UpdateHeader then hooksecurefunc("ChatEdit_UpdateHeader", GangChat.OnHeaderUpdate) end
+    local hooked = 0
+    for i = 1, (NUM_CHAT_WINDOWS or 10) do
+        local box = _G["ChatFrame" .. i .. "EditBox"]
+        if box then
+            if type(box.UpdateHeader) == "function" then hooksecurefunc(box, "UpdateHeader", GangChat.OnHeaderUpdate) end
+            if box.HookScript then
+                box:HookScript("OnShow", GangChat.OnHeaderUpdate)
+                box:HookScript("OnTextChanged", GangChat.OnHeaderUpdate)
+            end
+            hooked = hooked + 1
+        end
+    end
+    return hooked
+end
+
 -- /gang <text> sends to gang chat; /gang alone opens the chat box on it, as /<number> would
 function GangChat:Send(text)
     text = text and text:gsub("^%s+", ""):gsub("%s+$", "") or ""
@@ -236,6 +258,6 @@ ns.Events:Register("HH_INITIALIZED", function()
             pcall(add, event, GangChat.NoticeFilter)
         end
     end
-    if hooksecurefunc and _G.ChatEdit_UpdateHeader then hooksecurefunc("ChatEdit_UpdateHeader", GangChat.OnHeaderUpdate) end
+    GangChat.HookHeaders()
     C_Timer.After(GangChat.JOIN_DELAY, function() GangChat:Join() end)
 end, OWNER)

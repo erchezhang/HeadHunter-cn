@@ -431,6 +431,17 @@ return function(T, H)
         local box = { header = header, GetAttribute = function(_, name) return ({ chatType = "CHANNEL", channelTarget = 5 })[name] end }
         ns.GangChat.OnHeaderUpdate(box)
         T.eq(header.text, "Gang: ", "the chat box says Gang:")
+        local hooks = {}
+        local tab = { header = header, GetAttribute = box.GetAttribute,
+            UpdateHeader = function() header:SetText("[5. HHGabcdefghijkl]: ") end,
+            HookScript = function(self, script, fn) hooks[script] = fn end }
+        _G.ChatFrame4EditBox = tab
+        T.ok(ns.GangChat.HookHeaders() >= 1, "every chat box hooked")
+        tab:UpdateHeader()
+        T.eq(header.text, "Gang: ", "a new window's box says Gang: after its own header update")
+        header:SetText("[5. HHGabcdefghijkl]: ")
+        hooks.OnShow(tab)
+        T.eq(header.text, "Gang: ", "and when it shows")
     end)
 
     T.case("gang chat: none without the website's channel, and leaving the gang leaves it", function()
