@@ -32,6 +32,9 @@ SocialTab.TAB_GAP = 3
 SocialTab.ROW_HEIGHT = 24
 -- the text without a gang: bigger, with room between its lines
 SocialTab.EMPTY_SPACING = 8
+-- the Sync note: its gap after the round portrait and its distance below the portrait's top
+SocialTab.NOTE_GAP = 8
+SocialTab.NOTE_TOP = 24
 -- Our buttons sit in the window's bottom bar, under the content area, like Blizzard's own
 SocialTab.BAR_EDGE = 6
 SocialTab.BAR_BOTTOM = 4
@@ -359,13 +362,18 @@ local function CreatePanel(frame)
     p.empty:SetJustifyH("LEFT")
     p.empty:SetSpacing(SocialTab.EMPTY_SPACING)
     p.empty:Hide()
-    -- The note that members need HeadHunter Sync, in blue, in the grey strip above the list
-    -- (where Contacts has its header), on up to two lines
+    -- The note that members need HeadHunter Sync, in blue, at the top: under the title bar,
+    -- right after the round portrait, to the window's right edge, on up to two lines
     p.note = p:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    p.note:SetPoint("BOTTOMLEFT", p, "TOPLEFT", 6, 6)
-    p.note:SetPoint("BOTTOMRIGHT", p, "TOPRIGHT", -6, 6)
+    local portrait = PortraitTexture()
+    if portrait then
+        p.note:SetPoint("TOPLEFT", portrait, "TOPRIGHT", SocialTab.NOTE_GAP, -SocialTab.NOTE_TOP)
+    else
+        p.note:SetPoint("TOPLEFT", frame, "TOPLEFT", 70, -SocialTab.NOTE_TOP)
+    end
+    p.note:SetPoint("RIGHT", frame, "RIGHT", -10, 0)
     p.note:SetJustifyH("LEFT")
-    p.note:SetJustifyV("BOTTOM")
+    p.note:SetJustifyV("TOP")
     p.note:SetWordWrap(true)
     p.note:SetText(L.GANG_SYNC_NOTE)
     p.note:SetTextColor(0.4, 0.7, 1)
