@@ -706,6 +706,8 @@ local DE = {
     SEARCH_PLAYER = "Spieler suchen",
     SEARCH_EMPTY = "Niemand namens %s",
     -- HH-155: gangs
+    GANG_LEAVE_POPUP = "Die Bande |cffffd100%s|r verlassen?",
+    GANG_LEAVE_POPUP_LEADER = "Die Bande |cffffd100%s|r verlassen? Du führst sie: Das älteste Mitglied übernimmt nach dir.",
     GANG_WINDOW_TITLE = "Bande - %s",
     GANG_INVITE_UNCONFIRMED = "Deine Bande ist noch nicht auf der Website: Einladungen gehen, sobald HeadHunter Sync sie geschickt hat (nach /reload oder Ausloggen).",
     GANG_NO_ADDON = "%s hat nicht auf die Einladung reagiert: nicht online oder kein HeadHunter.",

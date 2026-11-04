@@ -1001,7 +1001,7 @@ local function CreateMainFrame()
     -- HH-155: our gang: its name and state, Invite (our target) and Leave
     f.gangLeave = Theme.Button(f, L.GANG_LEAVE_BUTTON, "outline", 90, 24)
     f.gangLeave:SetPoint("TOPRIGHT", -18, toolbarY)
-    f.gangLeave:SetScript("OnClick", function() ns.Gangs:Command({ "leave" }) end)
+    f.gangLeave:SetScript("OnClick", function() ns.Gangs:PromptLeave() end)
     f.gangInvite = Theme.Button(f, L.GANG_INVITE_BUTTON, "gold", 140, 24)
     f.gangInvite:SetPoint("RIGHT", f.gangLeave, "LEFT", -12, 0)
     f.gangInvite:SetScript("OnClick", function() ns.Gangs:Command({ "invite" }) end)

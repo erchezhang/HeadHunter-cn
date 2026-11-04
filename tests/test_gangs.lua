@@ -347,4 +347,15 @@ return function(T, H)
         end
         T.eq(invites, 0, "no invite kept")
     end)
+
+    T.case("Leave from a button asks first; the leader is told the lead passes on", function()
+        local ns = Boot(Data({ Gang("Black Hand", "Vati Guda", { "Vati Guda", "Tobin Ashford" }) }))
+        H.popups = {}
+        ns.Gangs:PromptLeave()
+        T.eq(#H.popups, 1, "asks")
+        T.ok(H.popups[1].text:find("longest member", 1, true), "the leader hears who leads next")
+        T.eq(#ns.Gangs:Actions(), 0, "nothing kept before yes")
+        StaticPopupDialogs[ns.Gangs.LEAVE_POPUP].OnAccept()
+        T.eq(ns.Gangs:Actions()[1].kind, "leave", "left after yes")
+    end)
 end

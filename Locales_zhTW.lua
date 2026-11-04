@@ -703,6 +703,8 @@ local TW = {
     SEARCH_PLAYER = "尋找玩家",
     SEARCH_EMPTY = "沒有叫 %s 的玩家",
     -- HH-155: gangs
+    GANG_LEAVE_POPUP = "退出幫派 |cffffd100%s|r？",
+    GANG_LEAVE_POPUP_LEADER = "退出幫派 |cffffd100%s|r？你是首領：之後由最早加入的成員擔任首領。",
     GANG_WINDOW_TITLE = "幫派 - %s",
     GANG_INVITE_UNCONFIRMED = "你的幫派還沒有上傳到網站：HeadHunter Sync 傳送後（/reload 或登出後）即可邀請。",
     GANG_NO_ADDON = "%s 沒有回應邀請：不在線上，或沒有安裝 HeadHunter。",

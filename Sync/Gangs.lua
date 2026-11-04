@@ -36,6 +36,7 @@ Gangs.ACK_WAIT = 10
 Gangs.GANG_KEEP = 30 * 86400
 Gangs.POPUP = "HEADHUNTER_GANG_INVITE"
 Gangs.CREATE_POPUP = "HEADHUNTER_GANG_CREATE"
+Gangs.LEAVE_POPUP = "HEADHUNTER_GANG_LEAVE"
 Gangs.KINDS = { create = true, invite = true, accept = true, leave = true, kick = true, rename = true, lead = true }
 Gangs.REASONS = {
     name_invalid = true, name_taken = true, in_a_gang = true, not_in_a_gang = true, not_leader = true,
@@ -410,6 +411,16 @@ function Gangs:PromptCreate()
     StaticPopup_Show(Gangs.CREATE_POPUP)
 end
 
+-- Leave (the buttons): a popup asks first; a leader is told the lead passes on
+function Gangs:PromptLeave()
+    local gang = self:Mine()
+    if not gang then ns:Print(L.GANG_NOT_IN_A_GANG) return end
+    local others = #gang.members > 1
+    local text = self:IsLeader(gang) and others and L.GANG_LEAVE_POPUP_LEADER or L.GANG_LEAVE_POPUP
+    StaticPopupDialogs[Gangs.LEAVE_POPUP].text = string.format(text, gang.name)
+    StaticPopup_Show(Gangs.LEAVE_POPUP)
+end
+
 function Gangs:CreateFromPopup(popup)
     local args = { "create" }
     for word in PopupText(popup):gmatch("%S+") do args[#args + 1] = word end
@@ -427,6 +438,15 @@ ns.Events:Register("HH_INITIALIZED", function()
         OnAccept = function() Gangs:AcceptInvite() end,
         OnCancel = function() Gangs:DeclineInvite() end,
         timeout = Gangs.INVITE_TIMEOUT,
+        hideOnEscape = 1,
+        preferredIndex = 3,
+    }
+    StaticPopupDialogs[Gangs.LEAVE_POPUP] = {
+        text = "",
+        button1 = L.GANG_LEAVE_BUTTON,
+        button2 = CANCEL,
+        OnAccept = function() Gangs:Command({ "leave" }) end,
+        timeout = 0,
         hideOnEscape = 1,
         preferredIndex = 3,
     }
