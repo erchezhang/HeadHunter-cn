@@ -466,4 +466,32 @@ return function(T, H)
         T.ok(H.Printed("already in your gang"), "said")
         T.eq(#Whispers("i;"), 0, "no invite sent")
     end)
+
+    T.case("gang rules: within 24 hours of leaving, an invite is turned down at once and both are told", function()
+        local member = Boot(Data({ Gang("Old Crew", "Kira Dawnblade", { "Kira Dawnblade", "Vati Guda" }) }))
+        H.Slash("gang leave")
+        H.printed, H.sent, H.popups = {}, {}, {}
+        H.Deliver(member.Protocol.Pack("A", member.Protocol.TYPES.GANG, { "i;Black Hand;WARRIOR" }), "Tobin Ashford")
+        Settle()
+        T.eq(#H.popups, 0, "no popup")
+        T.ok(H.Printed("Gang rules: you left a gang less than 24 hours ago"), "we are told")
+        T.ok(H.Printed("24 h"), "with the time left")
+        T.ok(Whispers("c;")[1] ~= nil, "the inviter is told")
+
+        local leader = Boot(Data({ Gang("Black Hand", "Vati Guda", { "Vati Guda" }) }))
+        H.printed = {}
+        H.Slash("gang invite Gang Ster")
+        H.Deliver(leader.Protocol.Pack("A", leader.Protocol.TYPES.GANG, { "c;61200" }), "Gang Ster")
+        T.ok(H.Printed("Gang rules: Gang Ster left a gang less than 24 hours ago and can join again in 17 h"), "the leader hears why")
+    end)
+
+    T.case("gang rules: a member who told us they left is not invited again within 24 hours", function()
+        local ns = Boot(Data({ Gang("Black Hand", "Vati Guda", { "Vati Guda", "Tobin Ashford" }) }))
+        H.Deliver(ns.Protocol.Pack("A", ns.Protocol.TYPES.GANG, { "l" }), "Tobin Ashford")
+        H.printed, H.sent = {}, {}
+        H.Slash("gang invite Tobin Ashford")
+        Settle()
+        T.ok(H.Printed("Gang rules: Tobin Ashford left a gang"), "said")
+        T.eq(#Whispers("i;"), 0, "no invite sent")
+    end)
 end

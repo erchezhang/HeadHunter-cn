@@ -32,6 +32,8 @@ Gangs.INVITE_WINDOW = 60
 -- seconds for the invited player's addon to say it got the invite; silence means not
 -- online or no HeadHunter
 Gangs.ACK_WAIT = 10
+-- seconds after leaving a gang (or being kicked) before joining one again, as the website
+Gangs.JOIN_COOLDOWN = 86400
 -- seconds our actions are kept
 Gangs.GANG_KEEP = 30 * 86400
 Gangs.POPUP = "HEADHUNTER_GANG_INVITE"
@@ -292,6 +294,12 @@ function Gangs:Invite(key, class)
             return false
         end
     end
+    local leftAt = Departed()[key]
+    local wait = leftAt and (leftAt + Gangs.JOIN_COOLDOWN - ns.Utils.ServerTime())
+    if wait and wait > 0 then
+        ns:Print(string.format(L.GANG_RULE_COOLDOWN_OTHER, ns.Utils.DisplayName(key), Gangs.Hours(wait)))
+        return false
+    end
     if #gang.members >= Gangs.MAX_MEMBERS then ns:Print(L.GANG_FULL) return false end
     local now = ns.Utils.Now()
     if not UnderInviteLimit(now) then ns:Print(L.GANG_INVITE_SLOW) return false end
@@ -307,6 +315,23 @@ function Gangs:Invite(key, class)
     end)
     ns:Print(string.format(L.GANG_INVITE_SENT, ns.Utils.DisplayName(key), gang.name))
     return true
+end
+
+-- Seconds until we may join a gang again after our own last leave, or nil
+function Gangs:CooldownLeft(now)
+    now = now or ns.Utils.ServerTime()
+    local last
+    for _, action in ipairs(self:Actions()) do
+        if action.kind == "leave" and (not last or action.t > last) then last = action.t end
+    end
+    local left = last and (last + Gangs.JOIN_COOLDOWN - now)
+    return left and left > 0 and left or nil
+end
+
+-- "17 h", "40 min"
+function Gangs.Hours(seconds)
+    if seconds >= 3600 then return string.format(L.GANG_HOURS, math.ceil(seconds / 3600)) end
+    return string.format(L.GANG_MINUTES, math.max(1, math.ceil(seconds / 60)))
 end
 
 local function Answer(code, target)
@@ -338,6 +363,12 @@ local function OnInvite(rest, sender)
         Answer("d", sender)
         return
     end
+    local wait = Gangs:CooldownLeft()
+    if wait then
+        Answer("c;" .. wait, sender)
+        ns:Print(string.format(L.GANG_RULE_COOLDOWN_SELF, Gangs.Hours(wait)))
+        return
+    end
     Answer("r", sender)
     incoming = { leader = leader, name = name, at = ns.Utils.Now(), sender = sender, leaderClass = ClassToken(leaderClass) }
     StaticPopupDialogs[Gangs.POPUP].text = string.format(L.GANG_INVITE_POPUP, ns.Utils.DisplayName(leader), name)
@@ -359,6 +390,12 @@ local function OnAnswer(code, sender, rest)
     if not at or ns.Utils.Now() - at > Gangs.INVITE_TIMEOUT then return end
     heard[key] = true
     if code == "r" then return end
+    if code == "c" then
+        sentInvites[key] = nil
+        local wait = tonumber(rest) or Gangs.JOIN_COOLDOWN
+        ns:Print(string.format(L.GANG_RULE_COOLDOWN_OTHER, ns.Utils.DisplayName(key), Gangs.Hours(wait)))
+        return
+    end
     sentInvites[key] = nil
     local accepted = code == "a"
     if accepted then
@@ -377,7 +414,7 @@ function Gangs:OnMessage(record, sender)
     local code, rest = record:match("^(%a);?(.*)$")
     if code == "i" then
         OnInvite(rest, sender)
-    elseif code == "a" or code == "d" or code == "r" then
+    elseif code == "a" or code == "d" or code == "r" or code == "c" then
         OnAnswer(code, sender, rest)
     elseif code == "l" then
         self:OnLeft(sender)
