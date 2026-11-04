@@ -166,6 +166,7 @@ return function(T, H)
         T.eq(action.leader, "Kira Dawnblade", "the inviter")
         T.eq(#Whispers("a"), 1, "answered")
         T.eq(ns.Gangs:Mine().name, "Black Hand", "waiting to join")
+        T.ok(H.Printed("/gang hello"), "told how to write in gang chat")
     end)
 
     T.case("an invite to us is declined quietly when off, when in a gang, or on Classic Era", function()

@@ -738,6 +738,7 @@ local TW = {
     GANG_ALREADY_MEMBER = "%s 已經在你的幫派中。",
     GANG_MEMBER_LEFT = "%s 退出了幫派。",
     GANG_CHAT_USAGE = "用法：/gang <內容> 傳送給幫派；只輸入 /gang 開啟幫派聊天。",
+    GANG_CHAT_HINT = "幫派聊天：輸入 |cffffff00/gang 你好|r，或輸入 |cffffff00/gang|r 加空格把聊天框切換到幫派聊天。",
     GANG_CHAT_NONE = "你不在任何幫派中。",
     GANG_CHAT_COLOR_SET = "幫派聊天顏色已儲存。",
     GANG_CHAT_COLOR_BAD = "請用六位十六進位數字輸入顏色，例如：/hh gang color ff9f40",

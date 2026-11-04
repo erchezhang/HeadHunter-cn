@@ -741,6 +741,7 @@ local FR = {
     GANG_ALREADY_MEMBER = "%s est déjà dans ta bande.",
     GANG_MEMBER_LEFT = "%s a quitté la bande.",
     GANG_CHAT_USAGE = "Utilisation : /gang <texte> écrit à ta bande ; /gang seul ouvre le chat de bande.",
+    GANG_CHAT_HINT = "Chat de bande : tapez |cffffff00/gang salut|r, ou |cffffff00/gang|r et une espace pour y basculer votre zone de saisie.",
     GANG_CHAT_NONE = "Vous n'êtes dans aucune bande.",
     GANG_CHAT_COLOR_SET = "Couleur du chat de bande enregistrée.",
     GANG_CHAT_COLOR_BAD = "Donne la couleur en six chiffres hexadécimaux, par exemple : /hh gang color ff9f40",

@@ -741,6 +741,7 @@ local DE = {
     GANG_ALREADY_MEMBER = "%s ist schon in deiner Bande.",
     GANG_MEMBER_LEFT = "%s hat die Bande verlassen.",
     GANG_CHAT_USAGE = "Benutzung: /gang <Text> schreibt deiner Bande; /gang allein öffnet den Bandenchat.",
+    GANG_CHAT_HINT = "Bandenchat: tippe |cffffff00/gang hallo|r, oder |cffffff00/gang|r und ein Leerzeichen, um dein Chatfeld darauf umzustellen.",
     GANG_CHAT_NONE = "Du bist in keiner Bande.",
     GANG_CHAT_COLOR_SET = "Farbe des Bandenchats gespeichert.",
     GANG_CHAT_COLOR_BAD = "Gib die Farbe als sechs Hex-Ziffern an, zum Beispiel: /hh gang color ff9f40",

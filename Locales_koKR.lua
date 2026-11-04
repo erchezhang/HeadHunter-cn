@@ -741,6 +741,7 @@ local KR = {
     GANG_ALREADY_MEMBER = "%s님은 이미 당신의 갱단에 있습니다.",
     GANG_MEMBER_LEFT = "%s님이 갱단을 떠났습니다.",
     GANG_CHAT_USAGE = "사용법: /gang <내용>은 갱단에 보냅니다. /gang만 입력하면 갱단 채팅이 열립니다.",
+    GANG_CHAT_HINT = "갱단 채팅: |cffffff00/gang 안녕|r 이라고 입력하거나, |cffffff00/gang|r 과 스페이스로 채팅창을 갱단 채팅으로 바꾸세요.",
     GANG_CHAT_NONE = "갱단에 속해 있지 않습니다.",
     GANG_CHAT_COLOR_SET = "갱단 채팅 색상을 저장했습니다.",
     GANG_CHAT_COLOR_BAD = "색상을 16진수 여섯 자리로 입력하세요. 예: /hh gang color ff9f40",

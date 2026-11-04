@@ -737,6 +737,7 @@ local CN = {
     GANG_ALREADY_MEMBER = "%s 已经在你的帮派中。",
     GANG_MEMBER_LEFT = "%s 退出了帮派。",
     GANG_CHAT_USAGE = "用法：/gang <内容> 发送给帮派；只输入 /gang 打开帮派聊天。",
+    GANG_CHAT_HINT = "帮派聊天：输入 |cffffff00/gang 你好|r，或输入 |cffffff00/gang|r 加空格把聊天框切换到帮派聊天。",
     GANG_CHAT_NONE = "你不在任何帮派中。",
     GANG_CHAT_COLOR_SET = "帮派聊天颜色已保存。",
     GANG_CHAT_COLOR_BAD = "请用六位十六进制数字输入颜色，例如：/hh gang color ff9f40",

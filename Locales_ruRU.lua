@@ -741,6 +741,7 @@ local RU = {
     GANG_ALREADY_MEMBER = "%s уже в вашей банде.",
     GANG_MEMBER_LEFT = "%s покинул банду.",
     GANG_CHAT_USAGE = "Использование: /gang <текст> пишет банде; /gang без текста открывает чат банды.",
+    GANG_CHAT_HINT = "Чат банды: введите |cffffff00/gang привет|r, или |cffffff00/gang|r и пробел, чтобы переключить на него поле чата.",
     GANG_CHAT_NONE = "Вы не состоите в банде.",
     GANG_CHAT_COLOR_SET = "Цвет чата банды сохранён.",
     GANG_CHAT_COLOR_BAD = "Укажите цвет шестью шестнадцатеричными цифрами, например: /hh gang color ff9f40",

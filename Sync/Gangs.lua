@@ -596,6 +596,7 @@ function Gangs:AcceptInvite()
         leaderLevel = invite.leaderLevel, leaderRace = invite.leaderRace, leaderSex = invite.leaderSex })
     Answer("a;" .. (MyClass() or "") .. ";" .. (MyLevel() or "") .. ";" .. MyLooks(), invite.sender)
     ns:Print(string.format(L.GANG_JOIN_WAITING, invite.name))
+    ns:Print(L.GANG_CHAT_HINT)
     return action
 end
 
@@ -817,6 +818,7 @@ function Gangs:Command(args)
         self:SaveChat(chat.channel, chat.password, at)
         self:Record("create", { name = name, chatChannel = chat.channel, chatPassword = chat.password }, at)
         ns:Print(string.format(L.GANG_CREATE_WAITING, name))
+        ns:Print(L.GANG_CHAT_HINT)
     elseif sub == "invite" then
         local key, class, level = Named(args)
         self:Invite(key, class, level)
