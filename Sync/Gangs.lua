@@ -39,6 +39,8 @@ Gangs.GANG_KEEP = 30 * 86400
 Gangs.POPUP = "HEADHUNTER_GANG_INVITE"
 Gangs.CREATE_POPUP = "HEADHUNTER_GANG_CREATE"
 Gangs.LEAVE_POPUP = "HEADHUNTER_GANG_LEAVE"
+-- The website's Gangs page, where taken names can be checked (the download's own link wins)
+Gangs.SITE_GANGS = "https://headhunterwow.com/gangs"
 Gangs.KINDS = { create = true, invite = true, accept = true, leave = true, kick = true, rename = true, lead = true }
 Gangs.REASONS = {
     name_invalid = true, name_taken = true, in_a_gang = true, not_in_a_gang = true, not_leader = true,
@@ -559,6 +561,9 @@ end
 function Gangs:PromptCreate()
     if not Gangs.Enabled() then ns:Print(L.GANG_FOREVER_ONLY) return end
     if self:Mine() then ns:Print(L.GANG_ALREADY) return end
+    local link = ns.SiteData:Link("gangs") or Gangs.SITE_GANGS
+    StaticPopupDialogs[Gangs.CREATE_POPUP].text = L.GANG_CREATE_POPUP .. "\n\n" .. string.format(L.GANG_NAMES_LINK, link)
+    ns:Print(string.format(L.GANG_NAMES_LINK, link))
     StaticPopup_Show(Gangs.CREATE_POPUP)
 end
 

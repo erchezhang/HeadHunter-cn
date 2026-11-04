@@ -297,6 +297,7 @@ return function(T, H)
         ns.Gangs:PromptCreate()
         T.eq(#H.popups, 1, "the name popup")
         T.eq(H.popups[1].which, ns.Gangs.CREATE_POPUP, "the create popup")
+        T.ok(H.popups[1].text:find("headhunterwow.com/gangs", 1, true), "with the link to check taken names")
         local popup = { editBox = { GetText = function() return "  Black   Hand " end } }
         StaticPopupDialogs[ns.Gangs.CREATE_POPUP].OnAccept(popup)
         local action = ns.Gangs:Actions()[1]
