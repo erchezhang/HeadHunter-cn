@@ -308,8 +308,13 @@ return function(T, H)
         T.eq(looks[FriendsFrameTab3], "selected", "Raid looks selected")
 
         tab:GetScript("OnClick")()
+        T.ok(portrait.value:find("HeadHunter", 1, true), "the crosshair on the Gang page")
+        FriendsFrame.hooks.OnHide()
+        T.ok(not portrait.value:find("HeadHunter", 1, true), "closing the window on the Gang page gives the icon back")
+        tab:GetScript("OnClick")()
         hooked.FriendsFrame_OnShow()
         T.ok(not panel:IsShown(), "reopening the window closes ours")
+        T.ok(not portrait.value:find("HeadHunter", 1, true), "and the icon is the page's again")
         T.noErrors()
     end)
 

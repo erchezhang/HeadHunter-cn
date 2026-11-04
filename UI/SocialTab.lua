@@ -235,8 +235,11 @@ local function ShowOurPortrait()
     SetPortrait(SocialTab.PORTRAIT)
 end
 
+-- The Social window's own icon, when the game did not tell us the page's
+SocialTab.DEFAULT_PORTRAIT = "Interface\\FriendsFrame\\FriendsFrameScrollIcon"
+
 local function ShowBlizzardPortrait()
-    if blizzardPortrait then SetPortrait(blizzardPortrait) end
+    SetPortrait(blizzardPortrait or SocialTab.DEFAULT_PORTRAIT)
 end
 
 -- How the tabs look only: ours selected and every Blizzard tab not
@@ -265,6 +268,7 @@ function SocialTab:Close()
     if not active then return end
     active = false
     if panel then panel:Hide() end
+    ShowBlizzardPortrait()
     if tab and PanelTemplates_DeselectTab then pcall(PanelTemplates_DeselectTab, tab) end
 end
 
