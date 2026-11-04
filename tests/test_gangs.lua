@@ -369,4 +369,38 @@ return function(T, H)
         local confirmed = Boot(Data({ Gang("Western Gods", "Vati Guda", { "Vati Guda" }) }))
         T.eq(confirmed.SocialTab.Title(), "Gang - Western Gods", "confirmed")
     end)
+
+    T.case("gang chat: members join the gang's hidden channel, /gang sends there, lines show as [Gang]", function()
+        local data = Data()
+        data.characters[1].gang_chat = { channel = "HHGabcdefghijkl", password = "secret" }
+        local ns = Boot(data)
+        H.joinWorks = true
+        T.ok(ns.GangChat:Join(), "joined")
+        T.eq(ns.GangChat:Channel(), "HHGabcdefghijkl", "the gang's channel")
+        H.chatSent = {}
+        SlashCmdList.HEADHUNTERGANGCHAT("  hello  ")
+        T.eq(#H.chatSent, 1, "sent")
+        T.eq(H.chatSent[1].chatType, "CHANNEL", "to the channel")
+        T.eq(H.chatSent[1].text, "hello", "trimmed")
+        local shown = {}
+        DEFAULT_CHAT_FRAME = { AddMessage = function(_, text) shown[#shown + 1] = text end }
+        ns.GangChat:OnChannelText("hi all", "Tobin Ashford", "HHGabcdefghijkl", "6. HHGabcdefghijkl")
+        T.ok(shown[1] and shown[1]:find("[Gang]", 1, true) and shown[1]:find("hi all", 1, true), "shown as [Gang]")
+        ns.GangChat:OnChannelText("other", "Someone", "OtherChannel", "7. OtherChannel")
+        T.eq(#shown, 1, "other channels are not ours")
+        T.ok(not ns.GangChat.SetColor("zz"), "a bad colour")
+        T.ok(ns.GangChat.SetColor("#00FF00"), "a good colour")
+        local r, g = ns.GangChat.Color()
+        T.eq(g, 1, "green")
+        T.eq(r, 0, "no red")
+    end)
+
+    T.case("gang chat: none without the website's channel, and leaving the gang leaves it", function()
+        local ns = Boot(Data())
+        T.ok(not ns.GangChat:Join(), "no channel before the website confirmed the gang")
+        H.chatSent = {}
+        SlashCmdList.HEADHUNTERGANGCHAT("hello")
+        T.eq(#H.chatSent, 0, "nothing sent")
+        T.ok(H.Printed("not in a gang chat"), "said why")
+    end)
 end

@@ -76,6 +76,7 @@ Sync\ReportPrompt.lua
 Sync\Justice.lua
 Sync\Punishments.lua
 Sync\Gangs.lua
+Sync\GangChat.lua
 Sync\CatchUp.lua
 Sync\Duels.lua
 Sync\SiteData.lua

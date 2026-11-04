@@ -466,6 +466,21 @@ function SiteData:Gangs()
     return gangs or {}
 end
 
+-- Our character's gang chat channel and password (HH-155): { channel, password } or nil
+function SiteData:GangChat(me)
+    local data = Data()
+    if not (data and me and type(data.characters) == "table") then return nil end
+    local realmType = ForeverRealmType(data)
+    for _, c in ipairs(data.characters) do
+        if type(c) == "table" and IsOurWorld(c.world, realmType) and ns.Utils.SameCharacter(ns.Utils.PlayerKey(Text(c.name)), me)
+                and type(c.gang_chat) == "table" then
+            local channel, password = Text(c.gang_chat.channel), Text(c.gang_chat.password)
+            if channel and password then return { channel = channel, password = password } end
+        end
+    end
+    return nil
+end
+
 -- What came of our character's gang actions (HH-155): uid -> { kind, status, reason, gang }
 function SiteData:GangResults(me)
     local data = Data()

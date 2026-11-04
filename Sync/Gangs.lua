@@ -394,6 +394,8 @@ function Gangs:Command(args)
         if not key or ns.Utils.SameCharacter(key, Me()) or not Member(gang, key) then ns:Print(L.GANG_NOT_MEMBER) return end
         self:Record(sub, { player = key })
         ns:Print(string.format(sub == "kick" and L.GANG_KICKED or L.GANG_LEAD_GIVEN, ns.Utils.DisplayName(key)))
+    elseif sub == "color" then
+        if ns.GangChat.SetColor(args[2]) then ns:Print(L.GANG_CHAT_COLOR_SET) else ns:Print(L.GANG_CHAT_COLOR_BAD) end
     elseif sub == "socialtab" then
         local mode = args[2] and args[2]:lower()
         ns.Database:SetSetting("gangSocialTab", mode == "on")

@@ -78,6 +78,8 @@ local DEFAULTS = {
         gangInvites = true,
         -- HH-155: the Gang tab in the Social window, off until its taint probe is clean (UI/SocialTab.lua)
         gangSocialTab = false,
+        -- HH-155: the colour of gang chat lines, hex (Sync/GangChat.lua)
+        gangChatColor = "ff9f40",
     },
     zones = {}, -- zone mapID -> { name, continent, locale }: names for the website (Alerts/Zones.lua)
     homes = {}, -- home key -> HOME_DEFAULTS
