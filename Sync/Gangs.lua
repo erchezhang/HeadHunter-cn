@@ -251,6 +251,15 @@ function Gangs:Of(key)
     return nil
 end
 
+-- Whether a gang of the website's lists on our world has this name already (any case)
+function Gangs:NameTaken(name)
+    local wanted = Gangs.CleanName(name):lower()
+    for _, g in ipairs(ns.SiteData:Gangs()) do
+        if Gangs.CleanName(g.name):lower() == wanted then return true end
+    end
+    return false
+end
+
 -- Says once what came of each answered action
 function Gangs:TellResults()
     local results = self:Results()
@@ -492,6 +501,9 @@ function Gangs:Command(args)
         local name = Gangs.CleanName(Rest(args, 2))
         if gang then ns:Print(L.GANG_ALREADY) return end
         if not Gangs.ValidName(name) then ns:Print(L.GANG_BAD_NAME) return end
+        if self:NameTaken(name) then ns:Print(L.GANG_NAME_TAKEN) return end
+        local wait = self:CooldownLeft()
+        if wait then ns:Print(string.format(L.GANG_RULE_COOLDOWN_SELF, Gangs.Hours(wait))) return end
         self:Record("create", { name = name })
         ns:Print(string.format(L.GANG_CREATE_WAITING, name))
     elseif sub == "invite" then

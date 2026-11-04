@@ -753,6 +753,7 @@ L.GANG_RULE_COOLDOWN_OTHER = "Gang rules: %s left a gang less than 24 hours ago 
 L.GANG_HOURS = "%d h"
 L.GANG_MINUTES = "%d min"
 L.GANG_TEST_RESET = "Test: the 24-hour gang rule is cleared on this character (leaves and members who left)."
+L.GANG_NAME_TAKEN = "That gang name is already taken on your world."
 L.HELP_GANG = "|cffffff00/hh gang [create <name>|invite [name]|leave|kick <name>|lead <name>|rename <name>|color <hex>]|r, |cffffff00/gang <text>|r: your gang of friends (WoW Forever, needs HeadHunter Sync)"
 L.GANG_USAGE = "Usage: /hh gang create <name> | invite [name] | leave | kick <name> | lead <name> | rename <name>"
 L.GANG_FOREVER_ONLY = "Gangs are for WoW Forever only."

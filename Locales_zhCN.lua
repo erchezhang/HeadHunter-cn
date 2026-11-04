@@ -702,6 +702,7 @@ local CN = {
     SEARCH_PLAYER = "查找玩家",
     SEARCH_EMPTY = "没有叫 %s 的玩家",
     -- HH-155: gangs
+    GANG_NAME_TAKEN = "这个帮派名称在你的世界已被占用。",
     GANG_TEST_RESET = "测试：已清除此角色的 24 小时帮派规则（退出记录和已退出的成员）。",
     GANG_RULE_COOLDOWN_SELF = "帮派规则：你在 24 小时内退出过帮派。%s后才能再次加入。",
     GANG_RULE_COOLDOWN_OTHER = "帮派规则：%s 在 24 小时内退出过帮派，%s后才能再次加入。",

@@ -707,6 +707,7 @@ local ES = {
     SEARCH_PLAYER = "Buscar un jugador",
     SEARCH_EMPTY = "Nadie se llama %s",
     -- HH-155: gangs
+    GANG_NAME_TAKEN = "Ese nombre de banda ya está cogido en tu mundo.",
     GANG_TEST_RESET = "Prueba: la regla de 24 horas se ha borrado en este personaje (salidas y miembros que se fueron).",
     GANG_RULE_COOLDOWN_SELF = "Reglas de banda: dejaste una banda hace menos de 24 horas. Podrás unirte de nuevo en %s.",
     GANG_RULE_COOLDOWN_OTHER = "Reglas de banda: %s dejó una banda hace menos de 24 horas y podrá unirse de nuevo en %s.",

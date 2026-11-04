@@ -510,4 +510,17 @@ return function(T, H)
         H.Slash("gang testreset")
         T.ok(player.Gangs:CooldownLeft() ~= nil, "not without HeadHunter_Dev")
     end)
+
+    T.case("create: a name another gang of our world has is refused at once, and the 24-hour rule too", function()
+        local ns = Boot(Data({ Gang("Western Gods", "Andy Gue", { "Andy Gue" }) }))
+        H.printed = {}
+        H.Slash("gang create western   gods")
+        T.ok(H.Printed("already taken"), "said")
+        T.eq(#ns.Gangs:Actions(), 0, "nothing kept")
+        H.Slash("gang create Black Hand")
+        H.Slash("gang leave")
+        H.printed = {}
+        H.Slash("gang create Red Fang")
+        T.ok(H.Printed("Gang rules: you left a gang"), "the 24-hour rule")
+    end)
 end

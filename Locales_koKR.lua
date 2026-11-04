@@ -706,6 +706,7 @@ local KR = {
     SEARCH_PLAYER = "플레이어 찾기",
     SEARCH_EMPTY = "%s(이)라는 플레이어가 없습니다",
     -- HH-155: gangs
+    GANG_NAME_TAKEN = "이 갱단 이름은 이 세계에서 이미 쓰이고 있습니다.",
     GANG_TEST_RESET = "테스트: 이 캐릭터의 24시간 갱단 규칙을 초기화했습니다 (탈퇴 및 떠난 멤버).",
     GANG_RULE_COOLDOWN_SELF = "갱단 규칙: 24시간 이내에 갱단을 떠났습니다. %s 후에 다시 가입할 수 있습니다.",
     GANG_RULE_COOLDOWN_OTHER = "갱단 규칙: %s님은 24시간 이내에 갱단을 떠나 %s 후에 다시 가입할 수 있습니다.",

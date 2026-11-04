@@ -706,6 +706,7 @@ local DE = {
     SEARCH_PLAYER = "Spieler suchen",
     SEARCH_EMPTY = "Niemand namens %s",
     -- HH-155: gangs
+    GANG_NAME_TAKEN = "Dieser Bandenname ist in deiner Welt schon vergeben.",
     GANG_TEST_RESET = "Test: Die 24-Stunden-Bandenregel ist für diesen Charakter gelöscht (Austritte und Mitglieder, die gegangen sind).",
     GANG_RULE_COOLDOWN_SELF = "Bandenregeln: Du hast vor weniger als 24 Stunden eine Bande verlassen. Du kannst in %s wieder beitreten.",
     GANG_RULE_COOLDOWN_OTHER = "Bandenregeln: %s hat vor weniger als 24 Stunden eine Bande verlassen und kann in %s wieder beitreten.",
