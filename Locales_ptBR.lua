@@ -706,6 +706,7 @@ local BR = {
     SEARCH_PLAYER = "Procurar um jogador",
     SEARCH_EMPTY = "Ninguém se chama %s",
     -- HH-155: gangs
+    GANG_TEST_RESET = "Teste: a regra de 24 horas foi apagada neste personagem (saídas e membros que saíram).",
     GANG_RULE_COOLDOWN_SELF = "Regras de bando: você saiu de um bando há menos de 24 horas. Pode entrar de novo em %s.",
     GANG_RULE_COOLDOWN_OTHER = "Regras de bando: %s saiu de um bando há menos de 24 horas e pode entrar de novo em %s.",
     GANG_HOURS = "%d h",

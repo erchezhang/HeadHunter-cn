@@ -322,7 +322,7 @@ function Gangs:CooldownLeft(now)
     now = now or ns.Utils.ServerTime()
     local last
     for _, action in ipairs(self:Actions()) do
-        if action.kind == "leave" and (not last or action.t > last) then last = action.t end
+        if action.kind == "leave" and not action.cooldownCleared and (not last or action.t > last) then last = action.t end
     end
     local left = last and (last + Gangs.JOIN_COOLDOWN - now)
     return left and left > 0 and left or nil
@@ -513,6 +513,12 @@ function Gangs:Command(args)
         if not key or ns.Utils.SameCharacter(key, Me()) or not Member(gang, key) then ns:Print(L.GANG_NOT_MEMBER) return end
         self:Record(sub, { player = key })
         ns:Print(string.format(sub == "kick" and L.GANG_KICKED or L.GANG_LEAD_GIVEN, ns.Utils.DisplayName(key)))
+    elseif sub == "testreset" and ns.Dev.Present() then
+        for _, action in ipairs(self:Actions()) do
+            if action.kind == "leave" then action.cooldownCleared = true end
+        end
+        if ns.db then ns.db.gangDeparted = {} end
+        ns:Print(L.GANG_TEST_RESET)
     elseif sub == "color" then
         if ns.GangChat.SetColor(args[2]) then ns:Print(L.GANG_CHAT_COLOR_SET) else ns:Print(L.GANG_CHAT_COLOR_BAD) end
     elseif sub == "socialtab" then

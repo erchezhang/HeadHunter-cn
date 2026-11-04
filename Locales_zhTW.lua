@@ -703,6 +703,7 @@ local TW = {
     SEARCH_PLAYER = "尋找玩家",
     SEARCH_EMPTY = "沒有叫 %s 的玩家",
     -- HH-155: gangs
+    GANG_TEST_RESET = "測試：已清除此角色的 24 小時幫派規則（退出記錄和已退出的成員）。",
     GANG_RULE_COOLDOWN_SELF = "幫派規則：你在 24 小時內退出過幫派。%s後才能再次加入。",
     GANG_RULE_COOLDOWN_OTHER = "幫派規則：%s 在 24 小時內退出過幫派，%s後才能再次加入。",
     GANG_HOURS = "%d 小時",
