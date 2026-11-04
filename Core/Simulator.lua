@@ -20,18 +20,18 @@ local L = ns.L
 
 local Simulator = ns:RegisterModule("Simulator", {})
 
--- The Wild Bunch (the Hole-in-the-Wall Gang) of the 1890s, for /hh sim gang: name, class,
--- level, online
+-- The Wild Bunch (the Hole-in-the-Wall Gang) of the 1890s, for /hh sim gang, all Horde:
+-- name, class, level, online, race, sex (2 male, 3 female)
 Simulator.WILD_BUNCH = {
-    { "Butch Cassidy", "ROGUE", 60, true },
-    { "Sundance Kid", "HUNTER", 60, true },
-    { "Kid Curry", "WARRIOR", 58, true },
-    { "Elzy Lay", "MAGE", 57, false },
-    { "Ben Kilpatrick", "WARRIOR", 55, true },
-    { "Will Carver", "PRIEST", 54, false },
-    { "Laura Bullion", "WARLOCK", 52, true },
-    { "Etta Place", "MAGE", 51, false },
-    { "George Curry", "DRUID", 50, true },
+    { "Butch Cassidy", "ROGUE", 60, true, "Orc", 2 },
+    { "Sundance Kid", "HUNTER", 60, true, "Troll", 2 },
+    { "Kid Curry", "WARRIOR", 58, true, "Tauren", 2 },
+    { "Elzy Lay", "MAGE", 57, false, "Scourge", 2 },
+    { "Ben Kilpatrick", "WARRIOR", 55, true, "Orc", 2 },
+    { "Will Carver", "PRIEST", 54, false, "Scourge", 2 },
+    { "Laura Bullion", "WARLOCK", 52, true, "Orc", 3 },
+    { "Etta Place", "MAGE", 51, false, "Troll", 3 },
+    { "George Curry", "DRUID", 50, true, "Tauren", 2 },
 }
 -- What the gang says in gang chat on the screenshot: sender index, text
 Simulator.WILD_BUNCH_CHAT = {
@@ -287,12 +287,13 @@ function Simulator:Gang(mode)
     local members = {}
     for _, m in ipairs(self.WILD_BUNCH) do
         if not (me and U.SameCharacter(me, m[1])) then
-            members[#members + 1] = { key = m[1], class = m[2], level = m[3], online = m[4] }
+            members[#members + 1] = { key = m[1], class = m[2], level = m[3], online = m[4], race = m[5], sex = m[6],
+                faction = "Horde" }
         end
     end
     if me then table.insert(members, leads and 1 or 2, { key = me, class = myClass, level = UnitLevel and UnitLevel("player") }) end
     local leader = leads and me or self.WILD_BUNCH[1][1]
-    ns.Gangs:SetSim({ name = "Wild Bunch", leader = leader, members = members, confirmed = true })
+    ns.Gangs:SetSim({ name = "Wild Bunch", leader = leader, members = members, confirmed = true, faction = "Horde" })
     local window = DEFAULT_CHAT_FRAME
     if window and window.AddMessage then
         for _, line in ipairs(self.WILD_BUNCH_CHAT) do
