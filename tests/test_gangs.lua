@@ -210,6 +210,8 @@ return function(T, H)
         for _, i in ipairs({ 1, 3, 4 }) do
             local button = CreateFrame("Button")
             button.shown = i ~= 4
+            button.hooks = {}
+            button.HookScript = function(self, script, fn) self.hooks[script] = fn end
             _G["FriendsFrameTab" .. i] = button
         end
         _G.FriendsListFrame = CreateFrame("Frame")
@@ -234,9 +236,13 @@ return function(T, H)
         T.eq(tab.point[4], 3, "the game's own gap between tabs")
 
         FriendsFrame.selectedTab = 2
-        FriendsFrame.SetTitle = function(self, text) self.titleText = text end
+        local title = CreateFrame("Frame")
+        title.SetText = function(self, text) self.value = text end
+        title.GetText = function(self) return self.value end
+        title:SetText("Raid")
+        FriendsFrame.GetTitleText = function() return title end
         tab:GetScript("OnClick")()
-        T.eq(FriendsFrame.titleText, "Gang", "the window's title says Gang")
+        T.eq(title.value, "Gang", "the window's title says Gang")
         T.ok(panel:IsShown(), "our page shows")
         T.ok(panel.title.shownText:find("Black Hand", 1, true), "our gang")
         T.eq(looks[tab], "selected", "our tab looks selected")
@@ -251,9 +257,24 @@ return function(T, H)
         hooked.FriendsFrame_Update()
         T.ok(not FriendsListFrame:IsShown(), "a refresh of the window hides its page again while ours is open")
 
-        hooked.FriendsFrame_OnShow()
-        T.ok(not panel:IsShown(), "a Blizzard tab click closes ours")
+        FriendsFrameTab3.hooks.OnClick(FriendsFrameTab3)
+        T.ok(not panel:IsShown(), "a click on Raid closes ours")
         T.eq(looks[tab], "deselected", "and our tab looks unselected")
+        T.ok(FriendsListFrame:IsShown() and RaidFrame:IsShown(), "Raid was Blizzard's tab all along: its page comes back from us")
+        T.eq(looks[FriendsFrameTab3], "selected", "and Raid looks selected")
+        T.eq(title.value, "Raid", "and its title is back")
+
+        tab:GetScript("OnClick")()
+        T.ok(panel:IsShown(), "ours again")
+        FriendsFrame.selectedTab = 1
+        RaidFrame:Hide()
+        FriendsFrameTab1.hooks.OnClick(FriendsFrameTab1)
+        T.ok(not panel:IsShown(), "a click on Contacts closes ours")
+        T.ok(not RaidFrame:IsShown(), "Blizzard switched pages itself: we show nothing back")
+
+        tab:GetScript("OnClick")()
+        hooked.FriendsFrame_OnShow()
+        T.ok(not panel:IsShown(), "reopening the window closes ours")
         T.noErrors()
     end)
 

@@ -33,6 +33,10 @@ SocialTab.PAGES = { "FriendsTabHeader", "FriendsListFrame", "QuickJoinFrame", "R
 
 local holder, tab, panel
 local active = false
+-- Blizzard's pages we hid on opening ours, and its selected tab then: a click on that same
+-- tab redraws nothing, so we show them again ourselves
+local hidden = {}
+local selectedAtOpen
 
 -- The Social window's own tab buttons, in order; numbers may be skipped
 function SocialTab.BlizzardTabs()
@@ -86,28 +90,53 @@ function SocialTab:Refresh()
 end
 
 -- Blizzard's pages out of sight while ours is open; RaidFrame only out of combat
-local function HideBlizzardPages()
-    for _, name in ipairs(SocialTab.PAGES) do
-        local page = _G[name]
-        if page and page.Hide then page:Hide() end
-    end
-    local raid = _G.RaidFrame
-    local inCombat = InCombatLockdown and InCombatLockdown()
-    if raid and not inCombat and raid.IsShown and raid:IsShown() and raid:GetParent() == _G.FriendsFrame then
-        raid:Hide()
+local function HidePage(page)
+    if page and page.IsShown and page:IsShown() then
+        page:Hide()
+        hidden[#hidden + 1] = page
     end
 end
 
--- The window's title says Gang while our page is open (Blizzard's own page code sets its
--- title again when it shows)
-local function ShowOurTitle()
-    local frame = _G.FriendsFrame
-    if not frame then return end
-    if frame.SetTitle then
-        pcall(frame.SetTitle, frame, L.TAB_GANG)
-    elseif _G.FriendsFrameTitleText and _G.FriendsFrameTitleText.SetText then
-        _G.FriendsFrameTitleText:SetText(L.TAB_GANG)
+local function HideBlizzardPages()
+    for _, name in ipairs(SocialTab.PAGES) do HidePage(_G[name]) end
+    local raid = _G.RaidFrame
+    local inCombat = InCombatLockdown and InCombatLockdown()
+    if raid and not inCombat and raid.GetParent and raid:GetParent() == _G.FriendsFrame then HidePage(raid) end
+end
+
+-- The pages we hid, back on show; RaidFrame only out of combat
+local function ShowHiddenPages()
+    local inCombat = InCombatLockdown and InCombatLockdown()
+    for _, page in ipairs(hidden) do
+        if not (inCombat and page == _G.RaidFrame) then page:Show() end
     end
+    hidden = {}
+end
+
+-- The window's title text, as a font string
+local function TitleText()
+    local frame = _G.FriendsFrame
+    if frame and frame.GetTitleText then
+        local ok, text = pcall(frame.GetTitleText, frame)
+        if ok and text then return text end
+    end
+    return _G.FriendsFrameTitleText
+end
+
+-- The window's title says Gang while our page is open; Blizzard's title is kept to put
+-- back when its page comes back from us (its own page code sets it when it shows)
+local blizzardTitle
+local function ShowOurTitle()
+    local text = TitleText()
+    if not (text and text.SetText) then return end
+    local current = text.GetText and text:GetText()
+    if current ~= L.TAB_GANG then blizzardTitle = current end
+    text:SetText(L.TAB_GANG)
+end
+
+local function ShowBlizzardTitle()
+    local text = TitleText()
+    if text and text.SetText and blizzardTitle then text:SetText(blizzardTitle) end
 end
 
 -- How the tabs look only: ours selected and every Blizzard tab not
@@ -121,6 +150,8 @@ end
 function SocialTab:Open()
     if not panel then return end
     active = true
+    hidden = {}
+    selectedAtOpen = _G.FriendsFrame and _G.FriendsFrame.selectedTab
     HideBlizzardPages()
     LookOurs()
     ShowOurTitle()
@@ -130,6 +161,7 @@ end
 
 -- Our page away; Blizzard's tabs and page are its own business again
 function SocialTab:Close()
+    if not active then return end
     active = false
     if panel then panel:Hide() end
     if tab and PanelTemplates_DeselectTab then pcall(PanelTemplates_DeselectTab, tab) end
@@ -142,6 +174,22 @@ function SocialTab:Place()
         tab:ClearAllPoints()
         tab:SetPoint("TOPLEFT", last, "TOPRIGHT", SocialTab.TAB_GAP, 0)
     end
+end
+
+-- A click on a Blizzard tab, after Blizzard's own handler: our page closes; when the tab
+-- was the one Blizzard had selected all along, it redrew nothing, so its page and tab
+-- look come back from us
+function SocialTab.OnBlizzardTabClick(button)
+    if not active then return end
+    local frame = _G.FriendsFrame
+    local same = frame and frame.selectedTab == selectedAtOpen
+    SocialTab:Close()
+    if same then
+        ShowHiddenPages()
+        ShowBlizzardTitle()
+        if PanelTemplates_SelectTab then pcall(PanelTemplates_SelectTab, button) end
+    end
+    hidden = {}
 end
 
 -- FriendsFrame_OnShow: a Blizzard tab was clicked or the window opened
@@ -224,6 +272,11 @@ function SocialTab:Install()
         if _G.FriendsFrame_Update then hooksecurefunc("FriendsFrame_Update", SocialTab.OnBlizzardUpdate) end
     end
     if frame.HookScript then frame:HookScript("OnHide", function() SocialTab:Close() end) end
+    for _, button in ipairs(self.BlizzardTabs()) do
+        if button.HookScript then
+            button:HookScript("OnClick", function(clicked) SocialTab.OnBlizzardTabClick(clicked) end)
+        end
+    end
     return true
 end
 
