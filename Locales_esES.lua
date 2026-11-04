@@ -707,8 +707,8 @@ local ES = {
     SEARCH_PLAYER = "Buscar un jugador",
     SEARCH_EMPTY = "Nadie se llama %s",
     -- HH-155: gangs
-    GANG_SLASHSWITCH_ON = "Prueba: /gang + espacio ahora cambia al chat de banda. Comprueba con /console taintLog 1 que /target escrito en el chat sigue funcionando.",
-    GANG_SLASHSWITCH_OFF = "Prueba desactivada: /gang + espacio ya no cambia al chat de banda.",
+    GANG_SLASHSWITCH_ON = "/gang + espacio cambia al chat de banda.",
+    GANG_SLASHSWITCH_OFF = "/gang + espacio ya no cambia al chat de banda (/gang solo o el número del canal sí).",
     GANG_MEMBERS_RANGE = "%d–%d de %d · desplázate para ver más",
     GANG_CHAT_JOINING = "Entrando en el chat de banda: inténtalo de nuevo en un momento.",
     GANG_CHAT_HEADER = "Banda: ",

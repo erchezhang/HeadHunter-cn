@@ -703,8 +703,8 @@ local TW = {
     SEARCH_PLAYER = "尋找玩家",
     SEARCH_EMPTY = "沒有叫 %s 的玩家",
     -- HH-155: gangs
-    GANG_SLASHSWITCH_ON = "測試：現在 /gang + 空格會切換到幫派聊天。請用 /console taintLog 1 檢查在聊天中輸入 /target 是否仍然有效。",
-    GANG_SLASHSWITCH_OFF = "測試關閉：/gang + 空格不再切換到幫派聊天。",
+    GANG_SLASHSWITCH_ON = "/gang + 空格會切換到幫派聊天。",
+    GANG_SLASHSWITCH_OFF = "/gang + 空格不再切換到幫派聊天（只輸入 /gang 或頻道編號仍可切換）。",
     GANG_MEMBERS_RANGE = "%d–%d / %d · 捲動查看更多",
     GANG_CHAT_JOINING = "正在加入幫派聊天：請稍後再試。",
     GANG_CHAT_HEADER = "幫派：",

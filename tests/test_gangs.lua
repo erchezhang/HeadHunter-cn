@@ -666,7 +666,7 @@ return function(T, H)
         T.eq(#H.chatSent, 1, "joined and sent at once")
     end)
 
-    T.case("gang chat test switch: /gang + space switches the chat box only when turned on", function()
+    T.case("gang chat: /gang + space switches the chat box, unless turned off", function()
         local data = Data()
         data.characters[1].gang_chat = { channel = "HHGabcdefghijkl", password = "secret" }
         local ns = Boot(data)
@@ -675,12 +675,13 @@ return function(T, H)
         local box = { text = "/gang ", GetText = function(self) return self.text end, SetText = function(self, t) self.text = t end,
             SetChatType = function(self, t) self.chatType = t end, SetStickyType = function(self, t) self.sticky = t end,
             SetChannelTarget = function(self, id) self.target = id end, UpdateHeader = function() end }
-        T.ok(not ns.GangChat.SwitchOnSlash(box), "off by default")
-        H.Slash("gang slashswitch on")
-        T.ok(ns.GangChat.SwitchOnSlash(box), "switched")
+        T.ok(ns.GangChat.SwitchOnSlash(box), "switched, on by default")
         T.eq(box.chatType, "CHANNEL", "channel chat")
         T.eq(box.target, 5, "the gang channel")
         T.eq(box.text, "", "the box cleared for typing")
+        H.Slash("gang slashswitch off")
+        box.text = "/gang "
+        T.ok(not ns.GangChat.SwitchOnSlash(box), "off when the player turns it off")
     end)
 
     T.case("gang chat channels: Gang_HH names, and old HHG ones are left", function()

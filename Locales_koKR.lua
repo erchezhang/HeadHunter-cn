@@ -706,8 +706,8 @@ local KR = {
     SEARCH_PLAYER = "플레이어 찾기",
     SEARCH_EMPTY = "%s(이)라는 플레이어가 없습니다",
     -- HH-155: gangs
-    GANG_SLASHSWITCH_ON = "테스트: 이제 /gang + 스페이스가 갱단 채팅으로 바꿉니다. /console taintLog 1로 채팅에 입력한 /target이 여전히 되는지 확인하세요.",
-    GANG_SLASHSWITCH_OFF = "테스트 꺼짐: /gang + 스페이스가 더 이상 갱단 채팅으로 바꾸지 않습니다.",
+    GANG_SLASHSWITCH_ON = "/gang + 스페이스로 갱단 채팅으로 바뀝니다.",
+    GANG_SLASHSWITCH_OFF = "/gang + 스페이스로 더 이상 갱단 채팅으로 바뀌지 않습니다 (/gang만 입력하거나 채널 번호는 여전히 됩니다).",
     GANG_MEMBERS_RANGE = "%d–%d / %d · 스크롤하여 더 보기",
     GANG_CHAT_JOINING = "갱단 채팅에 참여하는 중입니다: 잠시 후 다시 시도하세요.",
     GANG_CHAT_HEADER = "갱단: ",

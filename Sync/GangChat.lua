@@ -191,13 +191,12 @@ function GangChat.OnHeaderUpdate(editBox)
     end
 end
 
--- Opt-in test (setting gangChatSlashSwitch, /hh gang slashswitch on): "/gang " + space
--- switches the chat box to gang chat as "/guild " does, with the box's own SetChatType,
--- SetStickyType, SetChannelTarget and UpdateHeader. Addon code sets the box's chat type
--- then, which may block protected commands typed in chat afterwards: off until a taint
--- check is clean. Returns true when it switched.
+-- "/gang " + space switches the chat box to gang chat as "/guild " does, with the box's own
+-- SetChatType, SetStickyType, SetChannelTarget and UpdateHeader (setting gangChatSlash, on;
+-- /hh gang slashswitch off turns it off). Checked in game 2026-11-04: /target typed in
+-- that chat box afterwards still worked. Returns true when it switched.
 function GangChat.SwitchOnSlash(box)
-    if not (ns.db and ns.db.settings.gangChatSlashSwitch and box and box.GetText) then return false end
+    if not (ns.db and ns.db.settings.gangChatSlash ~= false and box and box.GetText) then return false end
     local text = box:GetText()
     if type(text) ~= "string" or text:lower() ~= "/gang " then return false end
     local id = ChannelId(current)
