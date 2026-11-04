@@ -6,7 +6,7 @@ HeadHunter 1.0 for the WoW Forever release. Everything since 0.5.0:
 
 ### WANTED and justice
 
-- A WANTED player now needs kills on **at least 3 different players**, and one player's deaths count at most twice an hour. Nobody can make someone WANTED alone. Kills, totals and badges still count every death.
+- A WANTED player now needs kills on **at least 2 different players**, and one player's deaths count at most 3 times an hour. Nobody can make someone WANTED alone. Kills, totals and badges still count every death.
 - **Punished:** Bullies and Deadbeats brought down while not WANTED are recorded, shared and shown next to Busted, with a PUNISHED popup, and they take glasses too.
 - Joining a posse needs the outlaw's level window, from the popup and from the poster. A player far below cannot join or earn the +1.
 

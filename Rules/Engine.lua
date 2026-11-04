@@ -7,12 +7,15 @@
 --               even when the report names them twice, weighted by confidence:
 --               exact 1, inferred 0.5, sim 1
 --   WANTED      enters at WANTED_KILLS weighted kills within WANTED_WINDOW
---               (5 in 20 min) on at least WANTED_VICTIMS different victims (3); each
+--               (5 in 20 min) on at least WANTED_VICTIMS different victims (2); each
 --               kill while WANTED adds to the count
 --   Repeats     one victim's deaths to the same enemy count toward WANTED at most
---               REPEAT_KILLS times per REPEAT_WINDOW (2 per hour); the others are
+--               REPEAT_KILLS times per REPEAT_WINDOW (3 per hour); the others are
 --               still kills (totals, badges). A report comes from its victim, so
---               one player alone can never make someone WANTED (author, 2026-10-04).
+--               one player alone can never make someone WANTED (author, 2026-10-04;
+--               2 victims and 3 an hour for the release 2026-11-04, so A, A, B, B, A
+--               makes WANTED. Emergency plan: 3 victims and 2 an hour, the same in
+--               the website's WantedEvaluator).
 --               Test deaths (sim: our own, or from a trusted character) are exempt; a lowered test threshold
 --               (/hh debug wanted <n>) lowers the victims needed too
 --   Ends        when a HeadHunter or their group kills the outlaw (a "catch",
@@ -40,8 +43,8 @@ local MINUTE, DAY = 60, 86400
 
 Engine.WANTED_KILLS = 5
 Engine.WANTED_WINDOW = 20 * MINUTE
-Engine.WANTED_VICTIMS = 3
-Engine.REPEAT_KILLS = 2
+Engine.WANTED_VICTIMS = 2
+Engine.REPEAT_KILLS = 3
 Engine.REPEAT_WINDOW = 60 * MINUTE
 Engine.ENGAGEMENT_GAP = 60
 Engine.SERIAL_VICTIMS = 5

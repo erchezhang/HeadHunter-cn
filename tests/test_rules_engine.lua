@@ -109,17 +109,17 @@ return function(T, H)
         T.eq(e.killCount, 5, "still five kills")
     end)
 
-    T.case("WANTED needs 3 different victims, and one victim counts at most twice an hour", function()
+    T.case("WANTED needs 2 different victims, and one victim counts at most 3 times an hour", function()
         local e = Compute({ Report(0, "A"), Report(2, "A"), Report(4, "B"), Report(6, "B"), Report(8, "A") }, 9)
-        T.eq(e.wanted, false, "two victims")
-        e = Compute({ Report(0, "A"), Report(2, "A"), Report(4, "B"), Report(6, "B"), Report(8, "A"), Report(10, "C") }, 11)
-        T.eq(e.wanted, true, "three victims")
-        T.eq(e.kills, 5, "A's third death in the hour does not count")
+        T.eq(e.wanted, true, "A, A, B, B, A")
+        T.eq(e.kills, 5, "A three times in the hour")
+        e = Compute({ Report(0, "A"), Report(2, "A"), Report(4, "A"), Report(6, "A"), Report(8, "B") }, 9)
+        T.eq(e.wanted, false, "A's fourth death in the hour does not count")
         local reports = { Report(0, "A"), Report(2, "B"), Report(4, "C"), Report(6, "D"), Report(8, "E") }
-        for i = 1, 4 do reports[#reports + 1] = Report(10 + i, "F") end
-        T.eq(Compute(reports, 20).kills, 7, "5 + F twice")
+        for i = 1, 5 do reports[#reports + 1] = Report(10 + i, "F") end
+        T.eq(Compute(reports, 20).kills, 8, "5 + F three times")
         reports[#reports + 1] = Report(75, "F")
-        T.eq(Compute(reports, 76).kills, 8, "F again after an hour")
+        T.eq(Compute(reports, 76).kills, 9, "F again after an hour")
     end)
 
     T.case("test deaths are not limited by victim", function()
