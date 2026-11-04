@@ -578,7 +578,7 @@ return function(T, H)
         H.chatSent = {}
         SlashCmdList.HEADHUNTERGANGCHAT("hello")
         T.eq(#H.chatSent, 0, "nothing sent")
-        T.ok(H.Printed("not in a gang chat"), "said why")
+        T.ok(H.Printed("not in a gang"), "said why")
     end)
 
     T.case("classes travel with the invite and the answer, so every member shows its class at once", function()
