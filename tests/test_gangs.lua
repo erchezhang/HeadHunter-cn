@@ -213,6 +213,10 @@ return function(T, H)
         T.ok(rows[1].role:find("Leader", 1, true), "leader")
         ns.MainWindow:Toggle()
         ns.MainWindow:SelectSection("gang")
+        local note = _G.HeadHunterMainFrame.gangNote
+        T.ok(note.shown and note.shownText:find("HeadHunter Sync", 1, true), "the Sync note on the Gang tab")
+        T.ok(not _G.HeadHunterMainFrame.count.shownText or not _G.HeadHunterMainFrame.count.shownText:find("HeadHunter Sync", 1, true),
+            "not in the row count, where it ran out of the window")
         T.noErrors()
     end)
 

@@ -49,6 +49,8 @@ MainWindow.TAB_COUNT = "%s (%d)" -- a header tab with a count: "Events (2)"
 MainWindow.EVENT_LINK_WIDTH = 110 -- Join event / Event link; wider for longer languages
 MainWindow.BUTTON_PADDING = 12
 MainWindow.EMPTY_SIZE = 16
+-- HH-155: the blue of the note that gang members need HeadHunter Sync
+MainWindow.SYNC_NOTE_COLOR = { 0.4, 0.7, 1 }
 -- HH-155: the Gang view's text without a gang, bigger with more room between lines
 MainWindow.GANG_EMPTY_SIZE = 18
 MainWindow.GANG_EMPTY_SPACING = 8
@@ -1097,6 +1099,16 @@ local function CreateMainFrame()
 
     f.count = Theme.Text(f, "text", 13, "muted")
     f.count:SetPoint("BOTTOMRIGHT", -26, 11)
+    -- HH-155: the Gang tab's note that members need HeadHunter Sync, in blue, kept inside the
+    -- window: from the left edge to the row count, on up to two lines
+    f.gangNote = Theme.Text(f, "text", 13, "foreground")
+    f.gangNote:SetPoint("BOTTOMLEFT", 18, 11)
+    f.gangNote:SetPoint("RIGHT", f.count, "LEFT", -16, 0)
+    f.gangNote:SetJustifyH("LEFT")
+    f.gangNote:SetWordWrap(true)
+    f.gangNote:SetTextColor(unpack(MainWindow.SYNC_NOTE_COLOR))
+    f.gangNote:SetText(L.GANG_SYNC_NOTE)
+    f.gangNote:Hide()
 
     -- Forever: saved data resets on reload (known client issue), on every tab; hover for more
     f.forever = CreateFrame("Frame", nil, f)
@@ -1324,8 +1336,6 @@ function MainWindow:Refresh()
     self:PaintVisible()
     if current.tab == "marks" then
         frame.count:SetText(string.format(L.MARKS_STATUS, ns.Marks.RankNameByIndex(ns.Marks:RankIndex()), ns.Marks:Total()))
-    elseif current.tab == "gang" then
-        frame.count:SetText(L.GANG_SYNC_NOTE)
     else
         local count = string.format(L.WINDOW_COUNT, #rows)
         local siteAt = (current.tab == "wanted" or current.tab == "duels") and ns.SiteData:GeneratedAt()
@@ -1529,6 +1539,7 @@ function MainWindow:LayoutGang(shown)
     if gang then frame.gangLeave:Show() else frame.gangLeave:Hide() end
     if shown and not gang and ns.Gangs.Enabled() then frame.gangCreate:Show() else frame.gangCreate:Hide() end
     if shown and ns.SocialTab:Enabled() then frame.gangSocial:Show() else frame.gangSocial:Hide() end
+    if shown and ns.Gangs.Enabled() then frame.gangNote:Show() else frame.gangNote:Hide() end
 end
 
 -- The open event, or nil (it may have ended since)
