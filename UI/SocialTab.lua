@@ -203,6 +203,42 @@ local function ShowBlizzardTitle()
     if text and text.SetText and blizzardTitle then text:SetText(blizzardTitle) end
 end
 
+-- The window's round portrait shows the HeadHunter crosshair while our page is open; the
+-- page's own portrait is kept to put back, as the title
+SocialTab.PORTRAIT = "Interface\\AddOns\\HeadHunter\\Assets\\Textures\\mark"
+local blizzardPortrait
+local function PortraitTexture()
+    local frame = _G.FriendsFrame
+    if frame and frame.GetPortrait then
+        local ok, texture = pcall(frame.GetPortrait, frame)
+        if ok and texture then return texture end
+    end
+    return frame and (frame.portrait or frame.PortraitContainer and frame.PortraitContainer.portrait) or nil
+end
+
+local function SetPortrait(asset)
+    local frame = _G.FriendsFrame
+    if frame and frame.SetPortraitToAsset then
+        pcall(frame.SetPortraitToAsset, frame, asset)
+        return
+    end
+    local texture = PortraitTexture()
+    if texture and texture.SetTexture then texture:SetTexture(asset) end
+end
+
+local function ShowOurPortrait()
+    local texture = PortraitTexture()
+    local current = texture and texture.GetTexture and texture:GetTexture()
+    if current ~= nil and current ~= SocialTab.PORTRAIT and not tostring(current):find("HeadHunter", 1, true) then
+        blizzardPortrait = current
+    end
+    SetPortrait(SocialTab.PORTRAIT)
+end
+
+local function ShowBlizzardPortrait()
+    if blizzardPortrait then SetPortrait(blizzardPortrait) end
+end
+
 -- How the tabs look only: ours selected and every Blizzard tab not
 local function LookOurs()
     if PanelTemplates_SelectTab then pcall(PanelTemplates_SelectTab, tab) end
@@ -219,6 +255,7 @@ function SocialTab:Open()
     HideBlizzardPages(hidden.atOpen)
     LookOurs()
     ShowOurTitle()
+    ShowOurPortrait()
     panel:Show()
     self:Refresh()
 end
@@ -261,6 +298,7 @@ function SocialTab:Restore()
     if same then ShowPages(hidden.atOpen) end
     ShowPages(hidden.later)
     ShowBlizzardTitle()
+    ShowBlizzardPortrait()
     local button = type(selected) == "number" and TabWithId(selected)
     if button and PanelTemplates_SelectTab then pcall(PanelTemplates_SelectTab, button) end
     hidden = { atOpen = {}, later = {} }
@@ -285,6 +323,7 @@ function SocialTab.OnBlizzardUpdate()
         HideBlizzardPages(hidden.later)
         LookOurs()
         ShowOurTitle()
+        ShowOurPortrait()
     end
 end
 

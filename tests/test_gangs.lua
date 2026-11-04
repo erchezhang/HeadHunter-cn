@@ -258,7 +258,12 @@ return function(T, H)
         title.GetText = function(self) return self.value end
         title:SetText("Raid")
         FriendsFrame.GetTitleText = function() return title end
+        local portrait = { value = "Interface\\FriendsFrame\\FriendsFrameScrollIcon" }
+        portrait.GetTexture = function(self) return self.value end
+        FriendsFrame.GetPortrait = function() return portrait end
+        FriendsFrame.SetPortraitToAsset = function(_, asset) portrait.value = asset end
         tab:GetScript("OnClick")()
+        T.ok(portrait.value:find("HeadHunter", 1, true), "the portrait shows the HeadHunter crosshair")
         T.eq(title.value, "Gang - Black Hand", "the window's title names our gang once the website confirmed it")
         T.ok(panel:IsShown(), "our page shows")
         T.ok(panel.note.shownText:find("HeadHunter Sync", 1, true), "the note that members need Sync for the ranking")
@@ -283,6 +288,7 @@ return function(T, H)
         T.ok(FriendsListFrame:IsShown() and RaidFrame:IsShown(), "Raid was Blizzard's tab all along: its page comes back from us")
         T.eq(looks[FriendsFrameTab3], "selected", "and Raid looks selected")
         T.eq(title.value, "Raid", "and its title is back")
+        T.eq(portrait.value, "Interface\\FriendsFrame\\FriendsFrameScrollIcon", "and its portrait")
 
         FriendsFrame.selectedTab = 1
         RaidFrame:Hide()
