@@ -702,6 +702,9 @@ local CN = {
     SEARCH_PLAYER = "查找玩家",
     SEARCH_EMPTY = "没有叫 %s 的玩家",
     -- HH-155: gangs
+    SECTION_GANG = "帮派",
+    GANG_SOCIAL_BUTTON = "社交窗口",
+    GANG_SOCIAL_COMBAT = "战斗中不可用：请在战斗结束后打开社交窗口。",
     GANG_NAMES_LINK = "请先确认名称是否可用：%s",
     GANG_NAME_TAKEN = "这个帮派名称在你的世界已被占用。",
     GANG_TEST_RESET = "测试：已清除此角色的 24 小时帮派规则（退出记录和已退出的成员）。",

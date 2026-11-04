@@ -706,6 +706,9 @@ local FR = {
     SEARCH_PLAYER = "Chercher un joueur",
     SEARCH_EMPTY = "Personne ne s'appelle %s",
     -- HH-155: gangs
+    SECTION_GANG = "Bande",
+    GANG_SOCIAL_BUTTON = "Fenêtre Social",
+    GANG_SOCIAL_COMBAT = "Pas en combat : ouvre la fenêtre Social après le combat.",
     GANG_NAMES_LINK = "Vérifie d'abord que le nom est libre : %s",
     GANG_NAME_TAKEN = "Ce nom de bande est déjà pris sur ton monde.",
     GANG_TEST_RESET = "Test : la règle des 24 heures est effacée pour ce personnage (départs et membres partis).",

@@ -48,6 +48,10 @@ MainWindow.REFRESH = 30      -- seconds, while shown ("5 min ago" texts)
 MainWindow.TAB_COUNT = "%s (%d)" -- a header tab with a count: "Events (2)"
 MainWindow.EVENT_LINK_WIDTH = 110 -- Join event / Event link; wider for longer languages
 MainWindow.BUTTON_PADDING = 12
+MainWindow.EMPTY_SIZE = 16
+-- HH-155: the Gang view's text without a gang, bigger with more room between lines
+MainWindow.GANG_EMPTY_SIZE = 18
+MainWindow.GANG_EMPTY_SPACING = 8
 
 -- The top tabs and their views (the sub-tabs); a view is what the list shows
 MainWindow.SECTIONS = {
@@ -56,7 +60,9 @@ MainWindow.SECTIONS = {
     { id = "duels", views = { "duels" } },
     -- Upcoming first and opened by default (author, 2026-10-05)
     { id = "events", views = { "upcoming", "ongoing", "finished" } },
-    { id = "me", views = { "deaths", "marks", "gang" } },
+    { id = "me", views = { "deaths", "marks" } },
+    -- HH-155: our gang (WoW Forever), with a way into the Social window's Gang tab
+    { id = "gang", views = { "gang" } },
 }
 MainWindow.TABS = { "wanted", "bullies", "deadbeats", "busted", "punished", "barflies", "duels", "upcoming", "ongoing", "finished", "deaths", "marks", "gang" }
 -- Tabs of older versions
@@ -1006,7 +1012,11 @@ local function CreateMainFrame()
     f.gangInvite:SetPoint("RIGHT", f.gangLeave, "LEFT", -12, 0)
     f.gangInvite:SetScript("OnClick", function() ns.Gangs:Command({ "invite" }) end)
     f.gangInfo = Theme.Text(f, "heading", 15, "gold")
-    f.gangInfo:SetPoint("LEFT", f, "TOPLEFT", 16 + 3 * 110, toolbarY - 12)
+    f.gangSocial = Theme.Button(f, L.GANG_SOCIAL_BUTTON, "outline", 150, 24)
+    f.gangSocial:SetPoint("TOPLEFT", 16, toolbarY)
+    f.gangSocial:SetScript("OnClick", function() ns.SocialTab:OpenFromWindow() end)
+    f.gangSocial:Hide()
+    f.gangInfo:SetPoint("LEFT", f.gangSocial, "RIGHT", 12, 0)
     f.gangInfo:SetPoint("RIGHT", f.gangInvite, "LEFT", -12, 0)
     f.gangInfo:SetJustifyH("LEFT")
     f.gangInfo:SetWordWrap(false)
@@ -1106,7 +1116,7 @@ local function CreateMainFrame()
     f.scroll:HookScript("OnVerticalScroll", function() MainWindow:PaintVisible() end)
     f.scroll:HookScript("OnSizeChanged", function() MainWindow:PaintVisible() end)
 
-    f.empty = Theme.Text(f, "text", 16, "muted")
+    f.empty = Theme.Text(f, "text", MainWindow.EMPTY_SIZE, "muted")
     f.empty:SetPoint("CENTER", f, "CENTER", 0, -20)
 
     f:SetScript("OnUpdate", function(_, elapsed)
@@ -1311,6 +1321,7 @@ function MainWindow:Refresh()
         frame.empty:SetText(string.format(L.SEARCH_EMPTY, (search:gsub("|", "||"))))
     else
         frame.empty:SetText(current.tab == "gang" and ns.Gangs.EmptyText() or L["EMPTY_" .. current.tab:upper()])
+        self:StyleEmpty(current.tab == "gang")
     end
     self:LayoutToolbar(section, event)
     self.shownRows = rows
@@ -1449,7 +1460,7 @@ function MainWindow:LayoutToolbar(section, event)
     for _, w in ipairs({ frame.eventsCreate, frame.eventsInfo }) do
         if eventsList then w:Show() else w:Hide() end
     end
-    self:LayoutGang(section.id == "me" and current.tab == "gang" and not event)
+    self:LayoutGang(section.id == "gang" and not event)
     local unsent = event and ns.Matches:Unsent() or 0
     if unsent > 0 then
         frame.eventSend:SetText(string.format(L.EVENT_SEND, unsent))
@@ -1473,6 +1484,12 @@ function MainWindow:LayoutToolbar(section, event)
     end
 end
 
+-- The empty text: bigger, with room between its lines, on the Gang view
+function MainWindow:StyleEmpty(gang)
+    ns.Theme.Font(frame.empty, "text", gang and MainWindow.GANG_EMPTY_SIZE or MainWindow.EMPTY_SIZE)
+    if frame.empty.SetSpacing then frame.empty:SetSpacing(gang and MainWindow.GANG_EMPTY_SPACING or 0) end
+end
+
 -- HH-155: the gang view's toolbar: our gang's name (or how to make one), Invite for the
 -- leader, Leave for a member
 function MainWindow:LayoutGang(shown)
@@ -1490,6 +1507,7 @@ function MainWindow:LayoutGang(shown)
     if frame.gangInvite.SetEnabled then frame.gangInvite:SetEnabled(gang and gang.confirmed == true or false) end
     if gang then frame.gangLeave:Show() else frame.gangLeave:Hide() end
     if shown and not gang and ns.Gangs.Enabled() then frame.gangCreate:Show() else frame.gangCreate:Hide() end
+    if shown and ns.SocialTab:Enabled() then frame.gangSocial:Show() else frame.gangSocial:Hide() end
 end
 
 -- The open event, or nil (it may have ended since)

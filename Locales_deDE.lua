@@ -706,6 +706,9 @@ local DE = {
     SEARCH_PLAYER = "Spieler suchen",
     SEARCH_EMPTY = "Niemand namens %s",
     -- HH-155: gangs
+    SECTION_GANG = "Bande",
+    GANG_SOCIAL_BUTTON = "Kontaktefenster",
+    GANG_SOCIAL_COMBAT = "Nicht im Kampf: Öffne das Kontaktefenster nach dem Kampf.",
     GANG_NAMES_LINK = "Prüfe zuerst, ob der Name frei ist: %s",
     GANG_NAME_TAKEN = "Dieser Bandenname ist in deiner Welt schon vergeben.",
     GANG_TEST_RESET = "Test: Die 24-Stunden-Bandenregel ist für diesen Charakter gelöscht (Austritte und Mitglieder, die gegangen sind).",

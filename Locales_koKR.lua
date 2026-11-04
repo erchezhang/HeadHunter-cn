@@ -706,6 +706,9 @@ local KR = {
     SEARCH_PLAYER = "플레이어 찾기",
     SEARCH_EMPTY = "%s(이)라는 플레이어가 없습니다",
     -- HH-155: gangs
+    SECTION_GANG = "갱단",
+    GANG_SOCIAL_BUTTON = "소셜 창",
+    GANG_SOCIAL_COMBAT = "전투 중에는 안 됩니다: 전투가 끝나면 소셜 창을 여세요.",
     GANG_NAMES_LINK = "먼저 이름이 비어 있는지 확인하세요: %s",
     GANG_NAME_TAKEN = "이 갱단 이름은 이 세계에서 이미 쓰이고 있습니다.",
     GANG_TEST_RESET = "테스트: 이 캐릭터의 24시간 갱단 규칙을 초기화했습니다 (탈퇴 및 떠난 멤버).",

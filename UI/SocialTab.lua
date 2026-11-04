@@ -29,6 +29,8 @@ SocialTab.MAX_BLIZZARD_TABS = 8
 SocialTab.ROWS = 10
 SocialTab.TAB_GAP = 3
 SocialTab.ROW_HEIGHT = 24
+-- the text without a gang: bigger, with room between its lines
+SocialTab.EMPTY_SPACING = 8
 -- Our buttons sit in the window's bottom bar, under the content area, like Blizzard's own
 SocialTab.BAR_EDGE = 6
 SocialTab.BAR_BOTTOM = 4
@@ -89,11 +91,16 @@ function SocialTab:Refresh()
             role:SetText(leads and L.GANG_ROLE_LEADER or L.GANG_ROLE_MEMBER)
             border:Show()
         else
-            local empty = not gang and ({ L.EMPTY_GANG, string.format(L.GANG_NAMES_LINK, ns.Gangs.NamesLink()) })[i]
-            line:SetText(empty or "")
+            line:SetText("")
             role:SetText("")
             border:Hide()
         end
+    end
+    if gang then
+        panel.empty:Hide()
+    else
+        panel.empty:SetText(ns.Gangs.EmptyText())
+        panel.empty:Show()
     end
     if gang and ns.Gangs:IsLeader(gang) then panel.invite:Show() else panel.invite:Hide() end
     if panel.invite.SetEnabled then panel.invite:SetEnabled(gang and gang.confirmed == true or false) end
@@ -260,6 +267,12 @@ local function CreatePanel(frame)
     local bg = p:CreateTexture(nil, "BACKGROUND")
     bg:SetAllPoints(p)
     bg:SetColorTexture(0.05, 0.04, 0.03, 1)
+    p.empty = p:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
+    p.empty:SetPoint("TOPLEFT", 16, -16)
+    p.empty:SetPoint("RIGHT", -16, 0)
+    p.empty:SetJustifyH("LEFT")
+    p.empty:SetSpacing(SocialTab.EMPTY_SPACING)
+    p.empty:Hide()
     p.lines, p.roles, p.borders = {}, {}, {}
     for i = 1, SocialTab.ROWS do
         local top = -8 - (i - 1) * SocialTab.ROW_HEIGHT
@@ -323,6 +336,21 @@ function SocialTab:Install()
         end
     end
     return true
+end
+
+-- The HeadHunter window's "Social window" button: the Social window opens on our Gang page.
+-- Out of combat only (Show/HideUIPanel are refused then), and never through
+-- ToggleFriendsFrame, which would write the window's selected tab from our code.
+function SocialTab:OpenFromWindow()
+    local frame = _G.FriendsFrame
+    if not (self:Enabled() and frame and tab) then return false end
+    if InCombatLockdown and InCombatLockdown() then
+        ns:Print(L.GANG_SOCIAL_COMBAT)
+        return false
+    end
+    if not frame:IsShown() and ShowUIPanel then ShowUIPanel(frame) end
+    if frame:IsShown() then self:Open() end
+    return frame:IsShown()
 end
 
 -- For tests

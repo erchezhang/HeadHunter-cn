@@ -572,9 +572,9 @@ function Gangs.NamesLink()
     return ns.SiteData:Link("gangs") or Gangs.SITE_GANGS
 end
 
--- Not in a gang: how to make one, and where to check that a name is free
+-- Not in a gang: first where to check that a name is free, then how to make one
 function Gangs.EmptyText()
-    return L.EMPTY_GANG .. "\n" .. string.format(L.GANG_NAMES_LINK, Gangs.NamesLink())
+    return string.format(L.GANG_NAMES_LINK, Gangs.NamesLink()) .. "\n\n" .. L.EMPTY_GANG
 end
 
 -- Leave (the buttons): a popup asks first; a leader is told the lead passes on
