@@ -1310,7 +1310,7 @@ function MainWindow:Refresh()
     elseif search then
         frame.empty:SetText(string.format(L.SEARCH_EMPTY, (search:gsub("|", "||"))))
     else
-        frame.empty:SetText(L["EMPTY_" .. current.tab:upper()])
+        frame.empty:SetText(current.tab == "gang" and ns.Gangs.EmptyText() or L["EMPTY_" .. current.tab:upper()])
     end
     self:LayoutToolbar(section, event)
     self.shownRows = rows

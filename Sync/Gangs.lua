@@ -561,10 +561,20 @@ end
 function Gangs:PromptCreate()
     if not Gangs.Enabled() then ns:Print(L.GANG_FOREVER_ONLY) return end
     if self:Mine() then ns:Print(L.GANG_ALREADY) return end
-    local link = ns.SiteData:Link("gangs") or Gangs.SITE_GANGS
+    local link = Gangs.NamesLink()
     StaticPopupDialogs[Gangs.CREATE_POPUP].text = L.GANG_CREATE_POPUP .. "\n\n" .. string.format(L.GANG_NAMES_LINK, link)
     ns:Print(string.format(L.GANG_NAMES_LINK, link))
     StaticPopup_Show(Gangs.CREATE_POPUP)
+end
+
+-- The website's Gangs page, where taken names can be checked
+function Gangs.NamesLink()
+    return ns.SiteData:Link("gangs") or Gangs.SITE_GANGS
+end
+
+-- Not in a gang: how to make one, and where to check that a name is free
+function Gangs.EmptyText()
+    return L.EMPTY_GANG .. "\n" .. string.format(L.GANG_NAMES_LINK, Gangs.NamesLink())
 end
 
 -- Leave (the buttons): a popup asks first; a leader is told the lead passes on

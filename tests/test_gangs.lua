@@ -524,4 +524,10 @@ return function(T, H)
         H.Slash("gang create Red Fang")
         T.ok(H.Printed("Gang rules: you left a gang"), "the 24-hour rule")
     end)
+
+    T.case("not in a gang: the Gang page says where to check that a name is free", function()
+        local ns = Boot()
+        T.ok(ns.Gangs.EmptyText():find("headhunterwow.com/gangs", 1, true), "the link")
+        T.ok(ns.Gangs.EmptyText():find("/hh gang create", 1, true), "and how to make one")
+    end)
 end

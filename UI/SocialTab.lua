@@ -89,7 +89,8 @@ function SocialTab:Refresh()
             role:SetText(leads and L.GANG_ROLE_LEADER or L.GANG_ROLE_MEMBER)
             border:Show()
         else
-            line:SetText(i == 1 and not gang and L.EMPTY_GANG or "")
+            local empty = not gang and ({ L.EMPTY_GANG, string.format(L.GANG_NAMES_LINK, ns.Gangs.NamesLink()) })[i]
+            line:SetText(empty or "")
             role:SetText("")
             border:Hide()
         end
