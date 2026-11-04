@@ -703,6 +703,9 @@ local TW = {
     SEARCH_PLAYER = "尋找玩家",
     SEARCH_EMPTY = "沒有叫 %s 的玩家",
     -- HH-155: gangs
+    SIM_USAGE_GANG = "|cffffff00/hh sim gang [me|clear]|r：用於截圖的狂野幫（me：由你擔任首領）",
+    SIM_GANG_DONE = "測試幫派：本次工作階段中狂野幫是你的幫派。/hh sim gang clear 可移除。",
+    SIM_GANG_CLEARED = "測試幫派已移除。",
     TAG_NEW = "新",
     GANG_SYNC_NOTE = "成員需要 HeadHunter Sync 才能在網站上得到確認：幫派排名、幫派頁面和幫派聊天。沒有它，成員在這裡顯示為等待 Sync。",
     GANG_SLASHSWITCH_ON = "/gang + 空格會切換到幫派聊天。",

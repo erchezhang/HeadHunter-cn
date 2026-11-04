@@ -167,11 +167,25 @@ function Gangs:Results()
     return ns.SiteData:GangResults(Me())
 end
 
+-- A made-up gang for screenshots (/hh sim gang): shown as our confirmed gang for this session
+-- only, never saved or synced
+local simGang
+
+function Gangs:SetSim(gang)
+    simGang = gang
+    ns.Events:Fire("HH_GANG_CHANGED")
+end
+
+function Gangs:Sim()
+    return simGang
+end
+
 -- Our gang: the website's, with our actions it has not answered yet laid over it.
 -- { name, leader, members = { { key, class, race, sex, level } }, pending (true while
 -- an action waits for HeadHunter Sync) } or nil
 function Gangs:Mine()
     local me = Me()
+    if simGang then return simGang end
     if not me or not Gangs.Enabled() then return nil end
     local gang
     for _, g in ipairs(ns.SiteData:Gangs()) do
@@ -274,6 +288,9 @@ end
 function Gangs:IsOnline(key)
     local U = ns.Utils
     if U.SameCharacter(key, Me()) then return true end
+    for _, member in ipairs(simGang and simGang.members or {}) do
+        if U.SameCharacter(member.key, key) and member.online ~= nil then return member.online end
+    end
     local chat = ns.GangChat and ns.GangChat:Seen(key)
     if chat and chat.online then return true end
     local name = U.CompactName(key)
@@ -290,6 +307,9 @@ end
 -- The gang a player is in, by the website's lists: its name, or nil
 function Gangs:Of(key)
     if not key then return nil end
+    for _, member in ipairs(simGang and simGang.members or {}) do
+        if ns.Utils.SameCharacter(member.key, key) then return simGang.name end
+    end
     for _, g in ipairs(ns.SiteData:Gangs()) do
         for _, member in ipairs(g.members) do
             if ns.Utils.SameCharacter(member.key, key) then return g.name end

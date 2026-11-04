@@ -706,6 +706,9 @@ local RU = {
     SEARCH_PLAYER = "Найти игрока",
     SEARCH_EMPTY = "Нет игрока с именем %s",
     -- HH-155: gangs
+    SIM_USAGE_GANG = "|cffffff00/hh sim gang [me|clear]|r: банда Wild Bunch для скриншотов (me: вы главарь)",
+    SIM_GANG_DONE = "Тестовая банда: Wild Bunch — ваша банда на эту сессию. /hh sim gang clear убирает её.",
+    SIM_GANG_CLEARED = "Тестовая банда убрана.",
     TAG_NEW = "НОВОЕ",
     GANG_SYNC_NOTE = "Участникам нужен HeadHunter Sync, чтобы сайт их подтвердил: в рейтинге банд, на странице банды и в чате банды. Без него они показаны здесь как ждущие Sync.",
     GANG_SLASHSWITCH_ON = "/gang + пробел переключает на чат банды.",

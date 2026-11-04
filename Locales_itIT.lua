@@ -707,6 +707,9 @@ local IT = {
     SEARCH_PLAYER = "Cerca un giocatore",
     SEARCH_EMPTY = "Nessuno si chiama %s",
     -- HH-155: gangs
+    SIM_USAGE_GANG = "|cffffff00/hh sim gang [me|clear]|r: il Wild Bunch come tua banda per gli screenshot (me: la guidi tu)",
+    SIM_GANG_DONE = "Banda di prova: il Wild Bunch è la tua banda per questa sessione. /hh sim gang clear la rimuove.",
+    SIM_GANG_CLEARED = "Banda di prova rimossa.",
     TAG_NEW = "NUOVO",
     GANG_SYNC_NOTE = "I membri hanno bisogno di HeadHunter Sync per essere confermati sul sito: nella classifica delle bande, nella pagina della banda e nella chat di banda. Senza, qui risultano in attesa di Sync.",
     GANG_SLASHSWITCH_ON = "/gang + spazio passa alla chat di banda.",
