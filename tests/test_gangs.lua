@@ -234,7 +234,9 @@ return function(T, H)
         T.eq(tab.point[4], 3, "the game's own gap between tabs")
 
         FriendsFrame.selectedTab = 2
+        FriendsFrame.SetTitle = function(self, text) self.titleText = text end
         tab:GetScript("OnClick")()
+        T.eq(FriendsFrame.titleText, "Gang", "the window's title says Gang")
         T.ok(panel:IsShown(), "our page shows")
         T.ok(panel.title.shownText:find("Black Hand", 1, true), "our gang")
         T.eq(looks[tab], "selected", "our tab looks selected")
@@ -273,5 +275,31 @@ return function(T, H)
         local bad = Boot()
         StaticPopupDialogs[bad.Gangs.CREATE_POPUP].OnAccept({ editBox = { GetText = function() return "X!" end } })
         T.eq(#bad.Gangs:Actions(), 0, "a bad name is refused")
+    end)
+
+    T.case("invite: the invited addon confirms at once; silence says not online or no HeadHunter", function()
+        local ns = Boot(Data({ Gang("Black Hand", "Vati Guda", { "Vati Guda" }) }))
+        H.printed = {}
+        H.Slash("gang invite Rowan Fairhill")
+        H.Advance(ns.Gangs.ACK_WAIT + 1)
+        T.ok(H.Printed("no HeadHunter"), "told when nobody answers")
+
+        H.printed = {}
+        H.Slash("gang invite Tobin Ashford")
+        H.Deliver(ns.Protocol.Pack("A", ns.Protocol.TYPES.GANG, { "r" }), "Tobin Ashford")
+        H.Advance(ns.Gangs.ACK_WAIT + 1)
+        T.ok(not H.Printed("no HeadHunter"), "their addon answered")
+        H.Deliver(ns.Protocol.Pack("A", ns.Protocol.TYPES.GANG, { "a" }), "Tobin Ashford")
+        local names = {}
+        for _, member in ipairs(ns.Gangs:Mine().members) do names[#names + 1] = member.key end
+        T.eq(table.concat(names, ","), "Vati Guda,Tobin Ashford", "the accepted player is in our list at once, waiting for Sync")
+    end)
+
+    T.case("an invite to us is confirmed to the inviter at once", function()
+        local ns = Boot()
+        H.sent = {}
+        H.Deliver(ns.Protocol.Pack("A", ns.Protocol.TYPES.GANG, { "i;Black Hand" }), "Kira Dawnblade")
+        Settle()
+        T.eq(#Whispers("r"), 1, "received")
     end)
 end

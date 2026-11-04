@@ -706,6 +706,7 @@ local BR = {
     SEARCH_PLAYER = "Procurar um jogador",
     SEARCH_EMPTY = "Ninguém se chama %s",
     -- HH-155: gangs
+    GANG_NO_ADDON = "%s não respondeu ao convite: offline ou sem HeadHunter.",
     GANG_CREATE_BUTTON = "Criar bando",
     GANG_CREATE_POPUP = "Dê um nome ao seu bando (3 a 24 letras ou dígitos, espaços, ' e -). O HeadHunter Sync confere no site.",
     GANG_SOCIALTAB_ON = "Aba Bando na janela Social: ligada após /reload. Confira /console taintLog 1 e a aba Raide em combate.",

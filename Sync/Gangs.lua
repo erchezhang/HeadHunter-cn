@@ -29,6 +29,9 @@ Gangs.INVITE_TIMEOUT = 60
 -- invites sent per INVITE_WINDOW
 Gangs.INVITE_LIMIT = 5
 Gangs.INVITE_WINDOW = 60
+-- seconds for the invited player's addon to say it got the invite; silence means not
+-- online or no HeadHunter
+Gangs.ACK_WAIT = 10
 -- seconds our actions are kept
 Gangs.GANG_KEEP = 30 * 86400
 Gangs.POPUP = "HEADHUNTER_GANG_INVITE"
@@ -42,6 +45,8 @@ Gangs.REASONS = {
 
 -- player key -> time we invited them
 local sentInvites = {}
+-- player key -> true once their addon said it got our invite
+local heard = {}
 -- times of our recent invites
 local inviteLog = {}
 -- { leader, name, at, sender }: the invite on show
@@ -149,6 +154,17 @@ function Gangs:Mine()
                 gang = nil
             elseif action.kind == "rename" and gang then
                 gang = { name = action.name, leader = gang.leader, members = gang.members, pending = true }
+            elseif action.kind == "invite" and action.accepted and gang then
+                local known = false
+                for _, member in ipairs(gang.members) do
+                    if ns.Utils.SameCharacter(member.key, action.player) then known = true end
+                end
+                if not known then
+                    local members = {}
+                    for i, member in ipairs(gang.members) do members[i] = member end
+                    members[#members + 1] = { key = action.player, pending = true }
+                    gang = { name = gang.name, leader = gang.leader, members = members, pending = gang.pending }
+                end
             end
         end
     end
@@ -212,8 +228,14 @@ function Gangs:Invite(key)
     if not UnderInviteLimit(now) then ns:Print(L.GANG_INVITE_SLOW) return false end
     inviteLog[#inviteLog + 1] = now
     sentInvites[key] = now
+    heard[key] = nil
     ns.Transport:SendDirect(ns.Protocol.TYPES.GANG, { "i;" .. gang.name }, key)
     self:Record("invite", { player = key })
+    C_Timer.After(Gangs.ACK_WAIT, function()
+        if sentInvites[key] == now and not heard[key] then
+            ns:Print(string.format(L.GANG_NO_ADDON, ns.Utils.DisplayName(key)))
+        end
+    end)
     ns:Print(string.format(L.GANG_INVITE_SENT, ns.Utils.DisplayName(key), gang.name))
     return true
 end
@@ -246,16 +268,34 @@ local function OnInvite(name, sender)
         Answer("d", sender)
         return
     end
+    Answer("r", sender)
     incoming = { leader = leader, name = name, at = ns.Utils.Now(), sender = sender }
     StaticPopupDialogs[Gangs.POPUP].text = string.format(L.GANG_INVITE_POPUP, ns.Utils.DisplayName(leader), name)
     StaticPopup_Show(Gangs.POPUP)
 end
 
-local function OnAnswer(accepted, sender)
+-- Our latest invite action of a player, while it is not answered by the website
+local function InviteActionOf(key)
+    local found
+    for _, action in ipairs(Gangs:Actions()) do
+        if action.kind == "invite" and ns.Utils.SameCharacter(action.player, key) then found = action end
+    end
+    return found
+end
+
+local function OnAnswer(code, sender)
     local key = ns.Utils.PlayerKey(sender)
     local at = key and sentInvites[key]
     if not at or ns.Utils.Now() - at > Gangs.INVITE_TIMEOUT then return end
+    heard[key] = true
+    if code == "r" then return end
     sentInvites[key] = nil
+    local accepted = code == "a"
+    if accepted then
+        local action = InviteActionOf(key)
+        if action then action.accepted = true end
+        ns.Events:Fire("HH_GANG_CHANGED", action)
+    end
     ns:Print(string.format(accepted and L.GANG_INVITE_ACCEPTED or L.GANG_INVITE_DECLINED, ns.Utils.DisplayName(key)))
 end
 
@@ -264,14 +304,14 @@ function Gangs:OnMessage(record, sender)
     local code, rest = record:match("^(%a);?(.*)$")
     if code == "i" then
         OnInvite(rest, sender)
-    elseif code == "a" or code == "d" then
-        OnAnswer(code == "a", sender)
+    elseif code == "a" or code == "d" or code == "r" then
+        OnAnswer(code, sender)
     end
 end
 
 -- Forget invites and limits (tests)
 function Gangs:Reset()
-    sentInvites, inviteLog, incoming, counter = {}, {}, nil, 0
+    sentInvites, inviteLog, incoming, counter, heard = {}, {}, nil, 0, {}
 end
 
 -------------------------------------------------

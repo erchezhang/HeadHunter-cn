@@ -98,6 +98,18 @@ local function HideBlizzardPages()
     end
 end
 
+-- The window's title says Gang while our page is open (Blizzard's own page code sets its
+-- title again when it shows)
+local function ShowOurTitle()
+    local frame = _G.FriendsFrame
+    if not frame then return end
+    if frame.SetTitle then
+        pcall(frame.SetTitle, frame, L.TAB_GANG)
+    elseif _G.FriendsFrameTitleText and _G.FriendsFrameTitleText.SetText then
+        _G.FriendsFrameTitleText:SetText(L.TAB_GANG)
+    end
+end
+
 -- How the tabs look only: ours selected and every Blizzard tab not
 local function LookOurs()
     if PanelTemplates_SelectTab then pcall(PanelTemplates_SelectTab, tab) end
@@ -111,6 +123,7 @@ function SocialTab:Open()
     active = true
     HideBlizzardPages()
     LookOurs()
+    ShowOurTitle()
     panel:Show()
     self:Refresh()
 end
@@ -142,6 +155,7 @@ function SocialTab.OnBlizzardUpdate()
     if active then
         HideBlizzardPages()
         LookOurs()
+        ShowOurTitle()
     end
 end
 

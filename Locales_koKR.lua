@@ -706,6 +706,7 @@ local KR = {
     SEARCH_PLAYER = "플레이어 찾기",
     SEARCH_EMPTY = "%s(이)라는 플레이어가 없습니다",
     -- HH-155: gangs
+    GANG_NO_ADDON = "%s님이 초대에 응답하지 않았습니다: 오프라인이거나 HeadHunter가 없습니다.",
     GANG_CREATE_BUTTON = "갱단 만들기",
     GANG_CREATE_POPUP = "갱단 이름을 정하세요 (글자나 숫자 3~24자, 공백, ', -). HeadHunter Sync가 웹사이트에서 확인합니다.",
     GANG_SOCIALTAB_ON = "소셜 창의 갱단 탭: /reload 후 켜짐. /console taintLog 1과 전투 중 공격대 탭을 확인하세요.",

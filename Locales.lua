@@ -735,6 +735,7 @@ L.GANG_SOCIALTAB_ON = "Gang tab in the Social window: on after /reload. Check /c
 L.GANG_SOCIALTAB_OFF = "Gang tab in the Social window: off after /reload."
 L.GANG_CREATE_BUTTON = "Create gang"
 L.GANG_CREATE_POPUP = "Name your gang (3 to 24 letters or digits, spaces, ' and -). HeadHunter Sync checks it on the website."
+L.GANG_NO_ADDON = "%s did not answer the invite: not online, or no HeadHunter."
 L.HELP_GANG = "|cffffff00/hh gang [create <name>|invite [name]|leave|kick <name>|lead <name>|rename <name>]|r: your gang of friends (WoW Forever, needs HeadHunter Sync)"
 L.GANG_USAGE = "Usage: /hh gang create <name> | invite [name] | leave | kick <name> | lead <name> | rename <name>"
 L.GANG_FOREVER_ONLY = "Gangs are for WoW Forever only."
