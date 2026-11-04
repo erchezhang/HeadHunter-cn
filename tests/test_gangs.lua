@@ -583,4 +583,26 @@ return function(T, H)
         T.ok(ns.Gangs:IsOnline("Tobin Ashford"), "heard on the HeadHunter channel after leaving the gang channel: online")
         T.ok(ns.Gangs:IsOnline("Vati Guda"), "we are online")
     end)
+
+    T.case("right-click menu: Blizzard's menu at the cursor with our entries, else our own at the cursor", function()
+        local ns = Boot(Data({ Gang("Black Hand", "Vati Guda", { "Vati Guda", "Tobin Ashford" }) }))
+        local built = {}
+        _G.MenuUtil = { CreateContextMenu = function(owner, generator)
+            local root = {
+                CreateTitle = function(_, text) built.title = text end,
+                CreateButton = function(_, label) built[#built + 1] = label end,
+            }
+            generator(owner, root)
+        end }
+        ns.GangMenu:Open("Tobin Ashford")
+        T.eq(built.title, "Tobin Ashford", "titled with the member")
+        T.eq(table.concat(built, ","), "Whisper,Invite to group,Make leader,Kick", "our entries in Blizzard's menu")
+        _G.MenuUtil = nil
+        _G.GetCursorPosition = function() return 400, 300 end
+        ns.GangMenu:Open("Tobin Ashford")
+        local menu = _G.HeadHunterGangMenu
+        T.eq(menu.point[1], "TOPLEFT", "our own menu")
+        T.eq(menu.point[4], 400, "at the cursor's x")
+        T.eq(menu.point[5], 300, "and y, not the screen's centre")
+    end)
 end

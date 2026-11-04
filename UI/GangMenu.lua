@@ -1,7 +1,9 @@
 -- HH-155: the right-click menu on a gang member (the Social window's Gang page and the
 -- HeadHunter window's Gang view): Whisper and Invite to group for anyone; Make leader and
--- Kick (asked first) for the gang's leader. A frame of our own, never Blizzard's player
--- menu, so it taints nothing.
+-- Kick (asked first) for the gang's leader. Built with Blizzard's own menu
+-- (MenuUtil.CreateContextMenu: its look, at the cursor) holding only our entries; never
+-- Blizzard's player menu (UnitPopup), which addon code taints. Without MenuUtil, a frame of
+-- our own at the cursor.
 
 local addonName, ns = ...
 local L = ns.L
@@ -82,9 +84,16 @@ local function Button(i)
 end
 
 -- Opens the menu for a member at the cursor; returns its items (none for ourselves)
-function GangMenu:Open(key)
+function GangMenu:Open(key, owner)
     local items = self.Items(key)
     if #items == 0 then return items end
+    if MenuUtil and MenuUtil.CreateContextMenu then
+        local ok = pcall(MenuUtil.CreateContextMenu, owner or UIParent, function(_, root)
+            root:CreateTitle(ns.Utils.DisplayName(key))
+            for _, item in ipairs(items) do root:CreateButton(item.label, item.run) end
+        end)
+        if ok then return items end
+    end
     menu = menu or CreateMenu()
     menu.title:SetText(ns.Utils.DisplayName(key))
     for i, item in ipairs(items) do
@@ -99,7 +108,8 @@ function GangMenu:Open(key)
     for i = #items + 1, #menu.buttons do menu.buttons[i]:Hide() end
     menu:SetHeight(36 + #items * GangMenu.ITEM_HEIGHT)
     menu:ClearAllPoints()
-    local x, y = GetCursorPosition and GetCursorPosition()
+    local x, y
+    if GetCursorPosition then x, y = GetCursorPosition() end
     local scale = UIParent.GetEffectiveScale and UIParent:GetEffectiveScale() or 1
     if x and y then
         menu:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x / scale, y / scale)

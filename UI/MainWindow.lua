@@ -1161,7 +1161,7 @@ local function RowFrame(i)
     row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     row:SetScript("OnClick", function(self, button)
         if button == "RightButton" then
-            if self.data and self.data.gangMember then ns.GangMenu:Open(self.data.gangMember) end
+            if self.data and self.data.gangMember then ns.GangMenu:Open(self.data.gangMember, self) end
             return
         end
         MainWindow:OnRowClick(self.data)

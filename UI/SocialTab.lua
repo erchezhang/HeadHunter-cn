@@ -314,7 +314,7 @@ local function CreatePanel(frame)
         click:SetHeight(SocialTab.ROW_HEIGHT)
         click:RegisterForClicks("LeftButtonUp", "RightButtonUp")
         click:SetScript("OnClick", function(self, button)
-            if button == "RightButton" and self.key then ns.GangMenu:Open(self.key) end
+            if button == "RightButton" and self.key then ns.GangMenu:Open(self.key, self) end
         end)
         click:Hide()
         p.lines[i], p.roles[i], p.borders[i], p.clicks[i] = line, role, border, click
