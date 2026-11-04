@@ -706,6 +706,7 @@ local KR = {
     SEARCH_PLAYER = "플레이어 찾기",
     SEARCH_EMPTY = "%s(이)라는 플레이어가 없습니다",
     -- HH-155: gangs
+    GANG_WINDOW_TITLE = "갱단 - %s",
     GANG_INVITE_UNCONFIRMED = "갱단이 아직 웹사이트에 없습니다: HeadHunter Sync가 보내면(/reload 또는 로그아웃 후) 초대할 수 있습니다.",
     GANG_NO_ADDON = "%s님이 초대에 응답하지 않았습니다: 오프라인이거나 HeadHunter가 없습니다.",
     GANG_CREATE_BUTTON = "갱단 만들기",

@@ -706,6 +706,7 @@ local RU = {
     SEARCH_PLAYER = "Найти игрока",
     SEARCH_EMPTY = "Нет игрока с именем %s",
     -- HH-155: gangs
+    GANG_WINDOW_TITLE = "Банда - %s",
     GANG_INVITE_UNCONFIRMED = "Вашей банды ещё нет на сайте: приглашать можно, когда HeadHunter Sync её отправит (после /reload или выхода).",
     GANG_NO_ADDON = "%s не ответил на приглашение: не в сети или нет HeadHunter.",
     GANG_CREATE_BUTTON = "Создать банду",

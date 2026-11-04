@@ -28,6 +28,9 @@ local OWNER = "SocialTab"
 SocialTab.MAX_BLIZZARD_TABS = 8
 SocialTab.ROWS = 10
 SocialTab.TAB_GAP = 3
+-- Our buttons sit in the window's bottom bar, under the content area, like Blizzard's own
+SocialTab.BAR_EDGE = 6
+SocialTab.BAR_BOTTOM = 4
 -- Blizzard's pages hidden while ours is open (RaidFrame apart: protected in combat)
 SocialTab.PAGES = { "FriendsTabHeader", "FriendsListFrame", "QuickJoinFrame", "RecentAlliesFrame", "RecruitAFriendFrame" }
 
@@ -67,8 +70,11 @@ function SocialTab:IsActive()
     return active
 end
 
+local ShowOurTitle
+
 function SocialTab:Refresh()
     if not panel or not active then return end
+    ShowOurTitle()
     local gang = ns.Gangs:Mine()
     local U = ns.Utils
     if gang then
@@ -125,15 +131,23 @@ local function TitleText()
     return _G.FriendsFrameTitleText
 end
 
--- The window's title says Gang while our page is open; Blizzard's title is kept to put
--- back when its page comes back from us (its own page code sets it when it shows)
+-- Our title: "Gang", and "Gang - Black Hand" once the website confirmed our gang
+function SocialTab.Title()
+    local gang = ns.Gangs:Mine()
+    return gang and gang.confirmed and string.format(L.GANG_WINDOW_TITLE, gang.name) or L.TAB_GANG
+end
+
+-- The window's title is ours while our page is open; Blizzard's title is kept to put back
+-- when its page comes back from us (its own page code sets it when it shows)
 local blizzardTitle
-local function ShowOurTitle()
+local ourTitle
+function ShowOurTitle()
     local text = TitleText()
     if not (text and text.SetText) then return end
     local current = text.GetText and text:GetText()
-    if current ~= L.TAB_GANG then blizzardTitle = current end
-    text:SetText(L.TAB_GANG)
+    if current ~= ourTitle then blizzardTitle = current end
+    ourTitle = SocialTab.Title()
+    text:SetText(ourTitle)
 end
 
 local function ShowBlizzardTitle()
@@ -254,17 +268,17 @@ local function CreatePanel(frame)
     end
     p.invite = CreateFrame("Button", nil, p, "UIPanelButtonTemplate")
     p.invite:SetSize(120, 22)
-    p.invite:SetPoint("BOTTOMLEFT", 10, 10)
+    p.invite:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", SocialTab.BAR_EDGE, SocialTab.BAR_BOTTOM)
     p.invite:SetText(L.GANG_INVITE_BUTTON)
     p.invite:SetScript("OnClick", function() ns.Gangs:Command({ "invite" }) end)
     p.leave = CreateFrame("Button", nil, p, "UIPanelButtonTemplate")
     p.leave:SetSize(90, 22)
-    p.leave:SetPoint("BOTTOMRIGHT", -10, 10)
+    p.leave:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -SocialTab.BAR_EDGE, SocialTab.BAR_BOTTOM)
     p.leave:SetText(L.GANG_LEAVE_BUTTON)
     p.leave:SetScript("OnClick", function() ns.Gangs:Command({ "leave" }) end)
     p.create = CreateFrame("Button", nil, p, "UIPanelButtonTemplate")
     p.create:SetSize(140, 22)
-    p.create:SetPoint("BOTTOMLEFT", 10, 10)
+    p.create:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", SocialTab.BAR_EDGE, SocialTab.BAR_BOTTOM)
     p.create:SetText(L.GANG_CREATE_BUTTON)
     p.create:SetScript("OnClick", function() ns.Gangs:PromptCreate() end)
     p:Hide()

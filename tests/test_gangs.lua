@@ -244,7 +244,7 @@ return function(T, H)
         title:SetText("Raid")
         FriendsFrame.GetTitleText = function() return title end
         tab:GetScript("OnClick")()
-        T.eq(title.value, "Gang", "the window's title says Gang")
+        T.eq(title.value, "Gang - Black Hand", "the window's title names our gang once the website confirmed it")
         T.ok(panel:IsShown(), "our page shows")
         T.ok(panel.title.shownText:find("Black Hand", 1, true), "our gang")
         T.eq(looks[tab], "selected", "our tab looks selected")
