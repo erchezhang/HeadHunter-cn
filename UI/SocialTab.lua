@@ -36,6 +36,11 @@ SocialTab.EMPTY_SPACING = 8
 SocialTab.NOTE_LEFT = 66
 SocialTab.NOTE_TOP = 36
 SocialTab.NOTE_WIDTH = 250
+-- our list on the window: under the note, above the button bar
+SocialTab.LIST_TOP = 68
+SocialTab.LIST_LEFT = 6
+SocialTab.LIST_RIGHT = 8
+SocialTab.LIST_BOTTOM = 28
 -- Our buttons sit in the window's bottom bar, under the content area, like Blizzard's own
 SocialTab.BAR_EDGE = 6
 SocialTab.BAR_BOTTOM = 4
@@ -356,13 +361,10 @@ end
 
 local function CreatePanel(frame)
     local p = CreateFrame("Frame", nil, holder)
-    local inset = frame.Inset or _G.FriendsFrameInset
-    if inset then
-        p:SetAllPoints(inset)
-    else
-        p:SetPoint("TOPLEFT", frame, "TOPLEFT", 6, -60)
-        p:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -6, 6)
-    end
+    -- On the window at fixed offsets, not on its inset: the Raid page moves the inset up (it
+    -- has no header), which shrank the grey strip above our list
+    p:SetPoint("TOPLEFT", frame, "TOPLEFT", SocialTab.LIST_LEFT, -SocialTab.LIST_TOP)
+    p:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -SocialTab.LIST_RIGHT, SocialTab.LIST_BOTTOM)
     p:SetFrameLevel((frame:GetFrameLevel() or 1) + 50)
     p:EnableMouse(true)
     local bg = p:CreateTexture(nil, "BACKGROUND")
