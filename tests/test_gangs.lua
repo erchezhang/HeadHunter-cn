@@ -227,9 +227,16 @@ return function(T, H)
         tab:GetScript("OnClick")()
         T.ok(panel:IsShown(), "our panel shows")
         T.eq(panel:GetFrameStrata(), "HIGH", "above the Social window's pages")
-        T.eq(rawget(FriendsFrame, "selectedTab"), nil, "Blizzard's selection never written")
         T.ok(panel.title.shownText:find("Black Hand", 1, true), "our gang")
+        local looks = {}
+        _G.PanelTemplates_SelectTab = function(button) looks[button] = "selected" end
+        _G.PanelTemplates_DeselectTab = function(button) looks[button] = "deselected" end
+        FriendsFrame.selectedTab = 3
+        ns.SocialTab.OnTabsRedrawn(FriendsFrame)
+        T.eq(looks[tab], "selected", "a redraw keeps our tab looking selected")
+        T.eq(looks[FriendsFrameTab3], "deselected", "and Raid not")
         FriendsFrameTab3.hooks.OnClick()
+        T.eq(looks[FriendsFrameTab3], "selected", "Raid looks selected again once ours closes")
         T.ok(not panel:IsShown(), "a Blizzard tab hides it")
         T.noErrors()
     end)

@@ -92,17 +92,26 @@ function SocialTab.StrataAbove(frame)
 end
 
 -- How the tabs look only: ours selected and Blizzard's selected one not, or back. The
--- window's selectedTab is read, never written; a Blizzard tab click selects its own again.
+-- window's selectedTab is read, never written.
 local function LookSelected(ours)
     local frame = _G.FriendsFrame
-    local blizzard = frame and rawget(frame, "selectedTab") and _G["FriendsFrameTab" .. frame.selectedTab]
+    local selected = frame and frame.selectedTab
+    local blizzard = type(selected) == "number" and _G["FriendsFrameTab" .. selected] or nil
     if ours then
         if PanelTemplates_SelectTab then pcall(PanelTemplates_SelectTab, tab) end
         if blizzard and PanelTemplates_DeselectTab then pcall(PanelTemplates_DeselectTab, blizzard) end
     else
         if PanelTemplates_DeselectTab then pcall(PanelTemplates_DeselectTab, tab) end
+        if blizzard and PanelTemplates_SelectTab then pcall(PanelTemplates_SelectTab, blizzard) end
     end
 end
+
+-- The Social window redraws its tabs on its own (roster and friend updates); while our
+-- panel is open, our look is laid over it again, after Blizzard's code ran
+local function OnTabsRedrawn(frame)
+    if frame == _G.FriendsFrame and panel and panel:IsShown() then LookSelected(true) end
+end
+SocialTab.OnTabsRedrawn = OnTabsRedrawn
 
 function SocialTab:ShowPanel()
     if not panel then return end
@@ -175,6 +184,11 @@ function SocialTab:Install()
         end
     end
     if frame.HookScript then frame:HookScript("OnHide", function() SocialTab:HidePanel() end) end
+    if hooksecurefunc then
+        for _, name in ipairs({ "PanelTemplates_UpdateTabs", "PanelTemplates_SetTab" }) do
+            if _G[name] then hooksecurefunc(name, OnTabsRedrawn) end
+        end
+    end
     return true
 end
 
