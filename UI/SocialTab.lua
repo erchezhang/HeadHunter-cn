@@ -82,6 +82,7 @@ function SocialTab:Refresh()
     end
     if gang and ns.Gangs:IsLeader(gang) then panel.invite:Show() else panel.invite:Hide() end
     if gang then panel.leave:Show() else panel.leave:Hide() end
+    if gang then panel.create:Hide() else panel.create:Show() end
 end
 
 -- Blizzard's pages out of sight while ours is open; RaidFrame only out of combat
@@ -180,6 +181,11 @@ local function CreatePanel(frame)
     p.leave:SetPoint("BOTTOMRIGHT", -10, 10)
     p.leave:SetText(L.GANG_LEAVE_BUTTON)
     p.leave:SetScript("OnClick", function() ns.Gangs:Command({ "leave" }) end)
+    p.create = CreateFrame("Button", nil, p, "UIPanelButtonTemplate")
+    p.create:SetSize(140, 22)
+    p.create:SetPoint("BOTTOMLEFT", 10, 10)
+    p.create:SetText(L.GANG_CREATE_BUTTON)
+    p.create:SetScript("OnClick", function() ns.Gangs:PromptCreate() end)
     p:Hide()
     return p
 end

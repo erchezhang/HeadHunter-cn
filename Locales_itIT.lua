@@ -707,6 +707,8 @@ local IT = {
     SEARCH_PLAYER = "Cerca un giocatore",
     SEARCH_EMPTY = "Nessuno si chiama %s",
     -- HH-155: gangs
+    GANG_CREATE_BUTTON = "Fonda banda",
+    GANG_CREATE_POPUP = "Dai un nome alla tua banda (da 3 a 24 lettere o cifre, spazi, ' e -). HeadHunter Sync lo controlla sul sito.",
     GANG_SOCIALTAB_ON = "Scheda Banda nella finestra Social: attiva dopo /reload. Controlla /console taintLog 1 e la scheda Incursione in combattimento.",
     GANG_SOCIALTAB_OFF = "Scheda Banda nella finestra Social: disattivata dopo /reload.",
     TAB_GANG = "Banda",

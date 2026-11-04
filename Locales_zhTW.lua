@@ -703,6 +703,8 @@ local TW = {
     SEARCH_PLAYER = "尋找玩家",
     SEARCH_EMPTY = "沒有叫 %s 的玩家",
     -- HH-155: gangs
+    GANG_CREATE_BUTTON = "建立幫派",
+    GANG_CREATE_POPUP = "為你的幫派命名（3 到 24 個字母或數字，可含空格、' 和 -）。HeadHunter Sync 會在網站上核對。",
     GANG_SOCIALTAB_ON = "社交視窗中的幫派標籤：/reload 後開啟。請檢查 /console taintLog 1 以及戰鬥中的團隊標籤。",
     GANG_SOCIALTAB_OFF = "社交視窗中的幫派標籤：/reload 後關閉。",
     TAB_GANG = "幫派",

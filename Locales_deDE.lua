@@ -706,6 +706,8 @@ local DE = {
     SEARCH_PLAYER = "Spieler suchen",
     SEARCH_EMPTY = "Niemand namens %s",
     -- HH-155: gangs
+    GANG_CREATE_BUTTON = "Bande gründen",
+    GANG_CREATE_POPUP = "Gib deiner Bande einen Namen (3 bis 24 Buchstaben oder Ziffern, Leerzeichen, ' und -). HeadHunter Sync prüft ihn auf der Website.",
     GANG_SOCIALTAB_ON = "Banden-Reiter im Kontaktefenster: an nach /reload. Prüfe /console taintLog 1 und den Schlachtzug-Reiter im Kampf.",
     GANG_SOCIALTAB_OFF = "Banden-Reiter im Kontaktefenster: aus nach /reload.",
     TAB_GANG = "Bande",

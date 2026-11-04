@@ -254,4 +254,24 @@ return function(T, H)
         T.eq(looks[tab], "deselected", "and our tab looks unselected")
         T.noErrors()
     end)
+
+    T.case("Create gang: a popup asks for the name, then the usual checks; none when in a gang", function()
+        local ns = Boot()
+        H.popups = {}
+        ns.Gangs:PromptCreate()
+        T.eq(#H.popups, 1, "the name popup")
+        T.eq(H.popups[1].which, ns.Gangs.CREATE_POPUP, "the create popup")
+        local popup = { editBox = { GetText = function() return "  Black   Hand " end } }
+        StaticPopupDialogs[ns.Gangs.CREATE_POPUP].OnAccept(popup)
+        local action = ns.Gangs:Actions()[1]
+        T.eq(action.kind, "create", "kept for Sync")
+        T.eq(action.name, "Black Hand", "cleaned name")
+        H.popups = {}
+        ns.Gangs:PromptCreate()
+        T.eq(#H.popups, 0, "no popup once in a gang")
+        T.ok(H.Printed("already"), "said why")
+        local bad = Boot()
+        StaticPopupDialogs[bad.Gangs.CREATE_POPUP].OnAccept({ editBox = { GetText = function() return "X!" end } })
+        T.eq(#bad.Gangs:Actions(), 0, "a bad name is refused")
+    end)
 end

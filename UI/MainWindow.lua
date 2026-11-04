@@ -1010,7 +1010,10 @@ local function CreateMainFrame()
     f.gangInfo:SetPoint("RIGHT", f.gangInvite, "LEFT", -12, 0)
     f.gangInfo:SetJustifyH("LEFT")
     f.gangInfo:SetWordWrap(false)
-    for _, w in ipairs({ f.gangLeave, f.gangInvite, f.gangInfo }) do w:Hide() end
+    f.gangCreate = Theme.Button(f, L.GANG_CREATE_BUTTON, "gold", 140, 24)
+    f.gangCreate:SetPoint("TOPRIGHT", -18, toolbarY)
+    f.gangCreate:SetScript("OnClick", function() ns.Gangs:PromptCreate() end)
+    for _, w in ipairs({ f.gangLeave, f.gangInvite, f.gangInfo, f.gangCreate }) do w:Hide() end
     -- Our confirmed results to the website: a quick UI reload saves them, then HeadHunter
     -- Sync sends them (an addon cannot reach the website itself)
     f.eventSend = Theme.Button(f, "", "gold", 140, 24)
@@ -1485,6 +1488,7 @@ function MainWindow:LayoutGang(shown)
     end
     if gang and ns.Gangs:IsLeader(gang) then frame.gangInvite:Show() else frame.gangInvite:Hide() end
     if gang then frame.gangLeave:Show() else frame.gangLeave:Hide() end
+    if shown and not gang and ns.Gangs.Enabled() then frame.gangCreate:Show() else frame.gangCreate:Hide() end
 end
 
 -- The open event, or nil (it may have ended since)

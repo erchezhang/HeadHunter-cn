@@ -706,6 +706,8 @@ local RU = {
     SEARCH_PLAYER = "Найти игрока",
     SEARCH_EMPTY = "Нет игрока с именем %s",
     -- HH-155: gangs
+    GANG_CREATE_BUTTON = "Создать банду",
+    GANG_CREATE_POPUP = "Назовите банду (от 3 до 24 букв или цифр, пробелы, ' и -). HeadHunter Sync проверит название на сайте.",
     GANG_SOCIALTAB_ON = "Вкладка «Банда» в окне общения: включится после /reload. Проверьте /console taintLog 1 и вкладку рейда в бою.",
     GANG_SOCIALTAB_OFF = "Вкладка «Банда» в окне общения: выключится после /reload.",
     TAB_GANG = "Банда",

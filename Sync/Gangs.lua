@@ -32,6 +32,7 @@ Gangs.INVITE_WINDOW = 60
 -- seconds our actions are kept
 Gangs.GANG_KEEP = 30 * 86400
 Gangs.POPUP = "HEADHUNTER_GANG_INVITE"
+Gangs.CREATE_POPUP = "HEADHUNTER_GANG_CREATE"
 Gangs.KINDS = { create = true, invite = true, accept = true, leave = true, kick = true, rename = true, lead = true }
 Gangs.REASONS = {
     name_invalid = true, name_taken = true, in_a_gang = true, not_in_a_gang = true, not_leader = true,
@@ -353,6 +354,25 @@ function Gangs:Command(args)
     end
 end
 
+-- The name a popup's edit box holds (the box's field differs between client versions)
+local function PopupText(popup)
+    local box = popup and (popup.editBox or popup.EditBox or (popup.GetEditBox and popup:GetEditBox()))
+    return box and box.GetText and box:GetText() or ""
+end
+
+-- Create gang: a popup asks for the name, then the same checks as /hh gang create
+function Gangs:PromptCreate()
+    if not Gangs.Enabled() then ns:Print(L.GANG_FOREVER_ONLY) return end
+    if self:Mine() then ns:Print(L.GANG_ALREADY) return end
+    StaticPopup_Show(Gangs.CREATE_POPUP)
+end
+
+function Gangs:CreateFromPopup(popup)
+    local args = { "create" }
+    for word in PopupText(popup):gmatch("%S+") do args[#args + 1] = word end
+    self:Command(args)
+end
+
 ns.SlashCommands:Register("gang", function(args) Gangs:Command(args) end, L.HELP_GANG)
 
 ns.Events:Register("HH_INITIALIZED", function()
@@ -364,6 +384,23 @@ ns.Events:Register("HH_INITIALIZED", function()
         OnAccept = function() Gangs:AcceptInvite() end,
         OnCancel = function() Gangs:DeclineInvite() end,
         timeout = Gangs.INVITE_TIMEOUT,
+        hideOnEscape = 1,
+        preferredIndex = 3,
+    }
+    StaticPopupDialogs[Gangs.CREATE_POPUP] = {
+        text = L.GANG_CREATE_POPUP,
+        button1 = L.GANG_CREATE_BUTTON,
+        button2 = CANCEL,
+        hasEditBox = 1,
+        maxLetters = Gangs.NAME_MAX,
+        OnAccept = function(popup) Gangs:CreateFromPopup(popup) end,
+        EditBoxOnEnterPressed = function(box)
+            local popup = box:GetParent()
+            Gangs:CreateFromPopup(popup)
+            popup:Hide()
+        end,
+        EditBoxOnEscapePressed = function(box) box:GetParent():Hide() end,
+        timeout = 0,
         hideOnEscape = 1,
         preferredIndex = 3,
     }
