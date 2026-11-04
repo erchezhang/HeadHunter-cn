@@ -367,7 +367,7 @@ local function Named(args)
     local typed = Rest(args, 2)
     if typed ~= "" then return ns.Utils.PlayerKey(typed) end
     if UnitIsPlayer and UnitIsPlayer("target") and not (UnitIsEnemy and UnitIsEnemy("player", "target")) then
-        local _, class = UnitClass and UnitClass("target")
+        local class = UnitClass and select(2, UnitClass("target"))
         return ns.Utils.UnitKey("target"), class
     end
     return nil
