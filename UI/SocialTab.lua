@@ -19,29 +19,36 @@ SocialTab.ROWS = 10
 
 local tab, panel
 
--- The Social window's own tab buttons, in order
+-- The Social window's own tab buttons, in order; numbers may be skipped (WoW Forever has
+-- 1 Contacts, 3 Raid, 4 Quick Join and no 2)
 function SocialTab.BlizzardTabs()
     local tabs = {}
     for i = 1, SocialTab.MAX_BLIZZARD_TABS do
         local button = _G["FriendsFrameTab" .. i]
-        if not button then break end
-        tabs[#tabs + 1] = button
+        if button then tabs[#tabs + 1] = button end
     end
     return tabs
 end
 
 -- The last Blizzard tab on show, and the gap the game itself leaves between two tabs
--- (Classic overlaps them by 15, newer UIs space them), read from the second tab's anchor
+-- (Classic overlaps them by 15, WoW Forever spaces them by 3), read from the first tab
+-- anchored to another tab
 function SocialTab.Anchor(tabs)
     local last
+    local isTab = {}
     for _, button in ipairs(tabs) do
+        isTab[button] = true
         if not button.IsShown or button:IsShown() then last = button end
     end
     local gap = -15
-    local second = tabs[2]
-    if second and second.GetPoint then
-        local ok, _, relative, _, x = pcall(second.GetPoint, second, 1)
-        if ok and relative == tabs[1] and type(x) == "number" then gap = x end
+    for _, button in ipairs(tabs) do
+        if button.GetPoint then
+            local ok, _, relative, _, x = pcall(button.GetPoint, button, 1)
+            if ok and isTab[relative] and type(x) == "number" then
+                gap = x
+                break
+            end
+        end
     end
     return last, gap
 end
@@ -127,7 +134,7 @@ function SocialTab:Install()
     if not last then return false end
     local ok, button = pcall(CreateFrame, "Button", "HeadHunterSocialGangTab", frame, "FriendsFrameTabTemplate")
     if not ok or not button then button = CreateFrame("Button", "HeadHunterSocialGangTab", frame, "UIPanelButtonTemplate") end
-    button:SetPoint("LEFT", last, "RIGHT", gap, 0)
+    button:SetPoint("TOPLEFT", last, "TOPRIGHT", gap, 0)
     button:SetText(L.TAB_GANG)
     button:SetScript("OnClick", function() SocialTab:ShowPanel() end)
     tab = button

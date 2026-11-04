@@ -209,12 +209,12 @@ return function(T, H)
             return frame
         end
         _G.FriendsFrame = Hookable(CreateFrame("Frame"))
-        for i = 1, 5 do
+        for _, i in ipairs({ 1, 3, 4 }) do
             local button = Hookable(CreateFrame("Button"))
-            button.shown = i <= 4
+            button.shown = i ~= 4
             _G["FriendsFrameTab" .. i] = button
         end
-        FriendsFrameTab2.GetPoint = function() return "LEFT", FriendsFrameTab1, "RIGHT", 3, 0 end
+        FriendsFrameTab3.GetPoint = function() return "TOPLEFT", FriendsFrameTab1, "TOPRIGHT", 3, 0 end
         T.ok(not ns.SocialTab:Install(), "off by default")
 
         H.Slash("gang socialtab on")
@@ -222,12 +222,12 @@ return function(T, H)
         local tab, panel = ns.SocialTab:Parts()
         T.ok(tab ~= nil, "our tab")
         T.eq(rawget(FriendsFrame, "numTabs"), nil, "Blizzard's tab count untouched")
-        T.ok(tab.point[2] == FriendsFrameTab4, "after the last tab on show, not a hidden one")
+        T.ok(tab.point[2] == FriendsFrameTab3, "after Raid, the last tab on show; no tab 2, Quick Join hidden")
         T.eq(tab.point[4], 3, "the game's own gap between tabs")
         tab:GetScript("OnClick")()
         T.ok(panel:IsShown(), "our panel shows")
         T.ok(panel.title.shownText:find("Black Hand", 1, true), "our gang")
-        FriendsFrameTab2.hooks.OnClick()
+        FriendsFrameTab3.hooks.OnClick()
         T.ok(not panel:IsShown(), "a Blizzard tab hides it")
         T.noErrors()
     end)
