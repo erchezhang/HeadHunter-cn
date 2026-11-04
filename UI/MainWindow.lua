@@ -611,13 +611,14 @@ local function GangRows()
     for _, member in ipairs(gang.members) do
         local leads = U.SameCharacter(member.key, gang.leader)
         local plain = U.DisplayName(member.key)
+        local race, sex = ns.Gangs:MemberRace(member)
         local row = {
             plain = plain,
-            name = Named(plain, { faction = ns.Gangs:MemberFaction(member, gang), race = member.race,
+            name = Named(plain, { faction = ns.Gangs:MemberFaction(member, gang), race = race, sex = sex,
                 class = ns.Gangs:MemberClass(member) }),
             gangMember = member.key,
             desc = ns.DeathReports.Describe({ level = ns.Gangs:MemberLevel(member), class = ns.Gangs:MemberClass(member),
-                race = member.race, sex = member.sex }),
+                race = race, sex = sex }),
             online = ns.Gangs:IsOnline(member.key) and ("|cff40ff40" .. L.GANG_ONLINE .. "|r") or ("|cff808080" .. L.GANG_OFFLINE .. "|r"),
             role = leads and L.GANG_ROLE_LEADER or L.GANG_ROLE_MEMBER,
             joined = member.joinedAt and date("%m-%d %H:%M", member.joinedAt) or (gang.pending and L.GANG_ROLE_PENDING or ""),

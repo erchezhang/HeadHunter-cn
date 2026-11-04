@@ -268,6 +268,16 @@ function Gangs:MemberClass(member)
     return seen and seen.class or nil
 end
 
+-- A member's race and sex: theirs, else ours for us
+function Gangs:MemberRace(member)
+    if member.race then return member.race, member.sex end
+    if ns.Utils.SameCharacter(member.key, Me()) and UnitRace then
+        local _, race = UnitRace("player")
+        return race, UnitSex and UnitSex("player") or nil
+    end
+    return nil, member.sex
+end
+
 -- A member's faction: theirs, else the gang's (a gang is one faction), else ours
 function Gangs:MemberFaction(member, gang)
     if member.faction then return member.faction end
