@@ -123,7 +123,7 @@ function SocialTab:Refresh()
         panel.empty:Show()
     end
     if gang and ns.Gangs:IsLeader(gang) then panel.invite:Show() else panel.invite:Hide() end
-    if panel.invite.SetEnabled then panel.invite:SetEnabled(gang and gang.confirmed == true or false) end
+    if panel.invite.SetEnabled then panel.invite:SetEnabled(gang ~= nil) end
     if gang then panel.leave:Show() else panel.leave:Hide() end
     if gang then panel.create:Hide() else panel.create:Show() end
 end
@@ -185,8 +185,8 @@ local function TitleText()
     return _G.FriendsFrameTitleText
 end
 
--- Our title: "Gang"; "Gang - Black Hand" for our gang, with "(waiting for Sync)" until the
--- website confirmed it
+-- Our title: "Gang"; "Gang - Black Hand" for our gang, with "(not on the website yet)" until
+-- the website confirmed it
 function SocialTab.Title()
     local gang = ns.Gangs:Mine()
     if not gang then return L.TAB_GANG end

@@ -8,7 +8,9 @@
 -- makes the chat windows drop the line. /gang <text> sends; /gang alone opens the
 -- chat box on gang chat. The chat box's chat type is never set from our code (that taints
 -- protected commands typed in chat). A gang's channel changes when a member is kicked; any
--- other gang channel we are in (Gang_HH…, or HHG… from before) is left. WoW Forever only, once the website confirmed the gang.
+-- other gang channel we are in (Gang_HH…, or HHG… from before) is left. WoW Forever only.
+-- The channel works before any sync: the leader's addon makes it and whispers it to each
+-- member who accepts (Gangs.lua); what this character saved wins over an older download.
 
 local addonName, ns = ...
 local L = ns.L
@@ -25,16 +27,24 @@ GangChat.JOIN_DELAY = 5
 GangChat.DEFAULT_COLOR = "ff9f40"
 
 local current
+-- true once the first join after login ran (JOIN_DELAY): from then on a gang change joins
+-- or leaves at once
+local ready = false
 -- player key -> { online = true (joined or spoke in the gang channel) or false (left it), t }
 local presence = {}
 
--- The channel and password the website sent for our character, while we are in that gang:
--- not after we left it (the download still has it until the next sync), else nil
+-- Our gang's channel and password while we are in a gang: the ones this character saved
+-- (made as leader, or whispered by the leader) unless the download is newer, else the
+-- download's; nil once we left (the download still has it until the next sync)
 function GangChat.Credentials()
-    if not ns.Gangs.Enabled() then return nil end
-    local gang = ns.Gangs:Mine()
-    if not (gang and gang.confirmed) or ns.Gangs:Sim() then return nil end
-    return ns.SiteData:GangChat(ns.Utils.UnitKey("player"))
+    if not ns.Gangs.Enabled() or ns.Gangs:Sim() then return nil end
+    if not ns.Gangs:Mine() then return nil end
+    local saved = ns.Gangs:SavedChat()
+    local site = ns.SiteData:GangChat(ns.Utils.UnitKey("player"))
+    if saved and (not site or saved.t >= (ns.SiteData:GeneratedAt() or 0)) then
+        return { channel = saved.channel, password = saved.password }
+    end
+    return site or (saved and { channel = saved.channel, password = saved.password })
 end
 
 local function OurChannel(channelBaseName, channelName)
@@ -274,8 +284,8 @@ ns.Events:Register("HH_INITIALIZED", function()
     ns.Events:Register("CHAT_MSG_CHANNEL_LEAVE", function(_, _, sender, _, channelName, _, _, _, _, channelBaseName)
         GangChat:OnJoinLeave(false, sender, channelBaseName, channelName)
     end, OWNER)
-    ns.Events:Register("HH_GANG_CHANGED", function(_, action)
-        if action and action.kind == "leave" then GangChat:Leave() end
+    ns.Events:Register("HH_GANG_CHANGED", function()
+        if ready then GangChat:Join() end
     end, OWNER)
     local add = ChatFrame_AddMessageEventFilter or (ChatFrameUtil and ChatFrameUtil.AddMessageEventFilter)
     if add then
@@ -286,5 +296,8 @@ ns.Events:Register("HH_INITIALIZED", function()
         end
     end
     GangChat.HookHeaders()
-    C_Timer.After(GangChat.JOIN_DELAY, function() GangChat:Join() end)
+    C_Timer.After(GangChat.JOIN_DELAY, function()
+        ready = true
+        GangChat:Join()
+    end)
 end, OWNER)

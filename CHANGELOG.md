@@ -6,7 +6,7 @@ HeadHunter 1.0 for the WoW Forever release. Everything since 0.5.0:
 
 ### Gangs
 
-- Friends can play under one **gang** name, up to 20 members, with one leader. Create one with **Create gang** or `/hh gang create <name>`, invite with **Invite target**, and accept the popup. A gang is checked and kept by the website, so it needs **HeadHunter Sync**: it shows "waiting for Sync" until the next sync.
+- Friends can play under one **gang** name, up to 20 members, with one leader. Create one with **Create gang** or `/hh gang create <name>`, invite with **Invite target**, and accept the popup. A gang works at once, with its chat, and no reload; the website checks and keeps it, so every member needs **HeadHunter Sync**, and it shows "not on the website yet" until the next sync. A name someone took first gets a number, and the leader may rename it.
 - The new **Gang** tab in the HeadHunter window lists your gang with class, level and online status. Right-click a member to whisper, invite to group, or as the leader hand over the lead or kick.
 - **Gang chat**: `/gang <text>`, or `/gang` and a space to switch the chat box to it, like guild chat. Its lines show as [Gang] and can go into any chat window or tab.
 - Tooltips show "Gang: <name>", and the website has a Gangs ranking and a page for each gang.

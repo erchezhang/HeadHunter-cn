@@ -1,6 +1,6 @@
 -- HH-155: the right-click menu on a gang member (the Social window's Gang page and the
 -- HeadHunter window's Gang view): Whisper and Invite to group for anyone; Make leader and
--- Kick (asked first) for the gang's leader. Built with Blizzard's own menu
+-- Kick (each asked first) for the gang's leader. Built with Blizzard's own menu
 -- (MenuUtil.CreateContextMenu: its look, at the cursor) holding only our entries; never
 -- Blizzard's player menu (UnitPopup), which addon code taints. Without MenuUtil, a frame of
 -- our own at the cursor.
@@ -11,6 +11,7 @@ local L = ns.L
 local GangMenu = ns:RegisterModule("GangMenu", {})
 
 GangMenu.KICK_POPUP = "HEADHUNTER_GANG_KICK"
+GangMenu.LEAD_POPUP = "HEADHUNTER_GANG_LEAD"
 GangMenu.ITEM_HEIGHT = 20
 GangMenu.WIDTH = 160
 
@@ -25,7 +26,7 @@ function GangMenu.Items(key)
     items[#items + 1] = { label = L.GANG_MENU_INVITE, run = function() GangMenu.InviteToGroup(key) end }
     local gang = ns.Gangs:Mine()
     if gang and ns.Gangs:IsLeader(gang) then
-        items[#items + 1] = { label = L.GANG_MENU_LEAD, run = function() ns.Gangs:Command({ "lead", U.DisplayName(key) }) end }
+        items[#items + 1] = { label = L.GANG_MENU_LEAD, run = function() GangMenu.AskLead(key, gang) end }
         items[#items + 1] = { label = L.GANG_MENU_KICK, run = function() GangMenu.AskKick(key) end }
     end
     return items
@@ -46,6 +47,14 @@ function GangMenu.AskKick(key)
         ns.Gangs:Command({ "kick", ns.Utils.DisplayName(key) })
     end
     StaticPopup_Show(GangMenu.KICK_POPUP)
+end
+
+function GangMenu.AskLead(key, gang)
+    StaticPopupDialogs[GangMenu.LEAD_POPUP].text = string.format(L.GANG_LEAD_POPUP, ns.Utils.DisplayName(key), gang and gang.name or "")
+    StaticPopupDialogs[GangMenu.LEAD_POPUP].OnAccept = function()
+        ns.Gangs:Command({ "lead", ns.Utils.DisplayName(key) })
+    end
+    StaticPopup_Show(GangMenu.LEAD_POPUP)
 end
 
 local function CreateMenu()
@@ -128,6 +137,14 @@ ns.Events:Register("HH_INITIALIZED", function()
     StaticPopupDialogs[GangMenu.KICK_POPUP] = {
         text = "",
         button1 = L.GANG_MENU_KICK,
+        button2 = CANCEL,
+        timeout = 0,
+        hideOnEscape = 1,
+        preferredIndex = 3,
+    }
+    StaticPopupDialogs[GangMenu.LEAD_POPUP] = {
+        text = "",
+        button1 = L.GANG_MENU_LEAD,
         button2 = CANCEL,
         timeout = 0,
         hideOnEscape = 1,

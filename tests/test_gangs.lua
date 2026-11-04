@@ -366,17 +366,130 @@ return function(T, H)
         T.eq(#Whispers("r"), 1, "received")
     end)
 
-    T.case("invite: only once the gang is on the website", function()
+    local function To(code, target)
+        local found = {}
+        for _, m in ipairs(Whispers(code)) do
+            if m.target == target then found[#found + 1] = m end
+        end
+        return found
+    end
+
+    local function Note(ns, code, from)
+        H.Deliver(ns.Protocol.Pack("A", ns.Protocol.TYPES.GANG, { code }), from)
+        Settle()
+    end
+
+    T.case("no reload: create makes the gang's chat channel and joins it, invites go out at once, who accepts gets the channel", function()
+        local ns = Boot()
+        H.joinWorks = true
+        H.Slash("gang create Black Hand")
+        local create = ns.Gangs:Actions()[1]
+        T.ok(create.chatChannel:match("^Gang_HH[a-z0-9]+$") and #create.chatChannel == 19, "the create carries the channel for the website")
+        T.eq(#create.chatPassword, ns.Gangs.CHAT_PASSWORD_LENGTH, "and its password")
+        T.eq(ns.GangChat:Channel(), create.chatChannel, "joined at once")
+
+        H.sent = {}
+        H.Slash("gang invite Tobin Ashford")
+        Settle()
+        T.eq(#To("i;Black Hand", "Tobin Ashford"), 1, "invited before the website has the gang")
+        Note(ns, "a", "Tobin Ashford")
+        T.eq(#To("p;" .. create.chatChannel .. ";" .. create.chatPassword, "Tobin Ashford"), 1, "the channel whispered to who accepted")
+    end)
+
+    T.case("no reload: who accepts joins the leader's channel at once and keeps it; only the leader's notes count", function()
+        local ns = Boot()
+        H.joinWorks = true
+        Note(ns, "i;Black Hand", "Kira Dawnblade")
+        StaticPopupDialogs[ns.Gangs.POPUP].OnAccept()
+        Settle()
+        Note(ns, "p;Gang_HHzzzzzzzzzzzz;Other1", "Rowan Fairhill")
+        T.eq(ns.Gangs:SavedChat(), nil, "not from someone else")
+        Note(ns, "p;Gang_HHabcdefghijkl;Secret123", "Kira Dawnblade")
+        T.eq(ns.GangChat:Channel(), "Gang_HHabcdefghijkl", "joined")
+        T.eq(ns.db.gangLocal["Vati Guda"].channel, "Gang_HHabcdefghijkl", "kept for the next login")
+
+        Note(ns, "n;Red Fang", "Kira Dawnblade")
+        T.eq(ns.Gangs:Mine().name, "Red Fang", "renamed by the leader")
+        Note(ns, "k;Rowan Fairhill", "Kira Dawnblade")
+        T.ok(H.Printed("Rowan Fairhill"), "a kick is said")
+        Note(ns, "x", "Kira Dawnblade")
+        T.eq(ns.Gangs:Mine(), nil, "kicked: out at once")
+        T.eq(ns.GangChat:Channel(), nil, "and out of the channel")
+        T.ok(ns.Gangs:CooldownLeft() ~= nil, "a day before joining again")
+    end)
+
+    T.case("no reload: a new leader is told", function()
+        local ns = Boot()
+        Note(ns, "i;Black Hand", "Kira Dawnblade")
+        StaticPopupDialogs[ns.Gangs.POPUP].OnAccept()
+        Settle()
+        Note(ns, "m;Vati Guda", "Kira Dawnblade")
+        T.ok(ns.Gangs:IsLeader(), "we lead now")
+    end)
+
+    T.case("the leader's kick makes a new channel, tells the kicked member and the others", function()
+        _G.ERR_CHAT_PLAYER_NOT_FOUND_S = _G.ERR_CHAT_PLAYER_NOT_FOUND_S or "No player named '%s' is currently playing."
+        local ns = Boot(Data({ Gang("Black Hand", "Vati Guda", { "Vati Guda", "Tobin Ashford", "Rowan Fairhill" }) }))
+        H.joinWorks = true
+        H.sent = {}
+        H.Slash("gang kick Rowan Fairhill")
+        Settle()
+        local kick = ns.Gangs:Actions()[1]
+        T.ok(kick.chatChannel and kick.chatPassword, "the kick carries the new channel")
+        T.eq(ns.GangChat:Channel(), kick.chatChannel, "we moved to it")
+        T.eq(#To("x", "Rowan Fairhill"), 1, "the kicked member is told")
+        T.eq(#To("k;Rowan Fairhill", "Tobin Ashford"), 1, "the others hear who left")
+        T.eq(#To("p;" .. kick.chatChannel, "Tobin Ashford"), 1, "and get the new channel")
+        T.eq(#To("p;", "Rowan Fairhill"), 0, "never the kicked member")
+        T.ok(ns.Gangs.SystemFilter(nil, "CHAT_MSG_SYSTEM", string.format(ERR_CHAT_PLAYER_NOT_FOUND_S, "Tobin Ashford")),
+            "no 'not playing' line for an offline member we told")
+        T.ok(not ns.Gangs.SystemFilter(nil, "CHAT_MSG_SYSTEM", string.format(ERR_CHAT_PLAYER_NOT_FOUND_S, "Ellis Brightwood")),
+            "others keep it")
+    end)
+
+    T.case("rename: once the website has the gang, with a popup that says to check the name; members are told", function()
         local ns = Boot()
         H.Slash("gang create Black Hand")
         H.printed = {}
-        H.Slash("gang invite Tobin Ashford")
-        T.ok(H.Printed("not on the website yet"), "waiting for Sync")
-        local invites = 0
-        for _, action in ipairs(ns.Gangs:Actions()) do
-            if action.kind == "invite" then invites = invites + 1 end
+        H.Slash("gang rename Red Fang")
+        T.ok(H.Printed("once the website has it"), "not before the website has the gang")
+
+        local confirmed = Boot(Data({ Gang("Black Hand", "Vati Guda", { "Vati Guda", "Tobin Ashford" }) }))
+        H.popups, H.sent = {}, {}
+        confirmed.Gangs:PromptRename()
+        T.ok(H.popups[1].text:find("nobody has it", 1, true), "the popup says to check the name on the website")
+        StaticPopupDialogs[confirmed.Gangs.RENAME_POPUP].OnAccept({ editBox = { GetText = function() return "Red Fang" end } })
+        Settle()
+        T.eq(confirmed.Gangs:Actions()[1].kind, "rename", "renamed")
+        T.eq(#To("n;Red Fang", "Tobin Ashford"), 1, "members told")
+    end)
+
+    T.case("a taken name: the website's number is said and a rename offered", function()
+        local data = Data()
+        local ns = Boot(data)
+        H.Slash("gang create Black Hand")
+        local uid = ns.Gangs:Actions()[1].uid
+        data.worlds["forever|us|pvp"].gangs = { Gang("Black Hand 2", "Vati Guda", { "Vati Guda" }) }
+        data.characters[1].gang_results = { { uid = uid, kind = "create", status = "done", gang = "Black Hand 2" } }
+        ns.SiteData:Load()
+        H.popups = {}
+        ns.Gangs:TellResults()
+        T.eq(H.popups[1].which, ns.Gangs.SUFFIX_POPUP, "Rename or Keep")
+        T.ok(H.popups[1].text:find("Black Hand 2", 1, true), "names the new name")
+        T.eq(ns.Gangs:Mine().name, "Black Hand 2", "the gang goes on under it")
+    end)
+
+    T.case("Make leader asks first", function()
+        local ns = Boot(Data({ Gang("Black Hand", "Vati Guda", { "Vati Guda", "Tobin Ashford" }) }))
+        H.popups = {}
+        local items = ns.GangMenu.Items("Tobin Ashford")
+        for _, item in ipairs(items) do
+            if item.label == ns.L.GANG_MENU_LEAD then item.run() end
         end
-        T.eq(invites, 0, "no invite kept")
+        T.ok(H.popups[1].text:find("no longer be able to invite", 1, true), "asks")
+        T.eq(#ns.Gangs:Actions(), 0, "nothing kept before yes")
+        StaticPopupDialogs[ns.GangMenu.LEAD_POPUP].OnAccept()
+        T.eq(ns.Gangs:Actions()[1].kind, "lead", "after yes")
     end)
 
     T.case("Leave from a button asks first; the leader is told the lead passes on", function()
@@ -390,11 +503,11 @@ return function(T, H)
         T.eq(ns.Gangs:Actions()[1].kind, "leave", "left after yes")
     end)
 
-    T.case("Social window title: the gang's name, and waiting for Sync until the website confirmed it", function()
+    T.case("Social window title: the gang's name, and not on the website yet until the website confirmed it", function()
         local ns = Boot()
         T.eq(ns.SocialTab.Title(), "Gang", "no gang")
         H.Slash("gang create Western Gods")
-        T.eq(ns.SocialTab.Title(), "Gang - Western Gods (waiting for Sync)", "not on the website yet")
+        T.eq(ns.SocialTab.Title(), "Gang - Western Gods (not on the website yet)", "not on the website yet")
         local confirmed = Boot(Data({ Gang("Western Gods", "Vati Guda", { "Vati Guda" }) }))
         T.eq(confirmed.SocialTab.Title(), "Gang - Western Gods", "confirmed")
     end)

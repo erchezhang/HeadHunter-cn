@@ -29,7 +29,7 @@ DB.HOME_TABLES = {
     deaths = true, reports = true, enemies = true, justice = true, posters = true, posse = true,
     bountyPay = true, duels = true, eventResults = true, marks = true, demoMarks = true, player = true,
     witness = true, pinned = true, glasses = true, screenshots = true, honorKills = true, wars = true,
-    invites = true, punishments = true, gangActions = true, gangDeparted = true,
+    invites = true, punishments = true, gangActions = true, gangDeparted = true, gangLocal = true,
 }
 
 DB.LIMITS = {
@@ -110,6 +110,9 @@ local HOME_DEFAULTS = {
     gangActions = {},
     -- HH-155: members who told us they left, until the website's list catches up
     gangDeparted = {},
+    -- HH-155: character key -> the gang chat and changes this character made or was told,
+    -- until a newer download (Sync/Gangs.lua)
+    gangLocal = {},
     -- HH-136: wars, a hotzone's fight from start to end (Alerts/Wars.lua), oldest first
     wars = {},
     -- HH-145: compact name -> when we asked that HeadHunter for a group invite (Alerts/Invites.lua)

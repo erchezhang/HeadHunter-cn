@@ -1540,7 +1540,7 @@ function MainWindow:LayoutGang(shown)
         frame.gangInfo:Hide()
     end
     if gang and ns.Gangs:IsLeader(gang) then frame.gangInvite:Show() else frame.gangInvite:Hide() end
-    if frame.gangInvite.SetEnabled then frame.gangInvite:SetEnabled(gang and gang.confirmed == true or false) end
+    if frame.gangInvite.SetEnabled then frame.gangInvite:SetEnabled(gang ~= nil) end
     if gang then frame.gangLeave:Show() else frame.gangLeave:Hide() end
     if shown and not gang and ns.Gangs.Enabled() then frame.gangCreate:Show() else frame.gangCreate:Hide() end
     if shown and ns.SocialTab:Enabled() then frame.gangSocial:Show() else frame.gangSocial:Hide() end
