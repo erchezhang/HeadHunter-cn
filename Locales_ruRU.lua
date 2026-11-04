@@ -706,6 +706,7 @@ local RU = {
     SEARCH_PLAYER = "Найти игрока",
     SEARCH_EMPTY = "Нет игрока с именем %s",
     -- HH-155: gangs
+    GANG_MEMBERS_RANGE = "%d–%d из %d · прокрутите, чтобы увидеть ещё",
     GANG_CHAT_JOINING = "Подключение к чату банды: повторите через мгновение.",
     GANG_CHAT_HEADER = "Банда: ",
     GANG_MENU_WHISPER = "Шепнуть",
@@ -775,7 +776,7 @@ local RU = {
     GANG_NOT_LEADER = "Это может только главарь банды.",
     GANG_NOT_MEMBER = "Этого игрока нет в вашей банде.",
     GANG_INVITE_WHO = "Назовите игрока или возьмите его в цель: /hh gang invite <имя>",
-    GANG_FULL = "Ваша банда полна (10 участников).",
+    GANG_FULL = "Ваша банда полна (50 участников).",
     GANG_INVITE_SLOW = "Слишком много приглашений; подождите минуту.",
     GANG_INVITE_SENT = "%s приглашён в |cffffd100%s|r.",
     GANG_INVITE_ACCEPTED = "%s согласился. Он вступит, когда вы оба синхронизируетесь через HeadHunter Sync.",

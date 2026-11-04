@@ -702,6 +702,7 @@ local CN = {
     SEARCH_PLAYER = "查找玩家",
     SEARCH_EMPTY = "没有叫 %s 的玩家",
     -- HH-155: gangs
+    GANG_MEMBERS_RANGE = "%d–%d / %d · 滚动查看更多",
     GANG_CHAT_JOINING = "正在加入帮派聊天：请稍后再试。",
     GANG_CHAT_HEADER = "帮派：",
     GANG_MENU_WHISPER = "密语",
@@ -771,7 +772,7 @@ local CN = {
     GANG_NOT_LEADER = "只有帮派首领可以这样做。",
     GANG_NOT_MEMBER = "该玩家不在你的帮派中。",
     GANG_INVITE_WHO = "输入名字或选中一名玩家：/hh gang invite <名字>",
-    GANG_FULL = "你的帮派已满（10 名成员）。",
+    GANG_FULL = "你的帮派已满（50 名成员）。",
     GANG_INVITE_SLOW = "邀请太多了，请等一分钟。",
     GANG_INVITE_SENT = "已邀请 %s 加入 |cffffd100%s|r。",
     GANG_INVITE_ACCEPTED = "%s 已接受。你们两人都用 HeadHunter Sync 同步后即可加入。",

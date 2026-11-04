@@ -703,6 +703,7 @@ local TW = {
     SEARCH_PLAYER = "尋找玩家",
     SEARCH_EMPTY = "沒有叫 %s 的玩家",
     -- HH-155: gangs
+    GANG_MEMBERS_RANGE = "%d–%d / %d · 捲動查看更多",
     GANG_CHAT_JOINING = "正在加入幫派聊天：請稍後再試。",
     GANG_CHAT_HEADER = "幫派：",
     GANG_MENU_WHISPER = "密語",
@@ -772,7 +773,7 @@ local TW = {
     GANG_NOT_LEADER = "只有幫派首領可以這樣做。",
     GANG_NOT_MEMBER = "該玩家不在你的幫派中。",
     GANG_INVITE_WHO = "輸入名字或選取一名玩家：/hh gang invite <名字>",
-    GANG_FULL = "你的幫派已滿（10 名成員）。",
+    GANG_FULL = "你的幫派已滿（50 名成員）。",
     GANG_INVITE_SLOW = "邀請太多了，請等一分鐘。",
     GANG_INVITE_SENT = "已邀請 %s 加入 |cffffd100%s|r。",
     GANG_INVITE_ACCEPTED = "%s 已接受。你們兩人都用 HeadHunter Sync 同步後即可加入。",

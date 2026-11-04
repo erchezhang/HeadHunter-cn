@@ -26,7 +26,8 @@ local SocialTab = ns:RegisterModule("SocialTab", {})
 local OWNER = "SocialTab"
 
 SocialTab.MAX_BLIZZARD_TABS = 8
-SocialTab.ROWS = 10
+-- members shown at once; the mouse wheel scrolls through the rest (up to 50)
+SocialTab.ROWS = 12
 SocialTab.TAB_GAP = 3
 SocialTab.ROW_HEIGHT = 24
 -- the text without a gang: bigger, with room between its lines
@@ -80,8 +81,10 @@ function SocialTab:Refresh()
     ShowOurTitle()
     local gang = ns.Gangs:Mine()
     local U = ns.Utils
+    local count = gang and #gang.members or 0
+    SocialTab.offset = math.max(0, math.min(SocialTab.offset or 0, count - SocialTab.ROWS))
     for i = 1, SocialTab.ROWS do
-        local member = gang and gang.members[i]
+        local member = gang and gang.members[SocialTab.offset + i]
         local line, role, border, click = panel.lines[i], panel.roles[i], panel.borders[i], panel.clicks[i]
         if member then
             line:SetText(SocialTab.MemberName(member))
@@ -97,6 +100,13 @@ function SocialTab:Refresh()
             click:Hide()
         end
     end
+    if count > SocialTab.ROWS then
+        local first = SocialTab.offset + 1
+        panel.more:SetText(string.format(L.GANG_MEMBERS_RANGE, first, math.min(count, SocialTab.offset + SocialTab.ROWS), count))
+        panel.more:Show()
+    else
+        panel.more:Hide()
+    end
     if gang then
         panel.empty:Hide()
     else
@@ -107,6 +117,12 @@ function SocialTab:Refresh()
     if panel.invite.SetEnabled then panel.invite:SetEnabled(gang and gang.confirmed == true or false) end
     if gang then panel.leave:Show() else panel.leave:Hide() end
     if gang then panel.create:Hide() else panel.create:Show() end
+end
+
+-- The mouse wheel over the member list: up shows earlier members, down later ones
+function SocialTab:Scroll(delta)
+    SocialTab.offset = (SocialTab.offset or 0) - (delta or 0) * 3
+    self:Refresh()
 end
 
 -- "[icon] Name" in the member's class colour
@@ -292,6 +308,11 @@ local function CreatePanel(frame)
     p.empty:SetJustifyH("LEFT")
     p.empty:SetSpacing(SocialTab.EMPTY_SPACING)
     p.empty:Hide()
+    p.more = p:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    p.more:SetPoint("BOTTOMRIGHT", -14, 8)
+    p.more:Hide()
+    p:EnableMouseWheel(true)
+    p:SetScript("OnMouseWheel", function(_, delta) SocialTab:Scroll(delta) end)
     p.lines, p.roles, p.borders, p.clicks = {}, {}, {}, {}
     for i = 1, SocialTab.ROWS do
         local top = -8 - (i - 1) * SocialTab.ROW_HEIGHT

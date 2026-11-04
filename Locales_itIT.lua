@@ -707,6 +707,7 @@ local IT = {
     SEARCH_PLAYER = "Cerca un giocatore",
     SEARCH_EMPTY = "Nessuno si chiama %s",
     -- HH-155: gangs
+    GANG_MEMBERS_RANGE = "%d–%d di %d · scorri per vederne altri",
     GANG_CHAT_JOINING = "Ingresso nella chat di banda: riprova tra un momento.",
     GANG_CHAT_HEADER = "Banda: ",
     GANG_MENU_WHISPER = "Sussurra",
@@ -776,7 +777,7 @@ local IT = {
     GANG_NOT_LEADER = "Solo il capo della banda può farlo.",
     GANG_NOT_MEMBER = "Quel giocatore non è nella tua banda.",
     GANG_INVITE_WHO = "Scrivi un nome o seleziona un giocatore: /hh gang invite <nome>",
-    GANG_FULL = "La tua banda è piena (10 membri).",
+    GANG_FULL = "La tua banda è piena (50 membri).",
     GANG_INVITE_SLOW = "Troppi inviti; aspetta un minuto.",
     GANG_INVITE_SENT = "Hai invitato %s in |cffffd100%s|r.",
     GANG_INVITE_ACCEPTED = "%s ha accettato. Entra quando entrambi avete sincronizzato con HeadHunter Sync.",

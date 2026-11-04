@@ -706,6 +706,7 @@ local KR = {
     SEARCH_PLAYER = "플레이어 찾기",
     SEARCH_EMPTY = "%s(이)라는 플레이어가 없습니다",
     -- HH-155: gangs
+    GANG_MEMBERS_RANGE = "%d–%d / %d · 스크롤하여 더 보기",
     GANG_CHAT_JOINING = "갱단 채팅에 참여하는 중입니다: 잠시 후 다시 시도하세요.",
     GANG_CHAT_HEADER = "갱단: ",
     GANG_MENU_WHISPER = "귓속말",
@@ -775,7 +776,7 @@ local KR = {
     GANG_NOT_LEADER = "갱단 리더만 할 수 있습니다.",
     GANG_NOT_MEMBER = "그 플레이어는 당신의 갱단에 없습니다.",
     GANG_INVITE_WHO = "이름을 쓰거나 플레이어를 대상으로 지정하세요: /hh gang invite <이름>",
-    GANG_FULL = "갱단이 가득 찼습니다 (10명).",
+    GANG_FULL = "갱단이 가득 찼습니다 (50명).",
     GANG_INVITE_SLOW = "초대가 너무 많습니다. 1분 기다리세요.",
     GANG_INVITE_SENT = "%s님을 |cffffd100%s|r에 초대했습니다.",
     GANG_INVITE_ACCEPTED = "%s님이 수락했습니다. 두 사람 모두 HeadHunter Sync로 동기화하면 가입됩니다.",
