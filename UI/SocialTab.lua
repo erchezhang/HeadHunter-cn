@@ -35,6 +35,7 @@ SocialTab.EMPTY_SPACING = 8
 -- the Sync note, from the window's top left: right after the round portrait, under the title
 SocialTab.NOTE_LEFT = 66
 SocialTab.NOTE_TOP = 36
+SocialTab.NOTE_WIDTH = 250
 -- Our buttons sit in the window's bottom bar, under the content area, like Blizzard's own
 SocialTab.BAR_EDGE = 6
 SocialTab.BAR_BOTTOM = 4
@@ -263,8 +264,19 @@ local function LookOurs()
     end
 end
 
+-- The Sync note, placed again each time our page opens: the window's top left, a fixed
+-- width (the Raid page changes the window, which moved a note stretched to its edge)
+function SocialTab:PlaceNote()
+    local frame = _G.FriendsFrame
+    if not (panel and panel.note and frame) then return end
+    panel.note:ClearAllPoints()
+    panel.note:SetPoint("TOPLEFT", frame, "TOPLEFT", SocialTab.NOTE_LEFT, -SocialTab.NOTE_TOP)
+    panel.note:SetWidth(SocialTab.NOTE_WIDTH)
+end
+
 function SocialTab:Open()
     if not panel then return end
+    self:PlaceNote()
     active = true
     hidden = { atOpen = {}, later = {} }
     selectedAtOpen = _G.FriendsFrame and _G.FriendsFrame.selectedTab
@@ -366,8 +378,6 @@ local function CreatePanel(frame)
     -- right after the round portrait, to the window's right edge, on up to two lines. Set on
     -- the window itself: the game moves the portrait when it changes pages.
     p.note = p:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    p.note:SetPoint("TOPLEFT", frame, "TOPLEFT", SocialTab.NOTE_LEFT, -SocialTab.NOTE_TOP)
-    p.note:SetPoint("RIGHT", frame, "RIGHT", -10, 0)
     p.note:SetJustifyH("LEFT")
     p.note:SetJustifyV("TOP")
     p.note:SetWordWrap(true)
