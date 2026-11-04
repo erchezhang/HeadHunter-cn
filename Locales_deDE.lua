@@ -706,6 +706,7 @@ local DE = {
     SEARCH_PLAYER = "Spieler suchen",
     SEARCH_EMPTY = "Niemand namens %s",
     -- HH-155: gangs
+    GANG_SYNC_NOTE = "Mitglieder brauchen HeadHunter Sync, um auf der Website bestätigt zu werden: in der Bandenrangliste, auf der Seite der Bande und im Bandenchat. Ohne Sync stehen sie hier als „wartet auf Sync“.",
     GANG_SLASHSWITCH_ON = "/gang + Leertaste wechselt in den Bandenchat.",
     GANG_SLASHSWITCH_OFF = "/gang + Leertaste wechselt nicht mehr in den Bandenchat (/gang allein oder die Kanalnummer schon).",
     GANG_MEMBERS_RANGE = "%d–%d von %d · scrollen für mehr",

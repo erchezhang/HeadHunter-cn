@@ -706,6 +706,7 @@ local FR = {
     SEARCH_PLAYER = "Chercher un joueur",
     SEARCH_EMPTY = "Personne ne s'appelle %s",
     -- HH-155: gangs
+    GANG_SYNC_NOTE = "Les membres ont besoin de HeadHunter Sync pour être confirmés sur le site : dans le classement des bandes, sur la page de la bande et dans le chat de bande. Sans lui, ils apparaissent ici en attente de Sync.",
     GANG_SLASHSWITCH_ON = "/gang + espace passe au chat de bande.",
     GANG_SLASHSWITCH_OFF = "/gang + espace ne passe plus au chat de bande (/gang seul ou le numéro du canal le font encore).",
     GANG_MEMBERS_RANGE = "%d–%d sur %d · fais défiler pour voir plus",

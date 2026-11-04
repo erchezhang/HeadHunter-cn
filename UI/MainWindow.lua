@@ -1315,6 +1315,8 @@ function MainWindow:Refresh()
     self:PaintVisible()
     if current.tab == "marks" then
         frame.count:SetText(string.format(L.MARKS_STATUS, ns.Marks.RankNameByIndex(ns.Marks:RankIndex()), ns.Marks:Total()))
+    elseif current.tab == "gang" then
+        frame.count:SetText(L.GANG_SYNC_NOTE)
     else
         local count = string.format(L.WINDOW_COUNT, #rows)
         local siteAt = (current.tab == "wanted" or current.tab == "duels") and ns.SiteData:GeneratedAt()
