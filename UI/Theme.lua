@@ -482,8 +482,8 @@ Theme.TAB_FONT = 12
 Theme.TAB_PADDING = 12
 
 -- The raised tag on a top tab ("NEW"): its size, how far above the label's top, its colour
-Theme.BADGE_FONT = 9
-Theme.BADGE_RAISE = -9
+Theme.BADGE_FONT = 7
+Theme.BADGE_RAISE = -7
 Theme.BADGE_COLOR = { 0.25, 1, 0.25 }
 
 local function CreateTopTab(f, info, onClick)
@@ -534,7 +534,8 @@ function Theme.CreateTopTabs(f, tabs, onSelect)
     end
     -- Room a tab keeps for its raised tag
     local function BadgeSpace(tab)
-        return tab.badge and ((tab.badge:GetStringWidth() or 20) + 2) or 0
+        local badge = rawget(tab, "badge")
+        return badge and ((badge:GetStringWidth() or 20) + 2) or 0
     end
     for i, info in ipairs(tabs) do set.buttons[i] = CreateTopTab(f, info, onSelect) end
 
