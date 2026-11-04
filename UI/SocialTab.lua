@@ -16,6 +16,7 @@ local OWNER = "SocialTab"
 
 SocialTab.MAX_BLIZZARD_TABS = 8
 SocialTab.ROWS = 10
+SocialTab.STRATA = { "BACKGROUND", "LOW", "MEDIUM", "HIGH", "DIALOG", "FULLSCREEN", "FULLSCREEN_DIALOG" }
 
 local tab, panel
 
@@ -80,25 +81,54 @@ function SocialTab:Refresh()
     if gang then panel.leave:Show() else panel.leave:Hide() end
 end
 
+-- One strata above the Social window, so its pages' buttons (Convert to Raid, Raid Info)
+-- stay under our panel
+function SocialTab.StrataAbove(frame)
+    local current = frame.GetFrameStrata and frame:GetFrameStrata() or "MEDIUM"
+    for i, strata in ipairs(SocialTab.STRATA) do
+        if strata == current then return SocialTab.STRATA[math.min(i + 1, #SocialTab.STRATA - 1)] end
+    end
+    return "HIGH"
+end
+
+-- How the tabs look only: ours selected and Blizzard's selected one not, or back. The
+-- window's selectedTab is read, never written; a Blizzard tab click selects its own again.
+local function LookSelected(ours)
+    local frame = _G.FriendsFrame
+    local blizzard = frame and rawget(frame, "selectedTab") and _G["FriendsFrameTab" .. frame.selectedTab]
+    if ours then
+        if PanelTemplates_SelectTab then pcall(PanelTemplates_SelectTab, tab) end
+        if blizzard and PanelTemplates_DeselectTab then pcall(PanelTemplates_DeselectTab, blizzard) end
+    else
+        if PanelTemplates_DeselectTab then pcall(PanelTemplates_DeselectTab, tab) end
+    end
+end
+
 function SocialTab:ShowPanel()
     if not panel then return end
+    panel:SetFrameStrata(self.StrataAbove(_G.FriendsFrame))
     panel:Show()
+    LookSelected(true)
     self:Refresh()
 end
 
 function SocialTab:HidePanel()
-    if panel then panel:Hide() end
+    if panel and panel:IsShown() then
+        panel:Hide()
+        LookSelected(false)
+    end
 end
 
 local function CreatePanel(parent)
     local p = CreateFrame("Frame", nil, parent)
     p:SetPoint("TOPLEFT", parent, "TOPLEFT", 12, -60)
     p:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -12, 30)
-    p:SetFrameLevel((parent:GetFrameLevel() or 1) + 20)
+    p:SetFrameStrata(SocialTab.StrataAbove(parent))
+    p:SetToplevel(true)
     p:EnableMouse(true)
     local bg = p:CreateTexture(nil, "BACKGROUND")
     bg:SetAllPoints(p)
-    bg:SetColorTexture(0.05, 0.04, 0.03, 0.97)
+    bg:SetColorTexture(0.05, 0.04, 0.03, 1)
     p.title = p:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     p.title:SetPoint("TOPLEFT", 10, -10)
     p.title:SetPoint("RIGHT", -10, 0)
