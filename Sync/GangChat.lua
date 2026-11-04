@@ -8,7 +8,7 @@
 -- makes the chat windows drop the line. /gang <text> sends; /gang alone opens the
 -- chat box on gang chat. The chat box's chat type is never set from our code (that taints
 -- protected commands typed in chat). A gang's channel changes when a member is kicked; any
--- other HHG channel we are in is left. WoW Forever only, once the website confirmed the gang.
+-- other gang channel we are in (Gang_HH…, or HHG… from before) is left. WoW Forever only, once the website confirmed the gang.
 
 local addonName, ns = ...
 local L = ns.L
@@ -17,7 +17,9 @@ local GangChat = ns:RegisterModule("GangChat", {})
 
 local OWNER = "GangChat"
 
-GangChat.PREFIX = "HHG"
+-- gang chat channel names (the website's Gang::CHAT_PREFIX); older ones started with HHG
+GangChat.PREFIX = "Gang_HH"
+GangChat.OLD_PREFIX = "HHG"
 -- seconds after login before joining, so the game's own channels take the first slots
 GangChat.JOIN_DELAY = 5
 GangChat.DEFAULT_COLOR = "ff9f40"
@@ -43,8 +45,10 @@ local function ChannelId(name)
 end
 
 local function IsGangChannel(name)
-    return type(name) == "string" and name:sub(1, #GangChat.PREFIX) == GangChat.PREFIX
+    return type(name) == "string"
+        and (name:sub(1, #GangChat.PREFIX) == GangChat.PREFIX or name:sub(1, #GangChat.OLD_PREFIX) == GangChat.OLD_PREFIX)
 end
+GangChat.IsGangChannel = IsGangChannel
 
 -- The first time we are in a gang channel it goes to the main chat window; after that the
 -- player's own chat settings decide where it shows

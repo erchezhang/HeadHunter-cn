@@ -682,4 +682,11 @@ return function(T, H)
         T.eq(box.target, 5, "the gang channel")
         T.eq(box.text, "", "the box cleared for typing")
     end)
+
+    T.case("gang chat channels: Gang_HH names, and old HHG ones are left", function()
+        local ns = Boot()
+        T.ok(ns.GangChat.IsGangChannel("Gang_HHook1esog2mvm"), "a gang channel")
+        T.ok(ns.GangChat.IsGangChannel("HHGenahnifl42vu"), "an old one, to leave")
+        T.ok(not ns.GangChat.IsGangChannel("Trade"), "not Trade")
+    end)
 end
