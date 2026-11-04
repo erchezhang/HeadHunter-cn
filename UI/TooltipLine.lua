@@ -6,6 +6,7 @@
 --   any player with duels:  "High Noon: Deadeye #3 (1250)" (HH-093)
 --   a player's bounty:      "Bounty: 20g by Tallon · Camped me" (HH-118)
 --   a tournament organizer: "★ Tournament host: Gate Brawl · in progress" (HH-128, any player)
+--   a gang member:          "Gang: Black Hand" (HH-155, any player of the website's gangs)
 --
 -- Hook: TooltipDataProcessor (unit post-call) where the client has it, else the
 -- tooltip's OnTooltipSetUnit script. Either may run more than once for one tooltip,
@@ -63,6 +64,14 @@ function TooltipLine.DuelLine(unit)
     return title and { string.format(L.DUEL_TOOLTIP, title), 1, 1, 1 } or nil
 end
 
+-- HH-155: "Gang: Black Hand" on any player in one of the website's gangs
+function TooltipLine.GangLine(unit)
+    local U = ns.Utils
+    if not unit or not U.UnitIsPlayer(unit) then return nil end
+    local gang = ns.Gangs:Of(U.UnitKey(unit))
+    return gang and { string.format(L.GANG_TOOLTIP, gang), 1, 0.82, 0 } or nil
+end
+
 function TooltipLine:Enabled()
     return ns.db ~= nil and ns.db.settings.tooltip ~= false and ns.Guards:IsActive()
 end
@@ -79,6 +88,8 @@ function TooltipLine:Fill(tooltip)
     if bounty then lines[#lines + 1] = { bounty, 1, 0.82, 0 } end
     local duel = self.DuelLine(unit)
     if duel then lines[#lines + 1] = duel end
+    local gang = self.GangLine(unit)
+    if gang then table.insert(lines, 1, gang) end
     -- HH-128: the sheriff's star on a tournament's host or co-organizer (any player)
     local organizer = ns.Organizers:TooltipLine(unit)
     if organizer then table.insert(lines, 1, organizer) end

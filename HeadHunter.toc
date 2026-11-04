@@ -75,6 +75,7 @@ Sync\Reports.lua
 Sync\ReportPrompt.lua
 Sync\Justice.lua
 Sync\Punishments.lua
+Sync\Gangs.lua
 Sync\CatchUp.lua
 Sync\Duels.lua
 Sync\SiteData.lua
@@ -125,6 +126,7 @@ UI\ResultDialog.lua
 UI\MinimapButton.lua
 UI\Nameplates.lua
 UI\TooltipLine.lua
+UI\SocialTab.lua
 UI\SettingsPanel.lua
 
 # Bootstrap (load last)

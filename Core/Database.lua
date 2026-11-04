@@ -29,7 +29,7 @@ DB.HOME_TABLES = {
     deaths = true, reports = true, enemies = true, justice = true, posters = true, posse = true,
     bountyPay = true, duels = true, eventResults = true, marks = true, demoMarks = true, player = true,
     witness = true, pinned = true, glasses = true, screenshots = true, honorKills = true, wars = true,
-    invites = true, punishments = true,
+    invites = true, punishments = true, gangActions = true,
 }
 
 DB.LIMITS = {
@@ -74,6 +74,10 @@ local DEFAULTS = {
         uiScale = 100, -- HH-125: window size, 70..150 %, set with the corner grip of the main window
         screenshots = true, -- HH-132: pictures of our PvP deaths and catches, for the admins (needs HeadHunter Sync)
         relay = true, -- HH-151: carry other HeadHunters' records to the players of other home servers
+        -- HH-155: gang invites from other players show a popup; off declines them quietly
+        gangInvites = true,
+        -- HH-155: the Gang tab in the Social window, off until its taint probe is clean (UI/SocialTab.lua)
+        gangSocialTab = false,
     },
     zones = {}, -- zone mapID -> { name, continent, locale }: names for the website (Alerts/Zones.lua)
     homes = {}, -- home key -> HOME_DEFAULTS
@@ -95,6 +99,8 @@ local HOME_DEFAULTS = {
     screenshots = {}, -- HH-132: pictures taken for the sync app (Sync/Screenshots.lua)
     -- Our honorable kills by map and time, oldest first (Detection/HonorKills.lua)
     honorKills = {},
+    -- HH-155: what we did with a gang, for HeadHunter Sync (Sync/Gangs.lua)
+    gangActions = {},
     -- HH-136: wars, a hotzone's fight from start to end (Alerts/Wars.lua), oldest first
     wars = {},
     -- HH-145: compact name -> when we asked that HeadHunter for a group invite (Alerts/Invites.lua)

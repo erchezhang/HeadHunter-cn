@@ -136,7 +136,7 @@ return function(T, H)
         T.noErrors()
     end)
 
-    T.case("My deaths: a 3 vs 1 shows as Gang, even if saved as fair before", function()
+    T.case("My deaths: a 3 vs 1 shows as Pack, even if saved as fair before", function()
         local ns = H.Boot({ client = "era" })
         table.insert(ns.db.deaths, { id = "Vati-Firemaw:1", t = H.serverTime - 60, classification = "fair",
             victim = { key = "Vati-Firemaw", level = 30 },
@@ -144,7 +144,7 @@ return function(T, H)
             assists = { { key = "Pal-Stonespine", level = 30 }, { key = "Buddy-Stonespine", level = 31 } },
             mapID = 1429 })
         local row = ns.MainWindow.Rows("deaths")[1]
-        T.eq(row.kind, "|cffcc66ffGang|r (3 vs 1)", "kind")
+        T.eq(row.kind, "|cffcc66ffPack|r (3 vs 1)", "kind")
     end)
 
     T.case("the window warns on Forever that saved data resets on reload, on every tab", function()

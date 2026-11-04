@@ -50,6 +50,8 @@ Protocol.TYPES = {
     -- HH-151: "a HeadHunter of server N": the hidden whisper to a player whose nameplate
     -- showed, from another home server (Sync/Bridge.lua)
     LINK = "H",
+    -- HH-155: a gang invite to one player and its answer, by addon whisper (Sync/Gangs.lua)
+    GANG = "A",
 }
 
 local FACTION_CODE = { Alliance = "A", Horde = "H" }

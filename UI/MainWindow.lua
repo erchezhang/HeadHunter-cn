@@ -56,9 +56,9 @@ MainWindow.SECTIONS = {
     { id = "duels", views = { "duels" } },
     -- Upcoming first and opened by default (author, 2026-10-05)
     { id = "events", views = { "upcoming", "ongoing", "finished" } },
-    { id = "me", views = { "deaths", "marks" } },
+    { id = "me", views = { "deaths", "marks", "gang" } },
 }
-MainWindow.TABS = { "wanted", "bullies", "deadbeats", "busted", "punished", "barflies", "duels", "upcoming", "ongoing", "finished", "deaths", "marks" }
+MainWindow.TABS = { "wanted", "bullies", "deadbeats", "busted", "punished", "barflies", "duels", "upcoming", "ongoing", "finished", "deaths", "marks", "gang" }
 -- Tabs of older versions
 MainWindow.OLD_TABS = { tours = "upcoming", shame = "bullies" }
 -- The faction crests in the Alliance / Horde switch: the game's PvP flag icons,
@@ -154,6 +154,13 @@ MainWindow.COLUMNS = {
         { key = "change", header = "COL_CHANGE", width = 80 },
         { key = "reason", header = "COL_REASON", width = 480 },
         { key = "total", header = "COL_TOTAL", width = 95 },
+    },
+    -- HH-155: our gang's members
+    gang = {
+        { key = "name", header = "COL_NAME", width = 260, font = "name" },
+        { key = "desc", header = "COL_WHO", width = 200 },
+        { key = "role", header = "COL_GANG_ROLE", width = 140 },
+        { key = "joined", header = "COL_GANG_JOINED", width = 180 },
     },
     deaths = {
         { key = "time", header = "COL_WHEN", width = 125 },
@@ -573,6 +580,31 @@ end
 -- website's of our world, newest first, each a bully or a Deadbeat; a glass as on Busted
 MainWindow.PUNISHED_KINDS = { bully = "PUNISHED_BULLY", deadbeat = "PUNISHED_DEADBEAT" }
 
+-- HH-155: our gang's members, leader first; a gang still waiting for HeadHunter Sync
+-- shows who we know of
+local function GangRows()
+    local U = ns.Utils
+    local gang = ns.Gangs:Mine()
+    local rows = {}
+    if not gang then return rows end
+    local leaderHint = ns.Gangs:IsLeader(gang) and L.GANG_ROW_LEADER_HINT or nil
+    for _, member in ipairs(gang.members) do
+        local leads = U.SameCharacter(member.key, gang.leader)
+        local plain = U.DisplayName(member.key)
+        local row = {
+            plain = plain,
+            name = Named(plain, member),
+            desc = (member.level or member.class) and ns.DeathReports.Describe(member) or "",
+            role = leads and L.GANG_ROLE_LEADER or L.GANG_ROLE_MEMBER,
+            joined = member.joinedAt and date("%m-%d %H:%M", member.joinedAt) or (gang.pending and L.GANG_ROLE_PENDING or ""),
+            tooltip = { plain, gang.name, (not leads) and leaderHint and string.format(leaderHint, plain) or nil },
+        }
+        if leads then table.insert(rows, 1, row) else rows[#rows + 1] = row end
+    end
+    return rows
+end
+MainWindow.GangRows = GangRows
+
 local function PunishedRows(now)
     local U = ns.Utils
     local list = {}
@@ -840,6 +872,8 @@ function MainWindow.Rows(tab, sortKey, now, faction, search)
         rows = PunishedRows(now)
     elseif tab == "barflies" then
         rows = BarflyRows(now)
+    elseif tab == "gang" then
+        rows = GangRows()
     else
         rows = WantedRows(sortKey, now, faction)
     end
@@ -964,6 +998,19 @@ local function CreateMainFrame()
     f.eventsInfo:SetText(L.EVENTS_INFO)
     f.eventsCreate:Hide()
     f.eventsInfo:Hide()
+    -- HH-155: our gang: its name and state, Invite (our target) and Leave
+    f.gangLeave = Theme.Button(f, L.GANG_LEAVE_BUTTON, "outline", 90, 24)
+    f.gangLeave:SetPoint("TOPRIGHT", -18, toolbarY)
+    f.gangLeave:SetScript("OnClick", function() ns.Gangs:Command({ "leave" }) end)
+    f.gangInvite = Theme.Button(f, L.GANG_INVITE_BUTTON, "gold", 140, 24)
+    f.gangInvite:SetPoint("RIGHT", f.gangLeave, "LEFT", -12, 0)
+    f.gangInvite:SetScript("OnClick", function() ns.Gangs:Command({ "invite" }) end)
+    f.gangInfo = Theme.Text(f, "heading", 15, "gold")
+    f.gangInfo:SetPoint("LEFT", f, "TOPLEFT", 16 + 3 * 110, toolbarY - 12)
+    f.gangInfo:SetPoint("RIGHT", f.gangInvite, "LEFT", -12, 0)
+    f.gangInfo:SetJustifyH("LEFT")
+    f.gangInfo:SetWordWrap(false)
+    for _, w in ipairs({ f.gangLeave, f.gangInvite, f.gangInfo }) do w:Hide() end
     -- Our confirmed results to the website: a quick UI reload saves them, then HeadHunter
     -- Sync sends them (an addon cannot reach the website itself)
     f.eventSend = Theme.Button(f, "", "gold", 140, 24)
@@ -1399,6 +1446,7 @@ function MainWindow:LayoutToolbar(section, event)
     for _, w in ipairs({ frame.eventsCreate, frame.eventsInfo }) do
         if eventsList then w:Show() else w:Hide() end
     end
+    self:LayoutGang(section.id == "me" and current.tab == "gang" and not event)
     local unsent = event and ns.Matches:Unsent() or 0
     if unsent > 0 then
         frame.eventSend:SetText(string.format(L.EVENT_SEND, unsent))
@@ -1420,6 +1468,23 @@ function MainWindow:LayoutToolbar(section, event)
             frame.eventNext:SetEnabled(round < count)
         end
     end
+end
+
+-- HH-155: the gang view's toolbar: our gang's name (or how to make one), Invite for the
+-- leader, Leave for a member
+function MainWindow:LayoutGang(shown)
+    local gang = shown and ns.Gangs.Enabled() and ns.Gangs:Mine()
+    if shown then
+        local info = not ns.Gangs.Enabled() and L.GANG_FOREVER_ONLY
+            or (gang and string.format(gang.pending and L.GANG_HEADER_PENDING or L.GANG_HEADER, gang.name))
+            or L.GANG_HEADER_NONE
+        frame.gangInfo:SetText(info)
+        frame.gangInfo:Show()
+    else
+        frame.gangInfo:Hide()
+    end
+    if gang and ns.Gangs:IsLeader(gang) then frame.gangInvite:Show() else frame.gangInvite:Hide() end
+    if gang then frame.gangLeave:Show() else frame.gangLeave:Hide() end
 end
 
 -- The open event, or nil (it may have ended since)
@@ -1684,7 +1749,7 @@ end
 ns.Events:Register("HH_INITIALIZED", function()
     local request = function() MainWindow:RequestRefresh() end
     for _, event in ipairs({ "HH_WANTED_UPDATED", "HH_DEATH_RECORDED", "HH_REPORT_UPDATED", "HH_MARKS_CHANGED",
-            "HH_HIGHNOON_UPDATED", "HH_BOUNTY_UPDATED", "HH_MATCHES_CHANGED", "HH_GLASS_ADDED", "HH_PUNISHMENT_ADDED" }) do
+            "HH_HIGHNOON_UPDATED", "HH_BOUNTY_UPDATED", "HH_MATCHES_CHANGED", "HH_GLASS_ADDED", "HH_PUNISHMENT_ADDED", "HH_GANG_CHANGED" }) do
         ns.Events:Register(event, request, OWNER)
     end
     -- New duels while the Duels tab is open: its lists are counted again (HH-137)
