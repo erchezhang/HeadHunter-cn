@@ -702,6 +702,8 @@ local CN = {
     SEARCH_PLAYER = "查找玩家",
     SEARCH_EMPTY = "没有叫 %s 的玩家",
     -- HH-155: gangs
+    GANG_SLASHSWITCH_ON = "测试：现在 /gang + 空格会切换到帮派聊天。请用 /console taintLog 1 检查在聊天中输入 /target 是否仍然有效。",
+    GANG_SLASHSWITCH_OFF = "测试关闭：/gang + 空格不再切换到帮派聊天。",
     GANG_MEMBERS_RANGE = "%d–%d / %d · 滚动查看更多",
     GANG_CHAT_JOINING = "正在加入帮派聊天：请稍后再试。",
     GANG_CHAT_HEADER = "帮派：",

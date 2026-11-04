@@ -187,9 +187,35 @@ function GangChat.OnHeaderUpdate(editBox)
     end
 end
 
+-- Opt-in test (setting gangChatSlashSwitch, /hh gang slashswitch on): "/gang " + space
+-- switches the chat box to gang chat as "/guild " does, with the box's own SetChatType,
+-- SetStickyType, SetChannelTarget and UpdateHeader. Addon code sets the box's chat type
+-- then, which may block protected commands typed in chat afterwards: off until a taint
+-- check is clean. Returns true when it switched.
+function GangChat.SwitchOnSlash(box)
+    if not (ns.db and ns.db.settings.gangChatSlashSwitch and box and box.GetText) then return false end
+    local text = box:GetText()
+    if type(text) ~= "string" or text:lower() ~= "/gang " then return false end
+    local id = ChannelId(current)
+    if not id then return false end
+    if box.SetChatType then
+        box:SetChatType("CHANNEL")
+        if box.SetStickyType then box:SetStickyType("CHANNEL") end
+        if box.SetChannelTarget then box:SetChannelTarget(id) end
+    else
+        box:SetAttribute("chatType", "CHANNEL")
+        box:SetAttribute("stickyType", "CHANNEL")
+        box:SetAttribute("channelTarget", id)
+    end
+    box:SetText("")
+    if box.UpdateHeader then box:UpdateHeader() elseif ChatEdit_UpdateHeader then ChatEdit_UpdateHeader(box) end
+    return true
+end
+
 -- "Gang:" once now and once right after, as the game may set its own header after these
 -- scripts ran
 local function HeaderSoon(box)
+    GangChat.SwitchOnSlash(box)
     GangChat.OnHeaderUpdate(box)
     C_Timer.After(0, function() GangChat.OnHeaderUpdate(box) end)
 end

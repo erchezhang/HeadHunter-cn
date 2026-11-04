@@ -706,6 +706,8 @@ local DE = {
     SEARCH_PLAYER = "Spieler suchen",
     SEARCH_EMPTY = "Niemand namens %s",
     -- HH-155: gangs
+    GANG_SLASHSWITCH_ON = "Test: /gang + Leertaste wechselt jetzt in den Bandenchat. Prüfe mit /console taintLog 1, ob /target im Chat noch geht.",
+    GANG_SLASHSWITCH_OFF = "Test aus: /gang + Leertaste wechselt nicht mehr in den Bandenchat.",
     GANG_MEMBERS_RANGE = "%d–%d von %d · scrollen für mehr",
     GANG_CHAT_JOINING = "Bandenchat wird betreten: versuch es gleich noch einmal.",
     GANG_CHAT_HEADER = "Bande: ",

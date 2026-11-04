@@ -665,4 +665,21 @@ return function(T, H)
         SlashCmdList.HEADHUNTERGANGCHAT("hello")
         T.eq(#H.chatSent, 1, "joined and sent at once")
     end)
+
+    T.case("gang chat test switch: /gang + space switches the chat box only when turned on", function()
+        local data = Data()
+        data.characters[1].gang_chat = { channel = "HHGabcdefghijkl", password = "secret" }
+        local ns = Boot(data)
+        H.joinWorks = true
+        ns.GangChat:Join()
+        local box = { text = "/gang ", GetText = function(self) return self.text end, SetText = function(self, t) self.text = t end,
+            SetChatType = function(self, t) self.chatType = t end, SetStickyType = function(self, t) self.sticky = t end,
+            SetChannelTarget = function(self, id) self.target = id end, UpdateHeader = function() end }
+        T.ok(not ns.GangChat.SwitchOnSlash(box), "off by default")
+        H.Slash("gang slashswitch on")
+        T.ok(ns.GangChat.SwitchOnSlash(box), "switched")
+        T.eq(box.chatType, "CHANNEL", "channel chat")
+        T.eq(box.target, 5, "the gang channel")
+        T.eq(box.text, "", "the box cleared for typing")
+    end)
 end

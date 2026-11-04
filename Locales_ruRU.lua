@@ -706,6 +706,8 @@ local RU = {
     SEARCH_PLAYER = "Найти игрока",
     SEARCH_EMPTY = "Нет игрока с именем %s",
     -- HH-155: gangs
+    GANG_SLASHSWITCH_ON = "Тест: /gang + пробел теперь переключает на чат банды. Проверьте с /console taintLog 1, что /target в чате ещё работает.",
+    GANG_SLASHSWITCH_OFF = "Тест выключен: /gang + пробел больше не переключает на чат банды.",
     GANG_MEMBERS_RANGE = "%d–%d из %d · прокрутите, чтобы увидеть ещё",
     GANG_CHAT_JOINING = "Подключение к чату банды: повторите через мгновение.",
     GANG_CHAT_HEADER = "Банда: ",

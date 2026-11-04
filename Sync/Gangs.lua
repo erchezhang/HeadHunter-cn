@@ -595,6 +595,10 @@ function Gangs:Command(args)
         ns:Print(L.GANG_TEST_RESET)
     elseif sub == "color" then
         if ns.GangChat.SetColor(args[2]) then ns:Print(L.GANG_CHAT_COLOR_SET) else ns:Print(L.GANG_CHAT_COLOR_BAD) end
+    elseif sub == "slashswitch" then
+        local on = args[2] and args[2]:lower() == "on"
+        ns.Database:SetSetting("gangChatSlashSwitch", on)
+        ns:Print(on and L.GANG_SLASHSWITCH_ON or L.GANG_SLASHSWITCH_OFF)
     elseif sub == "socialtab" then
         local mode = args[2] and args[2]:lower()
         ns.Database:SetSetting("gangSocialTab", mode == "on")
