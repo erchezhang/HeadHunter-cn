@@ -391,13 +391,14 @@ return function(T, H)
         SlashCmdList.HEADHUNTERGANGCHAT("")
         T.eq(opened, "/5 ", "/gang alone opens the chat box on the gang channel")
         T.eq(_G.SLASH_HEADHUNTERGANGCHAT2, nil, "no /gc (GudaChat has it)")
-        local label
+        local label, base
         for _, fn in ipairs(H.chatFilterList.CHAT_MSG_CHANNEL or {}) do
-            local hide, _, _, _, name = fn(nil, "CHAT_MSG_CHANNEL", "hi", "Tobin Ashford", "", "5. HHGabcdefghijkl", "", "", 0, 5,
-                "HHGabcdefghijkl")
-            if not hide and name == "Gang" then label = name end
+            local hide, _, _, _, name, _, _, _, _, baseName = fn(nil, "CHAT_MSG_CHANNEL", "hi", "Tobin Ashford", "", "5. HHGabcdefghijkl",
+                "", "", 0, 5, "HHGabcdefghijkl")
+            if not hide and name == "Gang" then label, base = name, baseName end
         end
         T.eq(label, "Gang", "labelled [Gang]")
+        T.eq(base, "HHGabcdefghijkl", "the base name stays, so the chat window keeps the line")
         T.ok(not ns.GangChat.LabelFilter(nil, "CHAT_MSG_CHANNEL", "x", "y", "", "6. Trade", "", "", 0, 6, "Trade"), "other channels untouched")
         local header = { SetText = function(self, text) self.text = text end, SetTextColor = function() end, GetWidth = function() return 40 end }
         local box = { header = header, GetAttribute = function(_, name) return ({ chatType = "CHANNEL", channelTarget = 5 })[name] end }

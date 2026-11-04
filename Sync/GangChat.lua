@@ -140,10 +140,11 @@ function GangChat:OnChannelText(text, sender, channelBaseName, channelName)
 end
 
 -- Chat filter: our channel's lines say "[Gang]" instead of "[6. HHGxk3...]"; its join and
--- leave notices are not shown
+-- leave notices are not shown. Only the shown name changes: the base name stays, as each
+-- chat window keeps the lines of the channels it lists by that name.
 function GangChat.LabelFilter(_, _, text, sender, language, channelName, target, flags, zoneId, index, baseName, ...)
     if not OurChannel(baseName or "", channelName) then return false end
-    return false, text, sender, language, L.TAB_GANG, target, flags, zoneId, index, L.TAB_GANG, ...
+    return false, text, sender, language, L.TAB_GANG, target, flags, zoneId, index, baseName, ...
 end
 
 function GangChat.NoticeFilter(_, _, _, _, _, channelName, _, _, _, _, baseName)
