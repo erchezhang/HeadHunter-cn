@@ -64,4 +64,16 @@ return function(T, H)
         H.Fire("UNIT_COMBAT", "player", "WOUND")
         T.eq(got, "player", "argument")
     end)
+
+    T.case("handlers run in the order they registered, also after one leaves", function()
+        local ns = H.Boot()
+        local ran = {}
+        for _, owner in ipairs({ "Zulu", "Alpha", "Mike", "Bravo" }) do
+            ns.Events:Register("HH_ORDER_TEST", function() ran[#ran + 1] = owner end, owner)
+        end
+        ns.Events:Unregister("HH_ORDER_TEST", "Mike")
+        ns.Events:Register("HH_ORDER_TEST", function() ran[#ran + 1] = "Alpha2" end, "Alpha")
+        ns.Events:Fire("HH_ORDER_TEST")
+        T.eq(table.concat(ran, ","), "Zulu,Alpha2,Bravo", "load order, a re-registered owner keeps its place")
+    end)
 end

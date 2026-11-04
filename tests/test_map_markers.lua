@@ -80,7 +80,8 @@ return function(T, H)
         H.units.nameplate1target = H.units.player
         H.Fire("NAME_PLATE_UNIT_ADDED", "nameplate1")
         H.Advance(5) -- tick
-        H.Advance(3) -- flush
+        -- in combat the outbox flushes every 10 s (Transport.COMBAT_FLUSH_INTERVAL)
+        H.Advance(10)
         local record
         for _, m in ipairs(H.sent) do
             if m.message:find("^1AP:") then record = select(3, ns.Protocol.Unpack(m.message))[1] end

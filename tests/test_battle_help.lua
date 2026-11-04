@@ -66,7 +66,7 @@ return function(T, H)
         H.units.nameplate1target = H.units.player
         H.Fire("NAME_PLATE_UNIT_ADDED", "nameplate1")
         H.Advance(5)
-        H.Advance(3)
+        H.Advance(10)
         local ping
         for _, m in ipairs(H.sent) do if m.message:find("^1AP:") then ping = m end end
         T.ok(ping and ping.message:find("Grim Reaper/R/60", 1, true) ~= nil, "name, class and level in the ping")
