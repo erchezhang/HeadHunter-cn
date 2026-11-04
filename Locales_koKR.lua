@@ -706,6 +706,7 @@ local KR = {
     SEARCH_PLAYER = "플레이어 찾기",
     SEARCH_EMPTY = "%s(이)라는 플레이어가 없습니다",
     -- HH-155: gangs
+    GANG_WINDOW_TITLE_PENDING = "갱단 - %s (Sync 대기 중)",
     GANG_LEAVE_POPUP = "갱단 |cffffd100%s|r에서 탈퇴할까요?",
     GANG_LEAVE_POPUP_LEADER = "갱단 |cffffd100%s|r에서 탈퇴할까요? 당신이 리더입니다: 가장 오래된 멤버가 이어서 이끕니다.",
     GANG_WINDOW_TITLE = "갱단 - %s",

@@ -28,6 +28,7 @@ local OWNER = "SocialTab"
 SocialTab.MAX_BLIZZARD_TABS = 8
 SocialTab.ROWS = 10
 SocialTab.TAB_GAP = 3
+SocialTab.ROW_HEIGHT = 24
 -- Our buttons sit in the window's bottom bar, under the content area, like Blizzard's own
 SocialTab.BAR_EDGE = 6
 SocialTab.BAR_BOTTOM = 4
@@ -77,19 +78,20 @@ function SocialTab:Refresh()
     ShowOurTitle()
     local gang = ns.Gangs:Mine()
     local U = ns.Utils
-    if gang then
-        panel.title:SetText(string.format(gang.pending and L.GANG_HEADER_PENDING or L.GANG_HEADER, gang.name))
-    else
-        panel.title:SetText(L.GANG_HEADER_NONE)
-    end
     for i = 1, SocialTab.ROWS do
         local member = gang and gang.members[i]
-        local line = panel.lines[i]
+        local line, role, border = panel.lines[i], panel.roles[i], panel.borders[i]
         if member then
             local leads = U.SameCharacter(member.key, gang.leader)
-            line:SetText(U.DisplayName(member.key) .. "  |cffaaaaaa" .. (leads and L.GANG_ROLE_LEADER or L.GANG_ROLE_MEMBER) .. "|r")
+            local class = ns.Gangs:MemberClass(member)
+            local icon = U.ClassIcon(class, 16)
+            line:SetText((icon ~= "" and (icon .. " ") or "") .. ns.MainWindow.ClassColored(U.DisplayName(member.key), class))
+            role:SetText(leads and L.GANG_ROLE_LEADER or L.GANG_ROLE_MEMBER)
+            border:Show()
         else
             line:SetText(i == 1 and not gang and L.EMPTY_GANG or "")
+            role:SetText("")
+            border:Hide()
         end
     end
     if gang and ns.Gangs:IsLeader(gang) then panel.invite:Show() else panel.invite:Hide() end
@@ -131,10 +133,13 @@ local function TitleText()
     return _G.FriendsFrameTitleText
 end
 
--- Our title: "Gang", and "Gang - Black Hand" once the website confirmed our gang
+-- Our title: "Gang"; "Gang - Black Hand" for our gang, with "(waiting for Sync)" until the
+-- website confirmed it
 function SocialTab.Title()
     local gang = ns.Gangs:Mine()
-    return gang and gang.confirmed and string.format(L.GANG_WINDOW_TITLE, gang.name) or L.TAB_GANG
+    if not gang then return L.TAB_GANG end
+    local waiting = gang.pending or not gang.confirmed
+    return string.format(waiting and L.GANG_WINDOW_TITLE_PENDING or L.GANG_WINDOW_TITLE, gang.name)
 end
 
 -- The window's title is ours while our page is open; Blizzard's title is kept to put back
@@ -254,17 +259,23 @@ local function CreatePanel(frame)
     local bg = p:CreateTexture(nil, "BACKGROUND")
     bg:SetAllPoints(p)
     bg:SetColorTexture(0.05, 0.04, 0.03, 1)
-    p.title = p:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    p.title:SetPoint("TOPLEFT", 12, -12)
-    p.title:SetPoint("RIGHT", -12, 0)
-    p.title:SetJustifyH("LEFT")
-    p.lines = {}
+    p.lines, p.roles, p.borders = {}, {}, {}
     for i = 1, SocialTab.ROWS do
+        local top = -8 - (i - 1) * SocialTab.ROW_HEIGHT
         local line = p:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-        line:SetPoint("TOPLEFT", 16, -42 - (i - 1) * 20)
-        line:SetPoint("RIGHT", -12, 0)
+        line:SetPoint("TOPLEFT", 14, top - 4)
+        line:SetPoint("RIGHT", -110, 0)
         line:SetJustifyH("LEFT")
-        p.lines[i] = line
+        local role = p:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+        role:SetPoint("TOPRIGHT", -14, top - 6)
+        role:SetJustifyH("RIGHT")
+        local border = p:CreateTexture(nil, "ARTWORK")
+        border:SetColorTexture(1, 0.82, 0, 0.18)
+        border:SetHeight(1)
+        border:SetPoint("TOPLEFT", 10, top - SocialTab.ROW_HEIGHT + 1)
+        border:SetPoint("TOPRIGHT", -10, top - SocialTab.ROW_HEIGHT + 1)
+        border:Hide()
+        p.lines[i], p.roles[i], p.borders[i] = line, role, border
     end
     p.invite = CreateFrame("Button", nil, p, "UIPanelButtonTemplate")
     p.invite:SetSize(120, 22)

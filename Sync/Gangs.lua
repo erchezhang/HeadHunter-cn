@@ -174,6 +174,18 @@ function Gangs:Mine()
     return gang
 end
 
+-- A member's class: the website's, else ours for us, else what we saw of them
+function Gangs:MemberClass(member)
+    if member.class then return member.class end
+    local U = ns.Utils
+    if U.SameCharacter(member.key, Me()) and UnitClass then
+        local _, class = UnitClass("player")
+        return class
+    end
+    local seen = ns.EnemyCache and ns.EnemyCache:ByKey(member.key)
+    return seen and seen.class or nil
+end
+
 function Gangs:IsLeader(gang)
     gang = gang or self:Mine()
     return gang ~= nil and gang.leader ~= nil and ns.Utils.SameCharacter(gang.leader, Me())

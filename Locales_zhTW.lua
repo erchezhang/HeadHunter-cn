@@ -703,6 +703,7 @@ local TW = {
     SEARCH_PLAYER = "尋找玩家",
     SEARCH_EMPTY = "沒有叫 %s 的玩家",
     -- HH-155: gangs
+    GANG_WINDOW_TITLE_PENDING = "幫派 - %s（等待 Sync）",
     GANG_LEAVE_POPUP = "退出幫派 |cffffd100%s|r？",
     GANG_LEAVE_POPUP_LEADER = "退出幫派 |cffffd100%s|r？你是首領：之後由最早加入的成員擔任首領。",
     GANG_WINDOW_TITLE = "幫派 - %s",

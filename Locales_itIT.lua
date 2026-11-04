@@ -707,6 +707,7 @@ local IT = {
     SEARCH_PLAYER = "Cerca un giocatore",
     SEARCH_EMPTY = "Nessuno si chiama %s",
     -- HH-155: gangs
+    GANG_WINDOW_TITLE_PENDING = "Banda - %s (in attesa di Sync)",
     GANG_LEAVE_POPUP = "Lasciare la banda |cffffd100%s|r?",
     GANG_LEAVE_POPUP_LEADER = "Lasciare la banda |cffffd100%s|r? Sei il capo: dopo di te la guiderà il membro più anziano.",
     GANG_WINDOW_TITLE = "Banda - %s",

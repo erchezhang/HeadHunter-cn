@@ -38,7 +38,7 @@ return function(T, H)
 
     local function Gang(name, leader, members)
         local list = {}
-        for _, member in ipairs(members) do list[#list + 1] = { name = member, faction = "alliance", class = "warrior" } end
+        for _, member in ipairs(members) do list[#list + 1] = { name = member, faction = "alliance", class = "rogue" } end
         return { id = 1, name = name, faction = "alliance", leader = leader, members = list }
     end
 
@@ -246,7 +246,9 @@ return function(T, H)
         tab:GetScript("OnClick")()
         T.eq(title.value, "Gang - Black Hand", "the window's title names our gang once the website confirmed it")
         T.ok(panel:IsShown(), "our page shows")
-        T.ok(panel.title.shownText:find("Black Hand", 1, true), "our gang")
+        T.ok(panel.lines[1].shownText:find("Interface\\WorldStateFrame\\ICONS-CLASSES", 1, true), "a class icon")
+        T.ok(panel.lines[1].shownText:find("|cff", 1, true), "the name in its class colour")
+        T.ok(panel.borders[1].shown and panel.borders[2].shown and not panel.borders[3].shown, "a border under each member")
         T.eq(looks[tab], "selected", "our tab looks selected")
         T.eq(looks[FriendsFrameTab3], "deselected", "Raid does not, though its id is 2 and its button Tab3")
         T.eq(looks[FriendsFrameTab1], "deselected", "nor Contacts")
@@ -357,5 +359,14 @@ return function(T, H)
         T.eq(#ns.Gangs:Actions(), 0, "nothing kept before yes")
         StaticPopupDialogs[ns.Gangs.LEAVE_POPUP].OnAccept()
         T.eq(ns.Gangs:Actions()[1].kind, "leave", "left after yes")
+    end)
+
+    T.case("Social window title: the gang's name, and waiting for Sync until the website confirmed it", function()
+        local ns = Boot()
+        T.eq(ns.SocialTab.Title(), "Gang", "no gang")
+        H.Slash("gang create Western Gods")
+        T.eq(ns.SocialTab.Title(), "Gang - Western Gods (waiting for Sync)", "not on the website yet")
+        local confirmed = Boot(Data({ Gang("Western Gods", "Vati Guda", { "Vati Guda" }) }))
+        T.eq(confirmed.SocialTab.Title(), "Gang - Western Gods", "confirmed")
     end)
 end

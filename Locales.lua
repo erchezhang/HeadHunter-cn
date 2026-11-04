@@ -740,6 +740,7 @@ L.GANG_INVITE_UNCONFIRMED = "Your gang is not on the website yet: invites open o
 L.GANG_WINDOW_TITLE = "Gang - %s"
 L.GANG_LEAVE_POPUP = "Leave the gang |cffffd100%s|r?"
 L.GANG_LEAVE_POPUP_LEADER = "Leave the gang |cffffd100%s|r? You lead it: the longest member leads it after you."
+L.GANG_WINDOW_TITLE_PENDING = "Gang - %s (waiting for Sync)"
 L.HELP_GANG = "|cffffff00/hh gang [create <name>|invite [name]|leave|kick <name>|lead <name>|rename <name>]|r: your gang of friends (WoW Forever, needs HeadHunter Sync)"
 L.GANG_USAGE = "Usage: /hh gang create <name> | invite [name] | leave | kick <name> | lead <name> | rename <name>"
 L.GANG_FOREVER_ONLY = "Gangs are for WoW Forever only."
