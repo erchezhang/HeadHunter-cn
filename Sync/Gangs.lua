@@ -190,7 +190,9 @@ function Gangs:Mine()
     local gang
     for _, g in ipairs(ns.SiteData:Gangs()) do
         for _, member in ipairs(g.members) do
-            if member.key == me then gang = { name = g.name, leader = g.leader, members = g.members, confirmed = true } end
+            if member.key == me then
+                gang = { name = g.name, leader = g.leader, members = g.members, confirmed = true, faction = g.faction }
+            end
         end
     end
     local results = self:Results()
@@ -264,6 +266,13 @@ function Gangs:MemberClass(member)
     end
     local seen = ns.EnemyCache and ns.EnemyCache:ByKey(member.key)
     return seen and seen.class or nil
+end
+
+-- A member's faction: theirs, else the gang's (a gang is one faction), else ours
+function Gangs:MemberFaction(member, gang)
+    if member.faction then return member.faction end
+    if gang and gang.faction then return gang.faction end
+    return UnitFactionGroup and UnitFactionGroup("player") or nil
 end
 
 -- A member's level: the website's, else ours for us, else what an invite or its answer carried

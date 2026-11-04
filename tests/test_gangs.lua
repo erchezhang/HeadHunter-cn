@@ -726,6 +726,9 @@ return function(T, H)
         H.units.player.name = "Butch Cassidy"
         H.Slash("sim gang")
         T.ok(ns.Gangs:IsLeader(), "a character named Butch Cassidy leads it")
+        local mine = ns.Gangs:Mine().members[1]
+        T.eq(mine.faction, H.units.player.faction, "our own entry has our faction, not a guessed one")
+        T.eq(ns.Gangs:MemberFaction({ key = "Someone" }, { faction = "Horde" }), "Horde", "a member without one gets the gang's")
         T.eq(#ns.Gangs:Mine().members, 9, "and is not there twice")
     end)
 end

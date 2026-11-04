@@ -291,7 +291,11 @@ function Simulator:Gang(mode)
                 faction = "Horde" }
         end
     end
-    if me then table.insert(members, leads and 1 or 2, { key = me, class = myClass, level = UnitLevel and UnitLevel("player") }) end
+    if me then
+        local _, myRace = UnitRace and UnitRace("player")
+        table.insert(members, leads and 1 or 2, { key = me, class = myClass, level = UnitLevel and UnitLevel("player"),
+            race = myRace, sex = UnitSex and UnitSex("player"), faction = UnitFactionGroup and UnitFactionGroup("player") })
+    end
     local leader = leads and me or self.WILD_BUNCH[1][1]
     ns.Gangs:SetSim({ name = "Wild Bunch", leader = leader, members = members, confirmed = true, faction = "Horde" })
     local window = DEFAULT_CHAT_FRAME

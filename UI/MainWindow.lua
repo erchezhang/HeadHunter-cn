@@ -613,7 +613,8 @@ local function GangRows()
         local plain = U.DisplayName(member.key)
         local row = {
             plain = plain,
-            name = Named(plain, member),
+            name = Named(plain, { faction = ns.Gangs:MemberFaction(member, gang), race = member.race,
+                class = ns.Gangs:MemberClass(member) }),
             gangMember = member.key,
             desc = ns.DeathReports.Describe({ level = ns.Gangs:MemberLevel(member), class = ns.Gangs:MemberClass(member),
                 race = member.race, sex = member.sex }),
