@@ -23,8 +23,8 @@ local OWNER = "Gangs"
 
 Gangs.NAME_MIN = 3
 Gangs.NAME_MAX = 24
--- members at most (author, 2026-11-04: 50, was 10), as the website
-Gangs.MAX_MEMBERS = 50
+-- members at most (author, 2026-11-04: 20, was 10), as the website
+Gangs.MAX_MEMBERS = 20
 -- seconds an invite stays open
 Gangs.INVITE_TIMEOUT = 60
 -- invites sent per INVITE_WINDOW

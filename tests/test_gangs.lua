@@ -124,19 +124,19 @@ return function(T, H)
         T.ok(H.Printed("accepted"), "the accept is said")
     end)
 
-    T.case("invite: the gang takes up to 50 members", function()
+    T.case("invite: the gang takes up to 20 members", function()
         local members = { "Vati Guda" }
-        for i = 1, 49 do members[#members + 1] = "Member" .. i .. " Test" end
+        for i = 1, 19 do members[#members + 1] = "Member" .. i .. " Test" end
         local ns = Boot(Data({ Gang("Black Hand", "Vati Guda", members) }))
         H.printed = {}
         H.Slash("gang invite One Toomany")
-        T.ok(H.Printed("full %(50"), "full at 50")
+        T.ok(H.Printed("full %(20"), "full at 20")
         local room = { "Vati Guda" }
-        for i = 1, 48 do room[#room + 1] = "Member" .. i .. " Test" end
+        for i = 1, 18 do room[#room + 1] = "Member" .. i .. " Test" end
         ns = Boot(Data({ Gang("Black Hand", "Vati Guda", room) }))
         H.printed = {}
         H.Slash("gang invite One More")
-        T.ok(not H.Printed("full"), "room for the fiftieth")
+        T.ok(not H.Printed("full"), "room for the twentieth")
     end)
 
     T.case("invite: only the leader, at most 5 a minute", function()

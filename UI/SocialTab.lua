@@ -26,7 +26,7 @@ local SocialTab = ns:RegisterModule("SocialTab", {})
 local OWNER = "SocialTab"
 
 SocialTab.MAX_BLIZZARD_TABS = 8
--- members shown at once; the mouse wheel scrolls through the rest (up to 50)
+-- members shown at once; the mouse wheel scrolls through the rest (up to 20)
 SocialTab.ROWS = 12
 SocialTab.TAB_GAP = 3
 SocialTab.ROW_HEIGHT = 24
