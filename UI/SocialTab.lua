@@ -16,6 +16,10 @@ local OWNER = "SocialTab"
 
 SocialTab.MAX_BLIZZARD_TABS = 8
 SocialTab.ROWS = 10
+-- The whole window body under the title bar (its close button stays free), so nothing of
+-- the page underneath shows around our panel
+SocialTab.TITLE_BAR = 24
+SocialTab.EDGE = 3
 SocialTab.STRATA = { "BACKGROUND", "LOW", "MEDIUM", "HIGH", "DIALOG", "FULLSCREEN", "FULLSCREEN_DIALOG" }
 
 local tab, panel
@@ -130,8 +134,8 @@ end
 
 local function CreatePanel(parent)
     local p = CreateFrame("Frame", nil, parent)
-    p:SetPoint("TOPLEFT", parent, "TOPLEFT", 12, -60)
-    p:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -12, 30)
+    p:SetPoint("TOPLEFT", parent, "TOPLEFT", SocialTab.EDGE, -SocialTab.TITLE_BAR)
+    p:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -SocialTab.EDGE, SocialTab.EDGE)
     p:SetFrameStrata(SocialTab.StrataAbove(parent))
     p:SetToplevel(true)
     p:EnableMouse(true)
@@ -139,13 +143,13 @@ local function CreatePanel(parent)
     bg:SetAllPoints(p)
     bg:SetColorTexture(0.05, 0.04, 0.03, 1)
     p.title = p:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    p.title:SetPoint("TOPLEFT", 10, -10)
+    p.title:SetPoint("TOPLEFT", 14, -16)
     p.title:SetPoint("RIGHT", -10, 0)
     p.title:SetJustifyH("LEFT")
     p.lines = {}
     for i = 1, SocialTab.ROWS do
         local line = p:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-        line:SetPoint("TOPLEFT", 14, -40 - (i - 1) * 18)
+        line:SetPoint("TOPLEFT", 18, -48 - (i - 1) * 20)
         line:SetPoint("RIGHT", -10, 0)
         line:SetJustifyH("LEFT")
         p.lines[i] = line
