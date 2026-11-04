@@ -80,6 +80,8 @@ local DEFAULTS = {
         gangSocialTab = false,
         -- HH-155: the colour of gang chat lines, hex (Sync/GangChat.lua)
         gangChatColor = "ff9f40",
+        -- HH-155: the gang channel last put in the main chat window (once per channel)
+        gangChatShown = false,
     },
     zones = {}, -- zone mapID -> { name, continent, locale }: names for the website (Alerts/Zones.lua)
     homes = {}, -- home key -> HOME_DEFAULTS

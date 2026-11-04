@@ -706,6 +706,7 @@ local RU = {
     SEARCH_PLAYER = "Найти игрока",
     SEARCH_EMPTY = "Нет игрока с именем %s",
     -- HH-155: gangs
+    GANG_CHAT_HEADER = "Банда: ",
     GANG_MENU_WHISPER = "Шепнуть",
     GANG_MENU_INVITE = "Пригласить в группу",
     GANG_MENU_LEAD = "Сделать главарём",
@@ -731,7 +732,7 @@ local RU = {
     GANG_ALREADY_MEMBER = "%s уже в вашей банде.",
     GANG_MEMBER_LEFT = "%s покинул банду.",
     GANG_CHAT_TAG = "|cffff9f40[Банда]|r",
-    GANG_CHAT_USAGE = "Использование: /gang <текст> (или /gc <текст>)",
+    GANG_CHAT_USAGE = "Использование: /gang <текст> пишет банде; /gang без текста открывает чат банды.",
     GANG_CHAT_NONE = "Вы ещё не в чате банды: он откроется, когда сайт подтвердит банду (после HeadHunter Sync и /reload).",
     GANG_CHAT_COLOR_SET = "Цвет чата банды сохранён.",
     GANG_CHAT_COLOR_BAD = "Укажите цвет шестью шестнадцатеричными цифрами, например: /hh gang color ff9f40",

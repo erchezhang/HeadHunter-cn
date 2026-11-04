@@ -703,6 +703,7 @@ local TW = {
     SEARCH_PLAYER = "尋找玩家",
     SEARCH_EMPTY = "沒有叫 %s 的玩家",
     -- HH-155: gangs
+    GANG_CHAT_HEADER = "幫派：",
     GANG_MENU_WHISPER = "密語",
     GANG_MENU_INVITE = "邀請入隊",
     GANG_MENU_LEAD = "設為首領",
@@ -728,7 +729,7 @@ local TW = {
     GANG_ALREADY_MEMBER = "%s 已經在你的幫派中。",
     GANG_MEMBER_LEFT = "%s 退出了幫派。",
     GANG_CHAT_TAG = "|cffff9f40[幫派]|r",
-    GANG_CHAT_USAGE = "用法：/gang <內容>（或 /gc <內容>）",
+    GANG_CHAT_USAGE = "用法：/gang <內容> 傳送給幫派；只輸入 /gang 開啟幫派聊天。",
     GANG_CHAT_NONE = "你還沒有進入幫派聊天：網站確認你的幫派後（HeadHunter Sync 之後再 /reload）即可使用。",
     GANG_CHAT_COLOR_SET = "幫派聊天顏色已儲存。",
     GANG_CHAT_COLOR_BAD = "請用六位十六進位數字輸入顏色，例如：/hh gang color ff9f40",

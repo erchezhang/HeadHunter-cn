@@ -371,29 +371,38 @@ return function(T, H)
         T.eq(confirmed.SocialTab.Title(), "Gang - Western Gods", "confirmed")
     end)
 
-    T.case("gang chat: members join the gang's hidden channel, /gang sends there, lines show as [Gang]", function()
+    T.case("gang chat: an ordinary channel labelled [Gang], shown in the main window once, /gang sends or opens it", function()
         local data = Data()
         data.characters[1].gang_chat = { channel = "HHGabcdefghijkl", password = "secret" }
         local ns = Boot(data)
         H.joinWorks = true
+        local added = {}
+        _G.DEFAULT_CHAT_FRAME = { AddChannel = function(_, name) added[#added + 1] = name end }
         T.ok(ns.GangChat:Join(), "joined")
-        T.eq(ns.GangChat:Channel(), "HHGabcdefghijkl", "the gang's channel")
+        T.eq(added[1], "HHGabcdefghijkl", "shown in the main chat window")
+        ns.GangChat:Join()
+        T.eq(#added, 1, "only once: the player's chat settings decide after that")
         H.chatSent = {}
         SlashCmdList.HEADHUNTERGANGCHAT("  hello  ")
-        T.eq(#H.chatSent, 1, "sent")
-        T.eq(H.chatSent[1].chatType, "CHANNEL", "to the channel")
+        T.eq(H.chatSent[1].chatType, "CHANNEL", "sent to the channel")
         T.eq(H.chatSent[1].text, "hello", "trimmed")
-        local shown = {}
-        DEFAULT_CHAT_FRAME = { AddMessage = function(_, text) shown[#shown + 1] = text end }
-        ns.GangChat:OnChannelText("hi all", "Tobin Ashford", "HHGabcdefghijkl", "6. HHGabcdefghijkl")
-        T.ok(shown[1] and shown[1]:find("[Gang]", 1, true) and shown[1]:find("hi all", 1, true), "shown as [Gang]")
-        ns.GangChat:OnChannelText("other", "Someone", "OtherChannel", "7. OtherChannel")
-        T.eq(#shown, 1, "other channels are not ours")
-        T.ok(not ns.GangChat.SetColor("zz"), "a bad colour")
-        T.ok(ns.GangChat.SetColor("#00FF00"), "a good colour")
-        local r, g = ns.GangChat.Color()
-        T.eq(g, 1, "green")
-        T.eq(r, 0, "no red")
+        local opened
+        _G.ChatFrame_OpenChat = function(text) opened = text end
+        SlashCmdList.HEADHUNTERGANGCHAT("")
+        T.eq(opened, "/5 ", "/gang alone opens the chat box on the gang channel")
+        T.eq(_G.SLASH_HEADHUNTERGANGCHAT2, nil, "no /gc (GudaChat has it)")
+        local label
+        for _, fn in ipairs(H.chatFilterList.CHAT_MSG_CHANNEL or {}) do
+            local hide, _, _, _, name = fn(nil, "CHAT_MSG_CHANNEL", "hi", "Tobin Ashford", "", "5. HHGabcdefghijkl", "", "", 0, 5,
+                "HHGabcdefghijkl")
+            if not hide and name == "Gang" then label = name end
+        end
+        T.eq(label, "Gang", "labelled [Gang]")
+        T.ok(not ns.GangChat.LabelFilter(nil, "CHAT_MSG_CHANNEL", "x", "y", "", "6. Trade", "", "", 0, 6, "Trade"), "other channels untouched")
+        local header = { SetText = function(self, text) self.text = text end, SetTextColor = function() end, GetWidth = function() return 40 end }
+        local box = { header = header, GetAttribute = function(_, name) return ({ chatType = "CHANNEL", channelTarget = 5 })[name] end }
+        ns.GangChat.OnHeaderUpdate(box)
+        T.eq(header.text, "Gang: ", "the chat box says Gang:")
     end)
 
     T.case("gang chat: none without the website's channel, and leaving the gang leaves it", function()

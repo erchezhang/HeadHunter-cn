@@ -706,6 +706,7 @@ local KR = {
     SEARCH_PLAYER = "플레이어 찾기",
     SEARCH_EMPTY = "%s(이)라는 플레이어가 없습니다",
     -- HH-155: gangs
+    GANG_CHAT_HEADER = "갱단: ",
     GANG_MENU_WHISPER = "귓속말",
     GANG_MENU_INVITE = "파티 초대",
     GANG_MENU_LEAD = "리더로 지정",
@@ -731,7 +732,7 @@ local KR = {
     GANG_ALREADY_MEMBER = "%s님은 이미 당신의 갱단에 있습니다.",
     GANG_MEMBER_LEFT = "%s님이 갱단을 떠났습니다.",
     GANG_CHAT_TAG = "|cffff9f40[갱단]|r",
-    GANG_CHAT_USAGE = "사용법: /gang <내용> (또는 /gc <내용>)",
+    GANG_CHAT_USAGE = "사용법: /gang <내용>은 갱단에 보냅니다. /gang만 입력하면 갱단 채팅이 열립니다.",
     GANG_CHAT_NONE = "아직 갱단 채팅에 없습니다: 웹사이트가 갱단을 확인하면(HeadHunter Sync 후 /reload) 열립니다.",
     GANG_CHAT_COLOR_SET = "갱단 채팅 색상을 저장했습니다.",
     GANG_CHAT_COLOR_BAD = "색상을 16진수 여섯 자리로 입력하세요. 예: /hh gang color ff9f40",

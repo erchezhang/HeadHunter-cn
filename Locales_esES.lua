@@ -707,6 +707,7 @@ local ES = {
     SEARCH_PLAYER = "Buscar un jugador",
     SEARCH_EMPTY = "Nadie se llama %s",
     -- HH-155: gangs
+    GANG_CHAT_HEADER = "Banda: ",
     GANG_MENU_WHISPER = "Susurrar",
     GANG_MENU_INVITE = "Invitar al grupo",
     GANG_MENU_LEAD = "Hacer líder",
@@ -732,7 +733,7 @@ local ES = {
     GANG_ALREADY_MEMBER = "%s ya está en tu banda.",
     GANG_MEMBER_LEFT = "%s ha dejado la banda.",
     GANG_CHAT_TAG = "|cffff9f40[Banda]|r",
-    GANG_CHAT_USAGE = "Uso: /gang <texto> (o /gc <texto>)",
+    GANG_CHAT_USAGE = "Uso: /gang <texto> escribe a tu banda; /gang solo abre el chat de banda.",
     GANG_CHAT_NONE = "Aún no estás en un chat de banda: se abre cuando la web confirma tu banda (tras HeadHunter Sync y un /reload).",
     GANG_CHAT_COLOR_SET = "Color del chat de banda guardado.",
     GANG_CHAT_COLOR_BAD = "Indica el color con seis dígitos hexadecimales, por ejemplo: /hh gang color ff9f40",

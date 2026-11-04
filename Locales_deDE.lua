@@ -706,6 +706,7 @@ local DE = {
     SEARCH_PLAYER = "Spieler suchen",
     SEARCH_EMPTY = "Niemand namens %s",
     -- HH-155: gangs
+    GANG_CHAT_HEADER = "Bande: ",
     GANG_MENU_WHISPER = "Flüstern",
     GANG_MENU_INVITE = "In Gruppe einladen",
     GANG_MENU_LEAD = "Zum Anführer machen",
@@ -731,7 +732,7 @@ local DE = {
     GANG_ALREADY_MEMBER = "%s ist schon in deiner Bande.",
     GANG_MEMBER_LEFT = "%s hat die Bande verlassen.",
     GANG_CHAT_TAG = "|cffff9f40[Bande]|r",
-    GANG_CHAT_USAGE = "Benutzung: /gang <Text> (oder /gc <Text>)",
+    GANG_CHAT_USAGE = "Benutzung: /gang <Text> schreibt deiner Bande; /gang allein öffnet den Bandenchat.",
     GANG_CHAT_NONE = "Du bist noch in keinem Bandenchat: Er öffnet sich, sobald die Website deine Bande bestätigt hat (nach HeadHunter Sync, dann /reload).",
     GANG_CHAT_COLOR_SET = "Farbe des Bandenchats gespeichert.",
     GANG_CHAT_COLOR_BAD = "Gib die Farbe als sechs Hex-Ziffern an, zum Beispiel: /hh gang color ff9f40",
