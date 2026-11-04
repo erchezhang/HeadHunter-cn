@@ -706,6 +706,7 @@ local DE = {
     SEARCH_PLAYER = "Spieler suchen",
     SEARCH_EMPTY = "Niemand namens %s",
     -- HH-155: gangs
+    GANG_MEMBER_LEFT = "%s hat die Bande verlassen.",
     GANG_CHAT_TAG = "|cffff9f40[Bande]|r",
     GANG_CHAT_USAGE = "Benutzung: /gang <Text> (oder /gc <Text>)",
     GANG_CHAT_NONE = "Du bist noch in keinem Bandenchat: Er öffnet sich, sobald die Website deine Bande bestätigt hat (nach HeadHunter Sync, dann /reload).",

@@ -58,6 +58,11 @@ local function Store()
     return ns.db and ns.db.gangActions
 end
 
+-- Members who told us they left (player key -> time), until the website's list catches up
+local function Departed()
+    return ns.db and ns.db.gangDeparted or {}
+end
+
 local function Me()
     return ns.Utils.UnitKey("player")
 end
@@ -126,6 +131,9 @@ function Gangs:Prune(now)
     local store = Store()
     if not store then return end
     local minTime = (now or ns.Utils.ServerTime()) - Gangs.GANG_KEEP
+    for key, at in pairs(ns.db.gangDeparted or {}) do
+        if at < minTime then ns.db.gangDeparted[key] = nil end
+    end
     local kept = {}
     for _, action in ipairs(store) do
         if type(action) == "table" and (tonumber(action.t) or 0) >= minTime then kept[#kept + 1] = action end
@@ -168,6 +176,8 @@ function Gangs:Mine()
             elseif action.kind == "rename" and gang then
                 gang = { name = action.name, leader = gang.leader, members = gang.members, pending = true,
                     confirmed = gang.confirmed }
+            elseif action.kind == "kick" and gang then
+                gang = Gangs.Without(gang, action.player)
             elseif action.kind == "invite" and action.accepted and gang then
                 local known = false
                 for _, member in ipairs(gang.members) do
@@ -183,7 +193,26 @@ function Gangs:Mine()
             end
         end
     end
+    if gang then
+        local departed = Departed()
+        for key, at in pairs(departed) do
+            local member = nil
+            for _, m in ipairs(gang.members) do
+                if ns.Utils.SameCharacter(m.key, key) then member = m end
+            end
+            if member and (member.joinedAt or 0) < at then gang = Gangs.Without(gang, key) end
+        end
+    end
     return gang
+end
+
+-- The gang without one member (a kick or a member who said they left)
+function Gangs.Without(gang, key)
+    local members = {}
+    for _, member in ipairs(gang.members) do
+        if not ns.Utils.SameCharacter(member.key, key) then members[#members + 1] = member end
+    end
+    return { name = gang.name, leader = gang.leader, members = members, pending = gang.pending, confirmed = gang.confirmed }
 end
 
 -- A member's class: the website's, else ours for us, else what an invite or its answer
@@ -344,7 +373,25 @@ function Gangs:OnMessage(record, sender)
         OnInvite(rest, sender)
     elseif code == "a" or code == "d" or code == "r" then
         OnAnswer(code, sender, rest)
+    elseif code == "l" then
+        self:OnLeft(sender)
     end
+end
+
+-- A member said they left: off our list now, until the website's list catches up
+function Gangs:OnLeft(sender)
+    local key = ns.Utils.PlayerKey(sender)
+    local gang = self:Mine()
+    if not (key and gang and ns.db) then return end
+    local inGang = false
+    for _, member in ipairs(gang.members) do
+        if ns.Utils.SameCharacter(member.key, key) then inGang = true end
+    end
+    if not inGang then return end
+    ns.db.gangDeparted = ns.db.gangDeparted or {}
+    ns.db.gangDeparted[key] = ns.Utils.ServerTime()
+    ns:Print(string.format(L.GANG_MEMBER_LEFT, ns.Utils.DisplayName(key)))
+    ns.Events:Fire("HH_GANG_CHANGED")
 end
 
 -- Forget invites and limits (tests)
@@ -409,6 +456,11 @@ function Gangs:Command(args)
         self:Invite(key, class)
     elseif sub == "leave" then
         if not gang then ns:Print(L.GANG_NOT_IN_A_GANG) return end
+        for _, member in ipairs(gang.members) do
+            if not ns.Utils.SameCharacter(member.key, Me()) then
+                ns.Transport:SendDirect(ns.Protocol.TYPES.GANG, { "l" }, member.key)
+            end
+        end
         self:Record("leave")
         ns:Print(string.format(L.GANG_LEFT, gang.name))
     elseif sub == "kick" or sub == "lead" then

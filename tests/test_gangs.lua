@@ -435,4 +435,26 @@ return function(T, H)
         T.eq(action.player, "Mira Vale", "the target invited")
         T.eq(action.memberClass, "PRIEST", "with its class")
     end)
+
+    T.case("a member who leaves is off the others' lists at once; a kick too", function()
+        local ns = Boot(Data({ Gang("Black Hand", "Vati Guda", { "Vati Guda", "Tobin Ashford", "Mira Vale" }) }))
+        H.Deliver(ns.Protocol.Pack("A", ns.Protocol.TYPES.GANG, { "l" }), "Tobin Ashford")
+        local function Names()
+            local names = {}
+            for _, member in ipairs(ns.Gangs:Mine().members) do names[#names + 1] = member.key end
+            return table.concat(names, ",")
+        end
+        T.eq(Names(), "Vati Guda,Mira Vale", "Tobin off our list")
+        T.ok(H.Printed("left the gang"), "said")
+        H.Deliver(ns.Protocol.Pack("A", ns.Protocol.TYPES.GANG, { "l" }), "Somebody Else")
+        T.eq(Names(), "Vati Guda,Mira Vale", "a stranger's leave changes nothing")
+        H.Slash("gang kick Mira Vale")
+        T.eq(Names(), "Vati Guda", "the kicked member off our list at once")
+
+        local member = Boot(Data({ Gang("Black Hand", "Tobin Ashford", { "Tobin Ashford", "Vati Guda" }) }))
+        H.sent = {}
+        H.Slash("gang leave")
+        Settle()
+        T.ok(Whispers("l")[1] ~= nil and Whispers("l")[1].target == "Tobin Ashford", "we tell the others when we leave")
+    end)
 end

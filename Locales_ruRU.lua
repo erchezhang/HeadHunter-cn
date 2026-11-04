@@ -706,6 +706,7 @@ local RU = {
     SEARCH_PLAYER = "Найти игрока",
     SEARCH_EMPTY = "Нет игрока с именем %s",
     -- HH-155: gangs
+    GANG_MEMBER_LEFT = "%s покинул банду.",
     GANG_CHAT_TAG = "|cffff9f40[Банда]|r",
     GANG_CHAT_USAGE = "Использование: /gang <текст> (или /gc <текст>)",
     GANG_CHAT_NONE = "Вы ещё не в чате банды: он откроется, когда сайт подтвердит банду (после HeadHunter Sync и /reload).",

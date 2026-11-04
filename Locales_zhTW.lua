@@ -703,6 +703,7 @@ local TW = {
     SEARCH_PLAYER = "尋找玩家",
     SEARCH_EMPTY = "沒有叫 %s 的玩家",
     -- HH-155: gangs
+    GANG_MEMBER_LEFT = "%s 退出了幫派。",
     GANG_CHAT_TAG = "|cffff9f40[幫派]|r",
     GANG_CHAT_USAGE = "用法：/gang <內容>（或 /gc <內容>）",
     GANG_CHAT_NONE = "你還沒有進入幫派聊天：網站確認你的幫派後（HeadHunter Sync 之後再 /reload）即可使用。",

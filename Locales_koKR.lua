@@ -706,6 +706,7 @@ local KR = {
     SEARCH_PLAYER = "플레이어 찾기",
     SEARCH_EMPTY = "%s(이)라는 플레이어가 없습니다",
     -- HH-155: gangs
+    GANG_MEMBER_LEFT = "%s님이 갱단을 떠났습니다.",
     GANG_CHAT_TAG = "|cffff9f40[갱단]|r",
     GANG_CHAT_USAGE = "사용법: /gang <내용> (또는 /gc <내용>)",
     GANG_CHAT_NONE = "아직 갱단 채팅에 없습니다: 웹사이트가 갱단을 확인하면(HeadHunter Sync 후 /reload) 열립니다.",

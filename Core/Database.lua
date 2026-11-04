@@ -29,7 +29,7 @@ DB.HOME_TABLES = {
     deaths = true, reports = true, enemies = true, justice = true, posters = true, posse = true,
     bountyPay = true, duels = true, eventResults = true, marks = true, demoMarks = true, player = true,
     witness = true, pinned = true, glasses = true, screenshots = true, honorKills = true, wars = true,
-    invites = true, punishments = true, gangActions = true,
+    invites = true, punishments = true, gangActions = true, gangDeparted = true,
 }
 
 DB.LIMITS = {
@@ -103,6 +103,8 @@ local HOME_DEFAULTS = {
     honorKills = {},
     -- HH-155: what we did with a gang, for HeadHunter Sync (Sync/Gangs.lua)
     gangActions = {},
+    -- HH-155: members who told us they left, until the website's list catches up
+    gangDeparted = {},
     -- HH-136: wars, a hotzone's fight from start to end (Alerts/Wars.lua), oldest first
     wars = {},
     -- HH-145: compact name -> when we asked that HeadHunter for a group invite (Alerts/Invites.lua)
