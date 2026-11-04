@@ -178,24 +178,42 @@ function SocialTab:Place()
     end
 end
 
--- A click on a Blizzard tab, after Blizzard's own handler: our page closes; when the tab
--- was the one Blizzard had selected all along, it redrew nothing, so its page and tab
--- look come back from us
-function SocialTab.OnBlizzardTabClick(button)
+-- The Blizzard tab button of a tab number (Raid is FriendsFrameTab3 with id 2)
+local function TabWithId(id)
+    for _, button in ipairs(SocialTab.BlizzardTabs()) do
+        if button.GetID and button:GetID() == id then return button end
+    end
+    return nil
+end
+
+-- Blizzard's page is back: our page closes and what Blizzard showed comes back from us.
+-- Its own redraw ran inside the click while ours was still open, so our refresh hook hid
+-- that page again (`later`); a click on the tab Blizzard had selected all along redraws
+-- nothing, so the pages hidden at opening come back too.
+function SocialTab:Restore()
     if not active then return end
     local frame = _G.FriendsFrame
-    local same = frame and frame.selectedTab == selectedAtOpen
-    SocialTab:Close()
+    local selected = frame and frame.selectedTab
+    local same = selected == selectedAtOpen
+    self:Close()
     if same then ShowPages(hidden.atOpen) end
     ShowPages(hidden.later)
     ShowBlizzardTitle()
-    if PanelTemplates_SelectTab then pcall(PanelTemplates_SelectTab, button) end
+    local button = type(selected) == "number" and TabWithId(selected)
+    if button and PanelTemplates_SelectTab then pcall(PanelTemplates_SelectTab, button) end
     hidden = { atOpen = {}, later = {} }
 end
 
--- FriendsFrame_OnShow: a Blizzard tab was clicked or the window opened
+-- A click on a Blizzard tab, after Blizzard's own handler
+function SocialTab.OnBlizzardTabClick(button)
+    SocialTab:Restore()
+    if button and PanelTemplates_SelectTab then pcall(PanelTemplates_SelectTab, button) end
+end
+
+-- FriendsFrame_OnShow: a Blizzard tab was clicked (WoW Forever calls it from the tab's
+-- click, after its own redraw) or the window opened
 function SocialTab.OnBlizzardShow()
-    SocialTab:Close()
+    SocialTab:Restore()
     SocialTab:Place()
 end
 

@@ -210,6 +210,8 @@ return function(T, H)
         for _, i in ipairs({ 1, 3, 4 }) do
             local button = CreateFrame("Button")
             button.shown = i ~= 4
+            local id = ({ [1] = 1, [3] = 2, [4] = 3 })[i]
+            button.GetID = function() return id end
             button.hooks = {}
             button.HookScript = function(self, script, fn) self.hooks[script] = fn end
             _G["FriendsFrameTab" .. i] = button
@@ -273,6 +275,7 @@ return function(T, H)
         RaidFrame:Show()
         title:SetText("Raid")
         hooked.FriendsFrame_Update()
+        hooked.FriendsFrame_OnShow()
         FriendsFrameTab3.hooks.OnClick(FriendsFrameTab3)
         T.ok(not panel:IsShown(), "a click on Raid closes ours")
         T.ok(RaidFrame:IsShown(), "the Raid page the game showed during the click is back")
