@@ -531,4 +531,20 @@ return function(T, H)
         local link, create = text:find("headhunterwow.com/gangs", 1, true), text:find("/hh gang create", 1, true)
         T.ok(link and create and link < create, "first where to check the name, then how to make one")
     end)
+
+    T.case("an invite to a player already in a gang: both are told why", function()
+        local member = Boot(Data({ Gang("Old Crew", "Kira Dawnblade", { "Kira Dawnblade", "Vati Guda" }) }))
+        H.printed, H.sent, H.popups = {}, {}, {}
+        H.Deliver(member.Protocol.Pack("A", member.Protocol.TYPES.GANG, { "i;Black Hand;WARRIOR" }), "Tobin Ashford")
+        Settle()
+        T.eq(#H.popups, 0, "no popup")
+        T.ok(H.Printed("but you are in a gang"), "we are told")
+        T.ok(Whispers("g")[1] ~= nil, "the inviter is told")
+
+        local leader = Boot(Data({ Gang("Black Hand", "Vati Guda", { "Vati Guda" }) }))
+        H.printed = {}
+        H.Slash("gang invite Gang Ster")
+        H.Deliver(leader.Protocol.Pack("A", leader.Protocol.TYPES.GANG, { "g" }), "Gang Ster")
+        T.ok(H.Printed("Gang Ster is already in a gang"), "the leader hears why")
+    end)
 end

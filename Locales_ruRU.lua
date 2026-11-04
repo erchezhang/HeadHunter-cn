@@ -706,6 +706,8 @@ local RU = {
     SEARCH_PLAYER = "Найти игрока",
     SEARCH_EMPTY = "Нет игрока с именем %s",
     -- HH-155: gangs
+    GANG_INVITEE_IN_GANG = "%s уже в банде: сначала ему нужно выйти из неё.",
+    GANG_INVITE_WHILE_IN_GANG = "%s приглашает вас в %s, но вы в банде (возможно, она ещё ждёт HeadHunter Sync). Сначала выйдите из неё.",
     SECTION_GANG = "Банда",
     GANG_SOCIAL_BUTTON = "Окно общения",
     GANG_SOCIAL_COMBAT = "Не в бою: откройте окно общения после боя.",

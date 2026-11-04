@@ -707,6 +707,8 @@ local IT = {
     SEARCH_PLAYER = "Cerca un giocatore",
     SEARCH_EMPTY = "Nessuno si chiama %s",
     -- HH-155: gangs
+    GANG_INVITEE_IN_GANG = "%s è già in una banda: deve prima lasciarla.",
+    GANG_INVITE_WHILE_IN_GANG = "%s ti ha invitato in %s, ma sei in una banda (forse è ancora in attesa di HeadHunter Sync). Prima lasciala.",
     SECTION_GANG = "Banda",
     GANG_SOCIAL_BUTTON = "Finestra Social",
     GANG_SOCIAL_COMBAT = "Non in combattimento: apri la finestra Social dopo lo scontro.",

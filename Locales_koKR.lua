@@ -706,6 +706,8 @@ local KR = {
     SEARCH_PLAYER = "플레이어 찾기",
     SEARCH_EMPTY = "%s(이)라는 플레이어가 없습니다",
     -- HH-155: gangs
+    GANG_INVITEE_IN_GANG = "%s님은 이미 갱단에 있습니다: 먼저 탈퇴해야 합니다.",
+    GANG_INVITE_WHILE_IN_GANG = "%s님이 %s에 초대했지만 당신은 갱단에 있습니다 (아직 HeadHunter Sync를 기다리는 중일 수 있습니다). 먼저 탈퇴하세요.",
     SECTION_GANG = "갱단",
     GANG_SOCIAL_BUTTON = "소셜 창",
     GANG_SOCIAL_COMBAT = "전투 중에는 안 됩니다: 전투가 끝나면 소셜 창을 여세요.",

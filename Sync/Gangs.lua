@@ -370,7 +370,12 @@ local function OnInvite(rest, sender)
     local name, leaderClass = rest:match("^(.-);(%u*)$")
     name = Gangs.CleanName(name or rest)
     if not leader or not Gangs.ValidName(name) then return end
-    if not Gangs.Enabled() or ns.Database:GetSetting("gangInvites") == false or Gangs:Mine() then
+    if Gangs.Enabled() and Gangs:Mine() then
+        Answer("g", sender)
+        ns:Print(string.format(L.GANG_INVITE_WHILE_IN_GANG, ns.Utils.DisplayName(leader), name))
+        return
+    end
+    if not Gangs.Enabled() or ns.Database:GetSetting("gangInvites") == false then
         Answer("d", sender)
         return
     end
@@ -401,6 +406,11 @@ local function OnAnswer(code, sender, rest)
     if not at or ns.Utils.Now() - at > Gangs.INVITE_TIMEOUT then return end
     heard[key] = true
     if code == "r" then return end
+    if code == "g" then
+        sentInvites[key] = nil
+        ns:Print(string.format(L.GANG_INVITEE_IN_GANG, ns.Utils.DisplayName(key)))
+        return
+    end
     if code == "c" then
         sentInvites[key] = nil
         local wait = tonumber(rest) or Gangs.JOIN_COOLDOWN
@@ -425,7 +435,7 @@ function Gangs:OnMessage(record, sender)
     local code, rest = record:match("^(%a);?(.*)$")
     if code == "i" then
         OnInvite(rest, sender)
-    elseif code == "a" or code == "d" or code == "r" or code == "c" then
+    elseif code == "a" or code == "d" or code == "r" or code == "c" or code == "g" then
         OnAnswer(code, sender, rest)
     elseif code == "l" then
         self:OnLeft(sender)

@@ -703,6 +703,8 @@ local TW = {
     SEARCH_PLAYER = "尋找玩家",
     SEARCH_EMPTY = "沒有叫 %s 的玩家",
     -- HH-155: gangs
+    GANG_INVITEE_IN_GANG = "%s 已經在一個幫派中：需要先退出。",
+    GANG_INVITE_WHILE_IN_GANG = "%s 邀請你加入 %s，但你已在一個幫派中（可能還在等待 HeadHunter Sync）。請先退出。",
     SECTION_GANG = "幫派",
     GANG_SOCIAL_BUTTON = "社交視窗",
     GANG_SOCIAL_COMBAT = "戰鬥中不可用：請在戰鬥結束後開啟社交視窗。",
