@@ -201,43 +201,57 @@ return function(T, H)
         T.noErrors()
     end)
 
-    T.case("Social window tab: off by default; on, it adds its own tab and never writes Blizzard's tab count", function()
+    T.case("Social window tab: off by default; on, our own tab after Raid that hides Blizzard's pages and never writes its tab state", function()
         local ns = Boot(Data({ Gang("Black Hand", "Vati Guda", { "Vati Guda", "Tobin Ashford" }) }))
-        local function Hookable(frame)
-            frame.hooks = {}
-            frame.HookScript = function(self, script, fn) self.hooks[script] = fn end
-            return frame
-        end
-        _G.FriendsFrame = Hookable(CreateFrame("Frame"))
+        _G.FriendsFrame = CreateFrame("Frame")
+        FriendsFrame.hooks = {}
+        FriendsFrame.HookScript = function(self, script, fn) self.hooks[script] = fn end
+        FriendsFrame.Inset = CreateFrame("Frame")
         for _, i in ipairs({ 1, 3, 4 }) do
-            local button = Hookable(CreateFrame("Button"))
+            local button = CreateFrame("Button")
             button.shown = i ~= 4
             _G["FriendsFrameTab" .. i] = button
         end
-        FriendsFrameTab3.GetPoint = function() return "TOPLEFT", FriendsFrameTab1, "TOPRIGHT", 3, 0 end
+        _G.FriendsListFrame = CreateFrame("Frame")
+        FriendsListFrame:Show()
+        _G.RaidFrame = CreateFrame("Frame")
+        RaidFrame:Show()
+        RaidFrame.GetParent = function() return FriendsFrame end
+        local looks = {}
+        _G.PanelTemplates_SelectTab = function(button) looks[button] = "selected" end
+        _G.PanelTemplates_DeselectTab = function(button) looks[button] = "deselected" end
+        local hooked = {}
+        _G.FriendsFrame_OnShow, _G.FriendsFrame_Update = function() end, function() end
+        local secure = _G.hooksecurefunc
+        _G.hooksecurefunc = function(name, fn) hooked[name] = fn end
         T.ok(not ns.SocialTab:Install(), "off by default")
 
         H.Slash("gang socialtab on")
         T.ok(ns.SocialTab:Install(), "added once on")
+        _G.hooksecurefunc = secure
         local tab, panel = ns.SocialTab:Parts()
-        T.ok(tab ~= nil, "our tab")
-        T.eq(rawget(FriendsFrame, "numTabs"), nil, "Blizzard's tab count untouched")
         T.ok(tab.point[2] == FriendsFrameTab3, "after Raid, the last tab on show; no tab 2, Quick Join hidden")
         T.eq(tab.point[4], 3, "the game's own gap between tabs")
+
+        FriendsFrame.selectedTab = 2
         tab:GetScript("OnClick")()
-        T.ok(panel:IsShown(), "our panel shows")
-        T.eq(panel:GetFrameStrata(), "HIGH", "above the Social window's pages")
+        T.ok(panel:IsShown(), "our page shows")
         T.ok(panel.title.shownText:find("Black Hand", 1, true), "our gang")
-        local looks = {}
-        _G.PanelTemplates_SelectTab = function(button) looks[button] = "selected" end
-        _G.PanelTemplates_DeselectTab = function(button) looks[button] = "deselected" end
-        FriendsFrame.selectedTab = 3
-        ns.SocialTab.OnTabsRedrawn(FriendsFrame)
-        T.eq(looks[tab], "selected", "a redraw keeps our tab looking selected")
-        T.eq(looks[FriendsFrameTab3], "deselected", "and Raid not")
-        FriendsFrameTab3.hooks.OnClick()
-        T.eq(looks[FriendsFrameTab3], "selected", "Raid looks selected again once ours closes")
-        T.ok(not panel:IsShown(), "a Blizzard tab hides it")
+        T.eq(looks[tab], "selected", "our tab looks selected")
+        T.eq(looks[FriendsFrameTab3], "deselected", "Raid does not, though its id is 2 and its button Tab3")
+        T.eq(looks[FriendsFrameTab1], "deselected", "nor Contacts")
+        T.ok(not FriendsListFrame:IsShown(), "the friends list hidden")
+        T.ok(not RaidFrame:IsShown(), "the Raid page hidden out of combat")
+        T.eq(FriendsFrame.selectedTab, 2, "Blizzard's selected tab never written")
+        T.eq(rawget(FriendsFrame, "numTabs"), nil, "nor its tab count")
+
+        FriendsListFrame:Show()
+        hooked.FriendsFrame_Update()
+        T.ok(not FriendsListFrame:IsShown(), "a refresh of the window hides its page again while ours is open")
+
+        hooked.FriendsFrame_OnShow()
+        T.ok(not panel:IsShown(), "a Blizzard tab click closes ours")
+        T.eq(looks[tab], "deselected", "and our tab looks unselected")
         T.noErrors()
     end)
 end

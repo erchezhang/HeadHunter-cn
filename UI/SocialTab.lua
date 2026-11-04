@@ -1,11 +1,22 @@
--- HH-155: a Gang tab in the game's Social window (FriendsFrame), after Friends, Who, Guild
--- and Raid, showing our gang with Invite and Leave. Built so it taints nothing: our own
--- tab button sits after the last Blizzard tab, and Blizzard's tab count and selection
--- (PanelTemplates_SetNumTabs, FriendsFrame.numTabs, selectedTab) are never written. A
--- click on our tab lays our panel over the window's content; a click on any Blizzard
--- tab, or closing the window, hides it again through post-hooks that change nothing of
--- Blizzard's. Off by default until the taint probe on both clients is clean:
--- /hh gang socialtab on|off (setting gangSocialTab), then /reload.
+-- HH-155: a Gang tab in the game's Social window (FriendsFrame) on WoW Forever, after
+-- Contacts and Raid, showing our gang with Invite and Leave.
+--
+-- Taint rules, from Blizzard's WoW Forever code (Blizzard_FriendsFrame/Camelot): the
+-- Social, Raid and Friends keybinds read FriendsFrame.selectedTab before Show/HideUIPanel,
+-- which are refused in combat once addon code wrote it, and RaidFrame holds secure group
+-- buttons. So:
+--   * our tab lives in a holder frame of our own, never in FriendsFrame.Tabs; the window's
+--     selectedTab, numTabs and Tabs are never written and PanelTemplates_SetTab /
+--     SetNumTabs / UpdateTabs are never called on it;
+--   * opening our page: our tab looks selected and every Blizzard tab not (textures only),
+--     Blizzard's unprotected pages are hidden, RaidFrame only out of combat (in combat our
+--     opaque page covers it);
+--   * post-hooks only (hooksecurefunc): FriendsFrame_OnShow (every Blizzard tab click and
+--     every opening) closes our page, as Blizzard has just put its own back;
+--     FriendsFrame_Update (the window's own refreshes) hides its pages again while ours is
+--     open.
+-- Blizzard's tab numbers are not their button names: Raid is FriendsFrameTab3 with id 2,
+-- and there is no FriendsFrameTab2. Off by default: /hh gang socialtab on|off, then /reload.
 
 local addonName, ns = ...
 local L = ns.L
@@ -16,16 +27,14 @@ local OWNER = "SocialTab"
 
 SocialTab.MAX_BLIZZARD_TABS = 8
 SocialTab.ROWS = 10
--- The whole window body under the title bar (its close button stays free), so nothing of
--- the page underneath shows around our panel
-SocialTab.TITLE_BAR = 24
-SocialTab.EDGE = 3
-SocialTab.STRATA = { "BACKGROUND", "LOW", "MEDIUM", "HIGH", "DIALOG", "FULLSCREEN", "FULLSCREEN_DIALOG" }
+SocialTab.TAB_GAP = 3
+-- Blizzard's pages hidden while ours is open (RaidFrame apart: protected in combat)
+SocialTab.PAGES = { "FriendsTabHeader", "FriendsListFrame", "QuickJoinFrame", "RecentAlliesFrame", "RecruitAFriendFrame" }
 
-local tab, panel
+local holder, tab, panel
+local active = false
 
--- The Social window's own tab buttons, in order; numbers may be skipped (WoW Forever has
--- 1 Contacts, 3 Raid, 4 Quick Join and no 2)
+-- The Social window's own tab buttons, in order; numbers may be skipped
 function SocialTab.BlizzardTabs()
     local tabs = {}
     for i = 1, SocialTab.MAX_BLIZZARD_TABS do
@@ -35,35 +44,25 @@ function SocialTab.BlizzardTabs()
     return tabs
 end
 
--- The last Blizzard tab on show, and the gap the game itself leaves between two tabs
--- (Classic overlaps them by 15, WoW Forever spaces them by 3), read from the first tab
--- anchored to another tab
-function SocialTab.Anchor(tabs)
+-- The last Blizzard tab on show
+function SocialTab.LastShownTab()
     local last
-    local isTab = {}
-    for _, button in ipairs(tabs) do
-        isTab[button] = true
+    for _, button in ipairs(SocialTab.BlizzardTabs()) do
         if not button.IsShown or button:IsShown() then last = button end
     end
-    local gap = -15
-    for _, button in ipairs(tabs) do
-        if button.GetPoint then
-            local ok, _, relative, _, x = pcall(button.GetPoint, button, 1)
-            if ok and isTab[relative] and type(x) == "number" then
-                gap = x
-                break
-            end
-        end
-    end
-    return last, gap
+    return last
 end
 
 function SocialTab:Enabled()
     return ns.db ~= nil and ns.db.settings.gangSocialTab == true and ns.Gangs.Enabled()
 end
 
+function SocialTab:IsActive()
+    return active
+end
+
 function SocialTab:Refresh()
-    if not panel or not panel:IsShown() then return end
+    if not panel or not active then return end
     local gang = ns.Gangs:Mine()
     local U = ns.Utils
     if gang then
@@ -85,72 +84,89 @@ function SocialTab:Refresh()
     if gang then panel.leave:Show() else panel.leave:Hide() end
 end
 
--- One strata above the Social window, so its pages' buttons (Convert to Raid, Raid Info)
--- stay under our panel
-function SocialTab.StrataAbove(frame)
-    local current = frame.GetFrameStrata and frame:GetFrameStrata() or "MEDIUM"
-    for i, strata in ipairs(SocialTab.STRATA) do
-        if strata == current then return SocialTab.STRATA[math.min(i + 1, #SocialTab.STRATA - 1)] end
+-- Blizzard's pages out of sight while ours is open; RaidFrame only out of combat
+local function HideBlizzardPages()
+    for _, name in ipairs(SocialTab.PAGES) do
+        local page = _G[name]
+        if page and page.Hide then page:Hide() end
     end
-    return "HIGH"
-end
-
--- How the tabs look only: ours selected and Blizzard's selected one not, or back. The
--- window's selectedTab is read, never written.
-local function LookSelected(ours)
-    local frame = _G.FriendsFrame
-    local selected = frame and frame.selectedTab
-    local blizzard = type(selected) == "number" and _G["FriendsFrameTab" .. selected] or nil
-    if ours then
-        if PanelTemplates_SelectTab then pcall(PanelTemplates_SelectTab, tab) end
-        if blizzard and PanelTemplates_DeselectTab then pcall(PanelTemplates_DeselectTab, blizzard) end
-    else
-        if PanelTemplates_DeselectTab then pcall(PanelTemplates_DeselectTab, tab) end
-        if blizzard and PanelTemplates_SelectTab then pcall(PanelTemplates_SelectTab, blizzard) end
+    local raid = _G.RaidFrame
+    local inCombat = InCombatLockdown and InCombatLockdown()
+    if raid and not inCombat and raid.IsShown and raid:IsShown() and raid:GetParent() == _G.FriendsFrame then
+        raid:Hide()
     end
 end
 
--- The Social window redraws its tabs on its own (roster and friend updates); while our
--- panel is open, our look is laid over it again, after Blizzard's code ran
-local function OnTabsRedrawn(frame)
-    if frame == _G.FriendsFrame and panel and panel:IsShown() then LookSelected(true) end
+-- How the tabs look only: ours selected and every Blizzard tab not
+local function LookOurs()
+    if PanelTemplates_SelectTab then pcall(PanelTemplates_SelectTab, tab) end
+    if PanelTemplates_DeselectTab then
+        for _, button in ipairs(SocialTab.BlizzardTabs()) do pcall(PanelTemplates_DeselectTab, button) end
+    end
 end
-SocialTab.OnTabsRedrawn = OnTabsRedrawn
 
-function SocialTab:ShowPanel()
+function SocialTab:Open()
     if not panel then return end
-    panel:SetFrameStrata(self.StrataAbove(_G.FriendsFrame))
+    active = true
+    HideBlizzardPages()
+    LookOurs()
     panel:Show()
-    LookSelected(true)
     self:Refresh()
 end
 
-function SocialTab:HidePanel()
-    if panel and panel:IsShown() then
-        panel:Hide()
-        LookSelected(false)
+-- Our page away; Blizzard's tabs and page are its own business again
+function SocialTab:Close()
+    active = false
+    if panel then panel:Hide() end
+    if tab and PanelTemplates_DeselectTab then pcall(PanelTemplates_DeselectTab, tab) end
+end
+
+-- After the last tab on show, as the game spaces its own
+function SocialTab:Place()
+    local last = self.LastShownTab()
+    if tab and last then
+        tab:ClearAllPoints()
+        tab:SetPoint("TOPLEFT", last, "TOPRIGHT", SocialTab.TAB_GAP, 0)
     end
 end
 
-local function CreatePanel(parent)
-    local p = CreateFrame("Frame", nil, parent)
-    p:SetPoint("TOPLEFT", parent, "TOPLEFT", SocialTab.EDGE, -SocialTab.TITLE_BAR)
-    p:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -SocialTab.EDGE, SocialTab.EDGE)
-    p:SetFrameStrata(SocialTab.StrataAbove(parent))
-    p:SetToplevel(true)
+-- FriendsFrame_OnShow: a Blizzard tab was clicked or the window opened
+function SocialTab.OnBlizzardShow()
+    SocialTab:Close()
+    SocialTab:Place()
+end
+
+-- FriendsFrame_Update: the window refreshed itself and showed its page again
+function SocialTab.OnBlizzardUpdate()
+    if active then
+        HideBlizzardPages()
+        LookOurs()
+    end
+end
+
+local function CreatePanel(frame)
+    local p = CreateFrame("Frame", nil, holder)
+    local inset = frame.Inset or _G.FriendsFrameInset
+    if inset then
+        p:SetAllPoints(inset)
+    else
+        p:SetPoint("TOPLEFT", frame, "TOPLEFT", 6, -60)
+        p:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -6, 6)
+    end
+    p:SetFrameLevel((frame:GetFrameLevel() or 1) + 50)
     p:EnableMouse(true)
     local bg = p:CreateTexture(nil, "BACKGROUND")
     bg:SetAllPoints(p)
     bg:SetColorTexture(0.05, 0.04, 0.03, 1)
     p.title = p:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    p.title:SetPoint("TOPLEFT", 14, -16)
-    p.title:SetPoint("RIGHT", -10, 0)
+    p.title:SetPoint("TOPLEFT", 12, -12)
+    p.title:SetPoint("RIGHT", -12, 0)
     p.title:SetJustifyH("LEFT")
     p.lines = {}
     for i = 1, SocialTab.ROWS do
         local line = p:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-        line:SetPoint("TOPLEFT", 18, -48 - (i - 1) * 20)
-        line:SetPoint("RIGHT", -10, 0)
+        line:SetPoint("TOPLEFT", 16, -42 - (i - 1) * 20)
+        line:SetPoint("RIGHT", -12, 0)
         line:SetJustifyH("LEFT")
         p.lines[i] = line
     end
@@ -171,28 +187,23 @@ end
 -- Returns true when the tab was added
 function SocialTab:Install()
     local frame = _G.FriendsFrame
-    if tab or not frame or not self:Enabled() then return false end
-    local blizzard = self.BlizzardTabs()
-    local last, gap = self.Anchor(blizzard)
-    if not last then return false end
-    local ok, button = pcall(CreateFrame, "Button", "HeadHunterSocialGangTab", frame, "FriendsFrameTabTemplate")
-    if not ok or not button then button = CreateFrame("Button", "HeadHunterSocialGangTab", frame, "UIPanelButtonTemplate") end
-    button:SetPoint("TOPLEFT", last, "TOPRIGHT", gap, 0)
+    if tab or not frame or not self:Enabled() or not self.LastShownTab() then return false end
+    holder = CreateFrame("Frame", nil, frame)
+    holder:SetAllPoints(frame)
+    local ok, button = pcall(CreateFrame, "Button", "HeadHunterSocialGangTab", holder, "PanelTabButtonTemplate")
+    if not ok or not button then button = CreateFrame("Button", "HeadHunterSocialGangTab", holder, "UIPanelButtonTemplate") end
     button:SetText(L.TAB_GANG)
-    button:SetScript("OnClick", function() SocialTab:ShowPanel() end)
+    if PanelTemplates_TabResize then pcall(PanelTemplates_TabResize, button, 0) end
+    button:SetScript("OnClick", function() SocialTab:Open() end)
     tab = button
+    if PanelTemplates_DeselectTab then pcall(PanelTemplates_DeselectTab, tab) end
     panel = CreatePanel(frame)
-    for _, blizzardTab in ipairs(blizzard) do
-        if blizzardTab.HookScript then
-            blizzardTab:HookScript("OnClick", function() SocialTab:HidePanel() end)
-        end
-    end
-    if frame.HookScript then frame:HookScript("OnHide", function() SocialTab:HidePanel() end) end
+    self:Place()
     if hooksecurefunc then
-        for _, name in ipairs({ "PanelTemplates_UpdateTabs", "PanelTemplates_SetTab" }) do
-            if _G[name] then hooksecurefunc(name, OnTabsRedrawn) end
-        end
+        if _G.FriendsFrame_OnShow then hooksecurefunc("FriendsFrame_OnShow", SocialTab.OnBlizzardShow) end
+        if _G.FriendsFrame_Update then hooksecurefunc("FriendsFrame_Update", SocialTab.OnBlizzardUpdate) end
     end
+    if frame.HookScript then frame:HookScript("OnHide", function() SocialTab:Close() end) end
     return true
 end
 
