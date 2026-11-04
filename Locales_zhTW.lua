@@ -703,6 +703,7 @@ local TW = {
     SEARCH_PLAYER = "尋找玩家",
     SEARCH_EMPTY = "沒有叫 %s 的玩家",
     -- HH-155: gangs
+    GANG_CHAT_JOINING = "正在加入幫派聊天：請稍後再試。",
     GANG_CHAT_HEADER = "幫派：",
     GANG_MENU_WHISPER = "密語",
     GANG_MENU_INVITE = "邀請入隊",

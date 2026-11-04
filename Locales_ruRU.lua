@@ -706,6 +706,7 @@ local RU = {
     SEARCH_PLAYER = "Найти игрока",
     SEARCH_EMPTY = "Нет игрока с именем %s",
     -- HH-155: gangs
+    GANG_CHAT_JOINING = "Подключение к чату банды: повторите через мгновение.",
     GANG_CHAT_HEADER = "Банда: ",
     GANG_MENU_WHISPER = "Шепнуть",
     GANG_MENU_INVITE = "Пригласить в группу",

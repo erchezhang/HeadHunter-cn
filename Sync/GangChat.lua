@@ -17,7 +17,7 @@ local OWNER = "GangChat"
 
 GangChat.PREFIX = "HHG"
 -- seconds after login before joining, so the game's own channels take the first slots
-GangChat.JOIN_DELAY = 12
+GangChat.JOIN_DELAY = 5
 GangChat.DEFAULT_COLOR = "ff9f40"
 
 local current
@@ -172,7 +172,11 @@ end
 function GangChat:Send(text)
     text = text and text:gsub("^%s+", ""):gsub("%s+$", "") or ""
     local id = ChannelId(current)
-    if not id then ns:Print(L.GANG_CHAT_NONE) return false end
+    if not id then
+        if not self:Join() then ns:Print(L.GANG_CHAT_NONE) return false end
+        id = ChannelId(current)
+        if not id then ns:Print(L.GANG_CHAT_JOINING) return false end
+    end
     if text == "" then
         if ChatFrame_OpenChat then ChatFrame_OpenChat("/" .. id .. " ") else ns:Print(L.GANG_CHAT_USAGE) end
         return false

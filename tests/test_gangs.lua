@@ -378,6 +378,7 @@ return function(T, H)
         H.joinWorks = true
         local added = {}
         _G.DEFAULT_CHAT_FRAME = { AddChannel = function(_, name) added[#added + 1] = name end }
+        ns.db.settings.gangChatShown = false
         T.ok(ns.GangChat:Join(), "joined")
         T.eq(added[1], "HHGabcdefghijkl", "shown in the main chat window")
         ns.GangChat:Join()
@@ -614,5 +615,15 @@ return function(T, H)
         T.eq(menu.point[1], "TOPLEFT", "our own menu")
         T.eq(menu.point[4], 400, "at the cursor's x")
         T.eq(menu.point[5], 300, "and y, not the screen's centre")
+    end)
+
+    T.case("gang chat: /gang right after login joins the channel on the spot", function()
+        local data = Data()
+        data.characters[1].gang_chat = { channel = "HHGabcdefghijkl", password = "secret" }
+        Boot(data)
+        H.joinWorks = true
+        H.chatSent = {}
+        SlashCmdList.HEADHUNTERGANGCHAT("hello")
+        T.eq(#H.chatSent, 1, "joined and sent at once")
     end)
 end

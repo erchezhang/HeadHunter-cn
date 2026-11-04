@@ -702,6 +702,7 @@ local CN = {
     SEARCH_PLAYER = "查找玩家",
     SEARCH_EMPTY = "没有叫 %s 的玩家",
     -- HH-155: gangs
+    GANG_CHAT_JOINING = "正在加入帮派聊天：请稍后再试。",
     GANG_CHAT_HEADER = "帮派：",
     GANG_MENU_WHISPER = "密语",
     GANG_MENU_INVITE = "邀请入队",

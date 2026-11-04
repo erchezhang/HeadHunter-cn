@@ -706,6 +706,7 @@ local FR = {
     SEARCH_PLAYER = "Chercher un joueur",
     SEARCH_EMPTY = "Personne ne s'appelle %s",
     -- HH-155: gangs
+    GANG_CHAT_JOINING = "Connexion au chat de bande : réessaie dans un instant.",
     GANG_CHAT_HEADER = "Bande : ",
     GANG_MENU_WHISPER = "Chuchoter",
     GANG_MENU_INVITE = "Inviter dans le groupe",
