@@ -35,7 +35,7 @@ SocialTab.EMPTY_SPACING = 8
 -- the Sync note, from the window's top left: right after the round portrait, under the title
 SocialTab.NOTE_LEFT = 66
 SocialTab.NOTE_TOP = 36
-SocialTab.NOTE_WIDTH = 250
+SocialTab.NOTE_WIDTH = 300
 -- our list on the window: under the note, above the button bar
 SocialTab.LIST_TOP = 68
 SocialTab.LIST_LEFT = 6
