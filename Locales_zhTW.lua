@@ -703,6 +703,7 @@ local TW = {
     SEARCH_PLAYER = "尋找玩家",
     SEARCH_EMPTY = "沒有叫 %s 的玩家",
     -- HH-155: gangs
+    GANG_ALREADY_MEMBER = "%s 已經在你的幫派中。",
     GANG_MEMBER_LEFT = "%s 退出了幫派。",
     GANG_CHAT_TAG = "|cffff9f40[幫派]|r",
     GANG_CHAT_USAGE = "用法：/gang <內容>（或 /gc <內容>）",

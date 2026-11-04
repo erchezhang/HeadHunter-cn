@@ -457,4 +457,13 @@ return function(T, H)
         Settle()
         T.ok(Whispers("l")[1] ~= nil and Whispers("l")[1].target == "Tobin Ashford", "we tell the others when we leave")
     end)
+
+    T.case("invite: a member already in the gang is not invited again", function()
+        local ns = Boot(Data({ Gang("Black Hand", "Vati Guda", { "Vati Guda", "Tobin Ashford" }) }))
+        H.printed, H.sent = {}, {}
+        H.Slash("gang invite Tobin Ashford")
+        Settle()
+        T.ok(H.Printed("already in your gang"), "said")
+        T.eq(#Whispers("i;"), 0, "no invite sent")
+    end)
 end

@@ -747,6 +747,7 @@ L.GANG_CHAT_NONE = "You are not in a gang chat yet: it opens once the website co
 L.GANG_CHAT_COLOR_SET = "Gang chat colour saved."
 L.GANG_CHAT_COLOR_BAD = "Give the colour as six hex digits, for example: /hh gang color ff9f40"
 L.GANG_MEMBER_LEFT = "%s left the gang."
+L.GANG_ALREADY_MEMBER = "%s is already in your gang."
 L.HELP_GANG = "|cffffff00/hh gang [create <name>|invite [name]|leave|kick <name>|lead <name>|rename <name>|color <hex>]|r, |cffffff00/gang <text>|r: your gang of friends (WoW Forever, needs HeadHunter Sync)"
 L.GANG_USAGE = "Usage: /hh gang create <name> | invite [name] | leave | kick <name> | lead <name> | rename <name>"
 L.GANG_FOREVER_ONLY = "Gangs are for WoW Forever only."

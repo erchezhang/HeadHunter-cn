@@ -706,6 +706,7 @@ local KR = {
     SEARCH_PLAYER = "플레이어 찾기",
     SEARCH_EMPTY = "%s(이)라는 플레이어가 없습니다",
     -- HH-155: gangs
+    GANG_ALREADY_MEMBER = "%s님은 이미 당신의 갱단에 있습니다.",
     GANG_MEMBER_LEFT = "%s님이 갱단을 떠났습니다.",
     GANG_CHAT_TAG = "|cffff9f40[갱단]|r",
     GANG_CHAT_USAGE = "사용법: /gang <내용> (또는 /gc <내용>)",

@@ -706,6 +706,7 @@ local FR = {
     SEARCH_PLAYER = "Chercher un joueur",
     SEARCH_EMPTY = "Personne ne s'appelle %s",
     -- HH-155: gangs
+    GANG_ALREADY_MEMBER = "%s est déjà dans ta bande.",
     GANG_MEMBER_LEFT = "%s a quitté la bande.",
     GANG_CHAT_TAG = "|cffff9f40[Bande]|r",
     GANG_CHAT_USAGE = "Utilisation : /gang <texte> (ou /gc <texte>)",

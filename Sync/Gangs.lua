@@ -286,6 +286,12 @@ function Gangs:Invite(key, class)
     if not self:IsLeader(gang) then ns:Print(L.GANG_NOT_LEADER) return false end
     if not gang.confirmed then ns:Print(L.GANG_INVITE_UNCONFIRMED) return false end
     if not key or ns.Utils.SameCharacter(key, Me()) then ns:Print(L.GANG_INVITE_WHO) return false end
+    for _, member in ipairs(gang.members) do
+        if ns.Utils.SameCharacter(member.key, key) then
+            ns:Print(string.format(L.GANG_ALREADY_MEMBER, ns.Utils.DisplayName(key)))
+            return false
+        end
+    end
     if #gang.members >= Gangs.MAX_MEMBERS then ns:Print(L.GANG_FULL) return false end
     local now = ns.Utils.Now()
     if not UnderInviteLimit(now) then ns:Print(L.GANG_INVITE_SLOW) return false end
