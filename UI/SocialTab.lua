@@ -203,10 +203,12 @@ local function ShowBlizzardTitle()
     if text and text.SetText and blizzardTitle then text:SetText(blizzardTitle) end
 end
 
--- The window's round portrait shows the HeadHunter crosshair while our page is open; the
--- page's own portrait is kept to put back, as the title
+-- Our page's own round icon: a dark circle with the HeadHunter crosshair laid over the
+-- window's portrait, part of our page (it shows and hides with it). The game's portrait is
+-- never changed, so Contacts and Raid keep their own icons.
 SocialTab.PORTRAIT = "Interface\\AddOns\\HeadHunter\\Assets\\Textures\\mark"
-local blizzardPortrait
+local badge
+
 local function PortraitTexture()
     local frame = _G.FriendsFrame
     if frame and frame.GetPortrait then
@@ -216,33 +218,36 @@ local function PortraitTexture()
     return frame and (frame.portrait or frame.PortraitContainer and frame.PortraitContainer.portrait) or nil
 end
 
-local function SetPortrait(asset)
-    local frame = _G.FriendsFrame
-    if frame and frame.SetPortraitToAsset then
-        pcall(frame.SetPortraitToAsset, frame, asset)
-        return
+-- A texture drawn round, as the game draws portraits
+local function Round(texture, asset)
+    if SetPortraitToTexture then
+        local ok = pcall(SetPortraitToTexture, texture, asset)
+        if ok then return end
     end
-    local texture = PortraitTexture()
-    if texture and texture.SetTexture then texture:SetTexture(asset) end
+    texture:SetTexture(asset)
 end
 
--- The page's icon is kept once, when our page opens and before we change it (the game may
--- report our crosshair as a file number, so it is never read back while ours shows)
-local function KeepBlizzardPortrait()
-    local texture = PortraitTexture()
-    blizzardPortrait = texture and texture.GetTexture and texture:GetTexture() or nil
+local function CreateBadge()
+    local portrait = PortraitTexture()
+    if not portrait then return nil end
+    local b = CreateFrame("Frame", nil, panel)
+    b:SetAllPoints(portrait)
+    b:SetFrameStrata(_G.FriendsFrame.GetFrameStrata and _G.FriendsFrame:GetFrameStrata() or "MEDIUM")
+    b:SetFrameLevel((_G.FriendsFrame:GetFrameLevel() or 1) + 60)
+    b.background = b:CreateTexture(nil, "BACKGROUND")
+    b.background:SetAllPoints(b)
+    Round(b.background, "Interface\\Buttons\\WHITE8X8")
+    b.background:SetVertexColor(0.08, 0.06, 0.05, 1)
+    b.icon = b:CreateTexture(nil, "ARTWORK")
+    b.icon:SetPoint("TOPLEFT", b, "TOPLEFT", 6, -6)
+    b.icon:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -6, 6)
+    b.icon:SetTexture(SocialTab.PORTRAIT)
+    return b
 end
 
 local function ShowOurPortrait()
-    SetPortrait(SocialTab.PORTRAIT)
-end
-
--- The Social window's own icon, when the game did not tell us the page's
-SocialTab.DEFAULT_PORTRAIT = "Interface\\FriendsFrame\\FriendsFrameScrollIcon"
-
-local function ShowBlizzardPortrait()
-    SetPortrait(blizzardPortrait or SocialTab.DEFAULT_PORTRAIT)
-    blizzardPortrait = nil
+    badge = badge or CreateBadge()
+    if badge then badge:Show() end
 end
 
 -- How the tabs look only: ours selected and every Blizzard tab not
@@ -261,7 +266,6 @@ function SocialTab:Open()
     HideBlizzardPages(hidden.atOpen)
     LookOurs()
     ShowOurTitle()
-    if not panel:IsShown() then KeepBlizzardPortrait() end
     ShowOurPortrait()
     panel:Show()
     self:Refresh()
@@ -272,7 +276,6 @@ function SocialTab:Close()
     if not active then return end
     active = false
     if panel then panel:Hide() end
-    ShowBlizzardPortrait()
     if tab and PanelTemplates_DeselectTab then pcall(PanelTemplates_DeselectTab, tab) end
 end
 
@@ -306,7 +309,6 @@ function SocialTab:Restore()
     if same then ShowPages(hidden.atOpen) end
     ShowPages(hidden.later)
     ShowBlizzardTitle()
-    ShowBlizzardPortrait()
     local button = type(selected) == "number" and TabWithId(selected)
     if button and PanelTemplates_SelectTab then pcall(PanelTemplates_SelectTab, button) end
     hidden = { atOpen = {}, later = {} }

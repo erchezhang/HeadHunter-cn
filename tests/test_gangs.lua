@@ -262,15 +262,12 @@ return function(T, H)
         title.GetText = function(self) return self.value end
         title:SetText("Raid")
         FriendsFrame.GetTitleText = function() return title end
-        local portrait = { value = "Interface\\FriendsFrame\\FriendsFrameScrollIcon" }
-        portrait.GetTexture = function(self)
-            if type(self.value) == "string" and self.value:find("HeadHunter", 1, true) then return 4711 end
-            return self.value
-        end
+        local portrait = CreateFrame("Frame")
+        local portraitChanged = false
         FriendsFrame.GetPortrait = function() return portrait end
-        FriendsFrame.SetPortraitToAsset = function(_, asset) portrait.value = asset end
+        FriendsFrame.SetPortraitToAsset = function() portraitChanged = true end
         tab:GetScript("OnClick")()
-        T.ok(portrait.value:find("HeadHunter", 1, true), "the portrait shows the HeadHunter crosshair")
+        T.ok(not portraitChanged, "the game's portrait is never changed")
         T.eq(title.value, "Gang - Black Hand", "the window's title names our gang once the website confirmed it")
         T.ok(panel:IsShown(), "our page shows")
         T.ok(panel.note.shownText:find("HeadHunter Sync", 1, true), "the note that members need Sync for the ranking")
@@ -288,8 +285,6 @@ return function(T, H)
         FriendsListFrame:Show()
         hooked.FriendsFrame_Update()
         T.ok(not FriendsListFrame:IsShown(), "a refresh of the window hides its page again while ours is open")
-        hooked.FriendsFrame_Update()
-        T.ok(portrait.value:find("HeadHunter", 1, true), "refreshes keep the crosshair on our page")
 
         FriendsFrameTab3.hooks.OnClick(FriendsFrameTab3)
         T.ok(not panel:IsShown(), "a click on Raid closes ours")
@@ -297,7 +292,6 @@ return function(T, H)
         T.ok(FriendsListFrame:IsShown() and RaidFrame:IsShown(), "Raid was Blizzard's tab all along: its page comes back from us")
         T.eq(looks[FriendsFrameTab3], "selected", "and Raid looks selected")
         T.eq(title.value, "Raid", "and its title is back")
-        T.eq(portrait.value, "Interface\\FriendsFrame\\FriendsFrameScrollIcon", "and its portrait")
 
         FriendsFrame.selectedTab = 1
         RaidFrame:Hide()
@@ -317,13 +311,9 @@ return function(T, H)
         T.eq(looks[FriendsFrameTab3], "selected", "Raid looks selected")
 
         tab:GetScript("OnClick")()
-        T.ok(portrait.value:find("HeadHunter", 1, true), "the crosshair on the Gang page")
-        FriendsFrame.hooks.OnHide()
-        T.ok(not portrait.value:find("HeadHunter", 1, true), "closing the window on the Gang page gives the icon back")
-        tab:GetScript("OnClick")()
         hooked.FriendsFrame_OnShow()
-        T.ok(not panel:IsShown(), "reopening the window closes ours")
-        T.ok(not portrait.value:find("HeadHunter", 1, true), "and the icon is the page's again")
+        T.ok(not panel:IsShown(), "reopening the window closes ours, and our icon with it")
+        T.ok(not portraitChanged, "the game's portrait still untouched")
         T.noErrors()
     end)
 
