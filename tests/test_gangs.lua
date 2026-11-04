@@ -547,4 +547,37 @@ return function(T, H)
         H.Deliver(leader.Protocol.Pack("A", leader.Protocol.TYPES.GANG, { "g" }), "Gang Ster")
         T.ok(H.Printed("Gang Ster is already in a gang"), "the leader hears why")
     end)
+
+    T.case("right-click menu: whisper and group invite for anyone, make leader and kick for the leader", function()
+        local ns = Boot(Data({ Gang("Black Hand", "Vati Guda", { "Vati Guda", "Tobin Ashford" }) }))
+        local labels = {}
+        for _, item in ipairs(ns.GangMenu.Items("Tobin Ashford")) do labels[#labels + 1] = item.label end
+        T.eq(table.concat(labels, ","), "Whisper,Invite to group,Make leader,Kick", "the leader's menu")
+        T.eq(#ns.GangMenu.Items("Vati Guda"), 0, "none for ourselves")
+        local member = Boot(Data({ Gang("Black Hand", "Tobin Ashford", { "Tobin Ashford", "Vati Guda" }) }))
+        labels = {}
+        for _, item in ipairs(member.GangMenu.Items("Tobin Ashford")) do labels[#labels + 1] = item.label end
+        T.eq(table.concat(labels, ","), "Whisper,Invite to group", "a member's menu")
+        H.popups = {}
+        ns.GangMenu.Items("Tobin Ashford")[4].run()
+        T.ok(H.popups[1] and H.popups[1].text:find("Tobin Ashford", 1, true), "kick asks first")
+    end)
+
+    T.case("level and online: from the website or the invite, online from the gang channel", function()
+        local data = Data({ Gang("Black Hand", "Vati Guda", { "Vati Guda", "Tobin Ashford" }) })
+        data.worlds["forever|us|pvp"].gangs[1].members[2].level = 27
+        data.characters[1].gang_chat = { channel = "HHGabcdefghijkl", password = "secret" }
+        local ns = Boot(data)
+        H.joinWorks = true
+        ns.GangChat:Join()
+        local tobin = ns.Gangs:Mine().members[2]
+        T.eq(ns.Gangs:MemberLevel(tobin), 27, "the website's level")
+        T.ok(not ns.Gangs:IsOnline("Tobin Ashford"), "not seen: offline")
+        ns.GangChat:OnJoinLeave(true, "Tobin Ashford", "HHGabcdefghijkl", "6. HHGabcdefghijkl")
+        T.ok(ns.Gangs:IsOnline("Tobin Ashford"), "joined the gang channel: online")
+        T.ok(ns.SocialTab.MemberDetails(tobin, ns.Gangs:Mine()):find("Level 27", 1, true), "level on the Social page")
+        ns.GangChat:OnJoinLeave(false, "Tobin Ashford", "HHGabcdefghijkl", "6. HHGabcdefghijkl")
+        T.ok(not ns.Gangs:IsOnline("Tobin Ashford"), "left it: offline")
+        T.ok(ns.Gangs:IsOnline("Vati Guda"), "we are online")
+    end)
 end

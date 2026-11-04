@@ -82,18 +82,19 @@ function SocialTab:Refresh()
     local U = ns.Utils
     for i = 1, SocialTab.ROWS do
         local member = gang and gang.members[i]
-        local line, role, border = panel.lines[i], panel.roles[i], panel.borders[i]
+        local line, role, border, click = panel.lines[i], panel.roles[i], panel.borders[i], panel.clicks[i]
         if member then
-            local leads = U.SameCharacter(member.key, gang.leader)
-            local class = ns.Gangs:MemberClass(member)
-            local icon = U.ClassIcon(class, 16)
-            line:SetText((icon ~= "" and (icon .. " ") or "") .. ns.MainWindow.ClassColored(U.DisplayName(member.key), class))
-            role:SetText(leads and L.GANG_ROLE_LEADER or L.GANG_ROLE_MEMBER)
+            line:SetText(SocialTab.MemberName(member))
+            role:SetText(SocialTab.MemberDetails(member, gang))
             border:Show()
+            click.key = member.key
+            click:Show()
         else
             line:SetText("")
             role:SetText("")
             border:Hide()
+            click.key = nil
+            click:Hide()
         end
     end
     if gang then
@@ -106,6 +107,24 @@ function SocialTab:Refresh()
     if panel.invite.SetEnabled then panel.invite:SetEnabled(gang and gang.confirmed == true or false) end
     if gang then panel.leave:Show() else panel.leave:Hide() end
     if gang then panel.create:Hide() else panel.create:Show() end
+end
+
+-- "[icon] Name" in the member's class colour
+function SocialTab.MemberName(member)
+    local U = ns.Utils
+    local class = ns.Gangs:MemberClass(member)
+    local icon = U.ClassIcon(class, 16)
+    return (icon ~= "" and (icon .. " ") or "") .. ns.MainWindow.ClassColored(U.DisplayName(member.key), class)
+end
+
+-- "Level 12 · Online · Leader": level when known, online in green, offline in grey
+function SocialTab.MemberDetails(member, gang)
+    local parts = {}
+    local level = ns.Gangs:MemberLevel(member)
+    if level then parts[#parts + 1] = string.format(L.GANG_LEVEL, level) end
+    parts[#parts + 1] = ns.Gangs:IsOnline(member.key) and ("|cff40ff40" .. L.GANG_ONLINE .. "|r") or ("|cff808080" .. L.GANG_OFFLINE .. "|r")
+    parts[#parts + 1] = ns.Utils.SameCharacter(member.key, gang.leader) and L.GANG_ROLE_LEADER or L.GANG_ROLE_MEMBER
+    return table.concat(parts, " · ")
 end
 
 -- Blizzard's pages out of sight while ours is open; RaidFrame only out of combat
@@ -273,12 +292,12 @@ local function CreatePanel(frame)
     p.empty:SetJustifyH("LEFT")
     p.empty:SetSpacing(SocialTab.EMPTY_SPACING)
     p.empty:Hide()
-    p.lines, p.roles, p.borders = {}, {}, {}
+    p.lines, p.roles, p.borders, p.clicks = {}, {}, {}, {}
     for i = 1, SocialTab.ROWS do
         local top = -8 - (i - 1) * SocialTab.ROW_HEIGHT
         local line = p:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
         line:SetPoint("TOPLEFT", 14, top - 4)
-        line:SetPoint("RIGHT", -110, 0)
+        line:SetPoint("RIGHT", -190, 0)
         line:SetJustifyH("LEFT")
         local role = p:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
         role:SetPoint("TOPRIGHT", -14, top - 6)
@@ -289,7 +308,16 @@ local function CreatePanel(frame)
         border:SetPoint("TOPLEFT", 10, top - SocialTab.ROW_HEIGHT + 1)
         border:SetPoint("TOPRIGHT", -10, top - SocialTab.ROW_HEIGHT + 1)
         border:Hide()
-        p.lines[i], p.roles[i], p.borders[i] = line, role, border
+        local click = CreateFrame("Button", nil, p)
+        click:SetPoint("TOPLEFT", 10, top)
+        click:SetPoint("RIGHT", -10, 0)
+        click:SetHeight(SocialTab.ROW_HEIGHT)
+        click:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+        click:SetScript("OnClick", function(self, button)
+            if button == "RightButton" and self.key then ns.GangMenu:Open(self.key) end
+        end)
+        click:Hide()
+        p.lines[i], p.roles[i], p.borders[i], p.clicks[i] = line, role, border, click
     end
     p.invite = CreateFrame("Button", nil, p, "UIPanelButtonTemplate")
     p.invite:SetSize(120, 22)

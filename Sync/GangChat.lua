@@ -19,6 +19,8 @@ GangChat.JOIN_DELAY = 12
 GangChat.DEFAULT_COLOR = "ff9f40"
 
 local current
+-- player key -> true (joined or spoke in the gang channel) or false (left it)
+local presence = {}
 
 -- The channel and password the website sent for our character, or nil
 function GangChat.Credentials()
@@ -84,6 +86,27 @@ function GangChat:Channel()
     return current
 end
 
+-- true or false once the gang channel told us, else nil
+function GangChat:Seen(key)
+    for name, online in pairs(presence) do
+        if ns.Utils.SameCharacter(name, key) then return online end
+    end
+    return nil
+end
+
+local function OurChannel(channelBaseName, channelName)
+    local name = channelBaseName ~= "" and channelBaseName or (type(channelName) == "string" and channelName:match("^%d+%. (.+)$"))
+    return current ~= nil and name == current
+end
+
+function GangChat:OnJoinLeave(joined, sender, channelBaseName, channelName)
+    if not OurChannel(channelBaseName, channelName) then return end
+    local key = ns.Utils.PlayerKey(sender)
+    if not key then return end
+    presence[key] = joined
+    ns.Events:Fire("HH_GANG_CHANGED")
+end
+
 -- "ff9f40" -> r, g, b (0..1)
 function GangChat.Color()
     local hex = ns.db and ns.db.settings.gangChatColor or GangChat.DEFAULT_COLOR
@@ -108,6 +131,8 @@ end
 function GangChat:OnChannelText(text, sender, channelBaseName, channelName)
     local name = channelBaseName ~= "" and channelBaseName or (type(channelName) == "string" and channelName:match("^%d+%. (.+)$"))
     if not current or name ~= current or type(text) ~= "string" then return end
+    local key = ns.Utils.PlayerKey(sender)
+    if key then presence[key] = true end
     local window = DEFAULT_CHAT_FRAME
     if window and window.AddMessage then window:AddMessage(self.Line(sender, text), self.Color()) end
 end
@@ -129,6 +154,12 @@ _G.SlashCmdList.HEADHUNTERGANGCHAT = function(text) GangChat:Send(text) end
 ns.Events:Register("HH_INITIALIZED", function()
     ns.Events:Register("CHAT_MSG_CHANNEL", function(_, text, sender, _, channelName, _, _, _, _, channelBaseName)
         GangChat:OnChannelText(text, sender, channelBaseName, channelName)
+    end, OWNER)
+    ns.Events:Register("CHAT_MSG_CHANNEL_JOIN", function(_, _, sender, _, channelName, _, _, _, _, channelBaseName)
+        GangChat:OnJoinLeave(true, sender, channelBaseName, channelName)
+    end, OWNER)
+    ns.Events:Register("CHAT_MSG_CHANNEL_LEAVE", function(_, _, sender, _, channelName, _, _, _, _, channelBaseName)
+        GangChat:OnJoinLeave(false, sender, channelBaseName, channelName)
     end, OWNER)
     ns.Events:Register("HH_GANG_CHANGED", function(_, action)
         if action and action.kind == "leave" then GangChat:Leave() end

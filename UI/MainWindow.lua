@@ -165,8 +165,9 @@ MainWindow.COLUMNS = {
     gang = {
         { key = "name", header = "COL_NAME", width = 260, font = "name" },
         { key = "desc", header = "COL_WHO", width = 200 },
-        { key = "role", header = "COL_GANG_ROLE", width = 140 },
-        { key = "joined", header = "COL_GANG_JOINED", width = 180 },
+        { key = "online", header = "COL_GANG_STATUS", width = 110 },
+        { key = "role", header = "COL_GANG_ROLE", width = 110 },
+        { key = "joined", header = "COL_GANG_JOINED", width = 100 },
     },
     deaths = {
         { key = "time", header = "COL_WHEN", width = 125 },
@@ -593,17 +594,19 @@ local function GangRows()
     local gang = ns.Gangs:Mine()
     local rows = {}
     if not gang then return rows end
-    local leaderHint = ns.Gangs:IsLeader(gang) and L.GANG_ROW_LEADER_HINT or nil
     for _, member in ipairs(gang.members) do
         local leads = U.SameCharacter(member.key, gang.leader)
         local plain = U.DisplayName(member.key)
         local row = {
             plain = plain,
             name = Named(plain, member),
-            desc = (member.level or member.class) and ns.DeathReports.Describe(member) or "",
+            gangMember = member.key,
+            desc = ns.DeathReports.Describe({ level = ns.Gangs:MemberLevel(member), class = ns.Gangs:MemberClass(member),
+                race = member.race, sex = member.sex }),
+            online = ns.Gangs:IsOnline(member.key) and ("|cff40ff40" .. L.GANG_ONLINE .. "|r") or ("|cff808080" .. L.GANG_OFFLINE .. "|r"),
             role = leads and L.GANG_ROLE_LEADER or L.GANG_ROLE_MEMBER,
             joined = member.joinedAt and date("%m-%d %H:%M", member.joinedAt) or (gang.pending and L.GANG_ROLE_PENDING or ""),
-            tooltip = { plain, gang.name, (not leads) and leaderHint and string.format(leaderHint, plain) or nil },
+            tooltip = { plain, gang.name, L.GANG_ROW_MENU_HINT },
         }
         if leads then table.insert(rows, 1, row) else rows[#rows + 1] = row end
     end
@@ -1155,7 +1158,14 @@ local function RowFrame(i)
     row.cells = {}
     row:SetScript("OnEnter", ShowRowTooltip)
     row:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
-    row:SetScript("OnClick", function(self) MainWindow:OnRowClick(self.data) end)
+    row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    row:SetScript("OnClick", function(self, button)
+        if button == "RightButton" then
+            if self.data and self.data.gangMember then ns.GangMenu:Open(self.data.gangMember) end
+            return
+        end
+        MainWindow:OnRowClick(self.data)
+    end)
     rowFrames[i] = row
     return row
 end
