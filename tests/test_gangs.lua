@@ -474,21 +474,26 @@ return function(T, H)
         H.Slash("gang invite Tobin Ashford")
         Settle()
         T.ok(Whispers("i;Black Hand;ROGUE")[1] ~= nil, "our class goes with the invite")
-        H.Deliver(ns.Protocol.Pack("A", ns.Protocol.TYPES.GANG, { "a;MAGE" }), "Tobin Ashford")
+        T.ok(Whispers(";Human;2")[1] ~= nil, "and our race and sex")
+        H.Deliver(ns.Protocol.Pack("A", ns.Protocol.TYPES.GANG, { "a;MAGE;24;Scourge;3" }), "Tobin Ashford")
         local tobin
         for _, member in ipairs(ns.Gangs:Mine().members) do
             if member.key == "Tobin Ashford" then tobin = member end
         end
         T.eq(ns.Gangs:MemberClass(tobin), "MAGE", "their class from the answer")
+        local race, sex = ns.Gangs:MemberRace(tobin)
+        T.eq(race, "Scourge", "their race from the answer")
+        T.eq(sex, 3, "and sex")
 
         local member = Boot()
         H.sent = {}
-        H.Deliver(member.Protocol.Pack("A", member.Protocol.TYPES.GANG, { "i;Black Hand;WARRIOR" }), "Kira Dawnblade")
+        H.Deliver(member.Protocol.Pack("A", member.Protocol.TYPES.GANG, { "i;Black Hand;WARRIOR;30;Tauren;2" }), "Kira Dawnblade")
         StaticPopupDialogs[member.Gangs.POPUP].OnAccept()
         Settle()
         T.ok(Whispers("a;ROGUE")[1] ~= nil, "our class goes with the accept")
         local leader = member.Gangs:Mine().members[1]
         T.eq(member.Gangs:MemberClass(leader), "WARRIOR", "the leader's class from the invite")
+        T.eq(select(1, member.Gangs:MemberRace(leader)), "Tauren", "and the leader's race")
     end)
 
     T.case("Invite target: the target's class is known at once", function()

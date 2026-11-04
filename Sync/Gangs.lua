@@ -85,6 +85,18 @@ local function MyLevel()
     return type(level) == "number" and level > 0 and level or nil
 end
 
+-- Our race token and sex as a message part: "Scourge;3"
+local function MyLooks()
+    local race = UnitRace and select(2, UnitRace("player"))
+    local sex = UnitSex and UnitSex("player")
+    return (race or "") .. ";" .. (sex or "")
+end
+
+-- A race token from a message ("Scourge", "NightElf"), or nil
+local function RaceToken(text)
+    return type(text) == "string" and text:match("^%a+$") or nil
+end
+
 -- A level from a message, or nil
 local function LevelOf(text)
     local level = tonumber(text)
@@ -203,7 +215,8 @@ function Gangs:Mine()
                 gang = { name = action.name, leader = me, members = { { key = me } }, pending = true }
             elseif action.kind == "accept" and (not gang or not result) then
                 gang = { name = action.name or "?", leader = action.leader,
-                    members = { { key = action.leader, class = action.leaderClass, level = action.leaderLevel }, { key = me } },
+                    members = { { key = action.leader, class = action.leaderClass, level = action.leaderLevel,
+                        race = action.leaderRace, sex = action.leaderSex }, { key = me } },
                     pending = true }
             elseif action.kind == "leave" then
                 gang = nil
@@ -221,7 +234,7 @@ function Gangs:Mine()
                     local members = {}
                     for i, member in ipairs(gang.members) do members[i] = member end
                     members[#members + 1] = { key = action.player, pending = true, class = action.memberClass,
-                        level = action.memberLevel }
+                        level = action.memberLevel, race = action.memberRace, sex = action.memberSex }
                     gang = { name = gang.name, leader = gang.leader, members = members, pending = gang.pending,
                         confirmed = gang.confirmed }
                 end
@@ -268,12 +281,22 @@ function Gangs:MemberClass(member)
     return seen and seen.class or nil
 end
 
--- A member's race and sex: theirs, else ours for us
+-- A member's race and sex: theirs, else ours for us, else what an invite or its answer
+-- carried (also for the website's members it does not know the race of yet)
 function Gangs:MemberRace(member)
     if member.race then return member.race, member.sex end
-    if ns.Utils.SameCharacter(member.key, Me()) and UnitRace then
+    local U = ns.Utils
+    if U.SameCharacter(member.key, Me()) and UnitRace then
         local _, race = UnitRace("player")
         return race, UnitSex and UnitSex("player") or nil
+    end
+    for _, action in ipairs(self:Actions()) do
+        if action.kind == "invite" and U.SameCharacter(action.player, member.key) and action.memberRace then
+            return action.memberRace, action.memberSex
+        end
+        if action.kind == "accept" and U.SameCharacter(action.leader, member.key) and action.leaderRace then
+            return action.leaderRace, action.leaderSex
+        end
     end
     return nil, member.sex
 end
@@ -401,7 +424,8 @@ function Gangs:Invite(key, class, level)
     inviteLog[#inviteLog + 1] = now
     sentInvites[key] = now
     heard[key] = nil
-    ns.Transport:SendDirect(ns.Protocol.TYPES.GANG, { "i;" .. gang.name .. ";" .. (MyClass() or "") .. ";" .. (MyLevel() or "") }, key)
+    ns.Transport:SendDirect(ns.Protocol.TYPES.GANG,
+        { "i;" .. gang.name .. ";" .. (MyClass() or "") .. ";" .. (MyLevel() or "") .. ";" .. MyLooks() }, key)
     self:Record("invite", { player = key, memberClass = ClassToken(class), memberLevel = LevelOf(level) })
     C_Timer.After(Gangs.ACK_WAIT, function()
         if sentInvites[key] == now and not heard[key] then
@@ -438,8 +462,8 @@ function Gangs:AcceptInvite()
     incoming = nil
     if not invite or ns.Utils.Now() - invite.at > Gangs.INVITE_TIMEOUT then return nil end
     local action = self:Record("accept", { leader = invite.leader, name = invite.name, leaderClass = invite.leaderClass,
-        leaderLevel = invite.leaderLevel })
-    Answer("a;" .. (MyClass() or "") .. ";" .. (MyLevel() or ""), invite.sender)
+        leaderLevel = invite.leaderLevel, leaderRace = invite.leaderRace, leaderSex = invite.leaderSex })
+    Answer("a;" .. (MyClass() or "") .. ";" .. (MyLevel() or "") .. ";" .. MyLooks(), invite.sender)
     ns:Print(string.format(L.GANG_JOIN_WAITING, invite.name))
     return action
 end
@@ -452,7 +476,7 @@ end
 
 local function OnInvite(rest, sender)
     local leader = ns.Utils.PlayerKey(sender)
-    local name, leaderClass, leaderLevel = rest:match("^(.-);(%u*);?(%d*)$")
+    local name, leaderClass, leaderLevel, leaderRace, leaderSex = rest:match("^(.-);(%u*);?(%d*);?(%a*);?(%d*)$")
     name = Gangs.CleanName(name or rest)
     if not leader or not Gangs.ValidName(name) then return end
     if Gangs.Enabled() and Gangs:Mine() then
@@ -472,7 +496,7 @@ local function OnInvite(rest, sender)
     end
     Answer("r", sender)
     incoming = { leader = leader, name = name, at = ns.Utils.Now(), sender = sender, leaderClass = ClassToken(leaderClass),
-        leaderLevel = LevelOf(leaderLevel) }
+        leaderLevel = LevelOf(leaderLevel), leaderRace = RaceToken(leaderRace), leaderSex = tonumber(leaderSex) }
     StaticPopupDialogs[Gangs.POPUP].text = string.format(L.GANG_INVITE_POPUP, ns.Utils.DisplayName(leader), name)
     StaticPopup_Show(Gangs.POPUP)
 end
@@ -509,9 +533,11 @@ local function OnAnswer(code, sender, rest)
         local action = InviteActionOf(key)
         if action then
             action.accepted = true
-            local class, level = (rest or ""):match("^(%u*);?(%d*)$")
+            local class, level, race, sex = (rest or ""):match("^(%u*);?(%d*);?(%a*);?(%d*)$")
             action.memberClass = ClassToken(class) or action.memberClass
             action.memberLevel = LevelOf(level) or action.memberLevel
+            action.memberRace = RaceToken(race) or action.memberRace
+            action.memberSex = tonumber(sex) or action.memberSex
         end
         ns.Events:Fire("HH_GANG_CHANGED", action)
     end
