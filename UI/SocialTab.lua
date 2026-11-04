@@ -218,14 +218,8 @@ local function PortraitTexture()
     return frame and (frame.portrait or frame.PortraitContainer and frame.PortraitContainer.portrait) or nil
 end
 
--- A texture drawn round, as the game draws portraits
-local function Round(texture, asset)
-    if SetPortraitToTexture then
-        local ok = pcall(SetPortraitToTexture, texture, asset)
-        if ok then return end
-    end
-    texture:SetTexture(asset)
-end
+-- The game's round portrait shape: a filled circle, transparent around it
+SocialTab.CIRCLE = "Interface\\CharacterFrame\\TempPortraitAlphaMask"
 
 local function CreateBadge()
     local portrait = PortraitTexture()
@@ -236,12 +230,20 @@ local function CreateBadge()
     b:SetFrameLevel((_G.FriendsFrame:GetFrameLevel() or 1) + 60)
     b.background = b:CreateTexture(nil, "BACKGROUND")
     b.background:SetAllPoints(b)
-    Round(b.background, "Interface\\Buttons\\WHITE8X8")
+    b.background:SetTexture(SocialTab.CIRCLE)
     b.background:SetVertexColor(0.08, 0.06, 0.05, 1)
     b.icon = b:CreateTexture(nil, "ARTWORK")
     b.icon:SetPoint("TOPLEFT", b, "TOPLEFT", 6, -6)
     b.icon:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -6, 6)
     b.icon:SetTexture(SocialTab.PORTRAIT)
+    if b.CreateMaskTexture and b.icon.AddMaskTexture then
+        local mask = b:CreateMaskTexture()
+        if mask then
+            mask:SetAllPoints(b)
+            mask:SetTexture(SocialTab.CIRCLE, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+            b.icon:AddMaskTexture(mask)
+        end
+    end
     return b
 end
 
