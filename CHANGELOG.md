@@ -4,6 +4,15 @@
 
 HeadHunter 1.0 for the WoW Forever release. Everything since 0.5.0:
 
+### Gangs
+
+- Friends can play under one **gang** name, up to 20 members, with one leader. Create one with **Create gang** or `/hh gang create <name>`, invite with **Invite target**, and accept the popup. A gang is checked and kept by the website, so it needs **HeadHunter Sync**: it shows "waiting for Sync" until the next sync.
+- The new **Gang** tab in the HeadHunter window lists your gang with class, level and online status. Right-click a member to whisper, invite to group, or as the leader hand over the lead or kick.
+- **Gang chat**: `/gang <text>`, or `/gang` and a space to switch the chat box to it, like guild chat. Its lines show as [Gang] and can go into any chat window or tab.
+- Tooltips show "Gang: <name>", and the website has a Gangs ranking and a page for each gang.
+- Gang rules: a name is unique on your world, and after leaving a gang you wait 24 hours before joining another.
+- The kill made by 3 or more attackers is now called **Pack** (it was Gang).
+
 ### WANTED and justice
 
 - A WANTED player now needs kills on **at least 2 different players**, and one player's deaths count at most 3 times an hour. Nobody can make someone WANTED alone. Kills, totals and badges still count every death.
