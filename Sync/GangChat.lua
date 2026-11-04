@@ -28,9 +28,12 @@ local current
 -- player key -> { online = true (joined or spoke in the gang channel) or false (left it), t }
 local presence = {}
 
--- The channel and password the website sent for our character, or nil
+-- The channel and password the website sent for our character, while we are in that gang:
+-- not after we left it (the download still has it until the next sync), else nil
 function GangChat.Credentials()
     if not ns.Gangs.Enabled() then return nil end
+    local gang = ns.Gangs:Mine()
+    if not (gang and gang.confirmed) or ns.Gangs:Sim() then return nil end
     return ns.SiteData:GangChat(ns.Utils.UnitKey("player"))
 end
 

@@ -400,7 +400,7 @@ return function(T, H)
     end)
 
     T.case("gang chat: an ordinary channel labelled [Gang], shown in the main window once, /gang sends or opens it", function()
-        local data = Data()
+        local data = Data({ Gang("Black Hand", "Vati Guda", { "Vati Guda" }) })
         data.characters[1].gang_chat = { channel = "HHGabcdefghijkl", password = "secret" }
         local ns = Boot(data)
         H.joinWorks = true
@@ -670,7 +670,7 @@ return function(T, H)
     end)
 
     T.case("gang chat: /gang right after login joins the channel on the spot", function()
-        local data = Data()
+        local data = Data({ Gang("Black Hand", "Vati Guda", { "Vati Guda" }) })
         data.characters[1].gang_chat = { channel = "HHGabcdefghijkl", password = "secret" }
         Boot(data)
         H.joinWorks = true
@@ -680,7 +680,7 @@ return function(T, H)
     end)
 
     T.case("gang chat: /gang + space switches the chat box, unless turned off", function()
-        local data = Data()
+        local data = Data({ Gang("Black Hand", "Vati Guda", { "Vati Guda" }) })
         data.characters[1].gang_chat = { channel = "HHGabcdefghijkl", password = "secret" }
         local ns = Boot(data)
         H.joinWorks = true
@@ -736,5 +736,16 @@ return function(T, H)
         H.Slash("gang create Western Gods")
         local race = ns.Gangs:MemberRace(ns.Gangs:Mine().members[1])
         T.eq(race, H.units.player.race, "our own race while the website has not sent it")
+    end)
+
+    T.case("gang chat: no channel once we left the gang, though the download still has it", function()
+        local data = Data({ Gang("Black Hand", "Tobin Ashford", { "Tobin Ashford", "Vati Guda" }) })
+        data.characters[1].gang_chat = { channel = "Gang_HHabcdefghijkl", password = "secret" }
+        local ns = Boot(data)
+        H.joinWorks = true
+        T.ok(ns.GangChat:Join(), "a member joins")
+        H.Slash("gang leave")
+        T.eq(ns.GangChat:Channel(), nil, "left at once")
+        T.ok(not ns.GangChat:Join(), "and not joined again from the old download")
     end)
 end
