@@ -208,7 +208,13 @@ function H.Install(opts)
             return 0
         end,
     }
-    _G.ChatFrame_AddMessageEventFilter = function(event, fn) H.chatFilters[event] = fn end
+    -- H.chatFilters[event]: the first filter of an event; H.chatFilterList[event]: all of them
+    H.chatFilterList = {}
+    _G.ChatFrame_AddMessageEventFilter = function(event, fn)
+        H.chatFilters[event] = H.chatFilters[event] or fn
+        H.chatFilterList[event] = H.chatFilterList[event] or {}
+        table.insert(H.chatFilterList[event], fn)
+    end
     -- Guild / group state (Era automatic routes)
     H.inGuild, H.inRaid, H.inGroup = false, false, false
     _G.IsInGuild = function() return H.inGuild end
