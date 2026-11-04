@@ -1,9 +1,11 @@
 -- HH-155: gang chat, like guild chat. The website gives each gang a hidden game chat
 -- channel with a password and sends both only to its members (the download's
--- characters[...].gang_chat). We join it and it is an ordinary chat channel: shown in the
+-- characters[...].gang_chat). We join it and it is an ordinary chat channel: put in the
 -- main chat window the first time (the game's chat settings move it to any window or tab),
--- its lines labelled "[Gang]" by a chat filter, its sticky chat box (/<number> + space) with
--- the header "Gang:", in the gang chat colour. /gang <text> sends; /gang alone opens the
+-- its sticky chat box (/<number> + space) with the header "Gang:". Its lines are printed by
+-- us as "[Gang] [Name]: text" in the gang chat colour into every chat window that lists the
+-- channel; the game's own line is hidden, as a shown name shorter than the channel's name
+-- makes the chat windows drop the line. /gang <text> sends; /gang alone opens the
 -- chat box on gang chat. The chat box's chat type is never set from our code (that taints
 -- protected commands typed in chat). A gang's channel changes when a member is kicked; any
 -- other HHG channel we are in is left. WoW Forever only, once the website confirmed the gang.
@@ -132,19 +134,43 @@ function GangChat.SetColor(hex)
     return true
 end
 
--- A line in our channel: its sender spoke, so they are online
+-- A line in our channel: printed as [Gang] into the windows that list it; its sender spoke,
+-- so they are online
 function GangChat:OnChannelText(text, sender, channelBaseName, channelName)
     if not OurChannel(channelBaseName, channelName) or type(text) ~= "string" then return end
     local key = ns.Utils.PlayerKey(sender)
     if key then presence[key] = { online = true, t = ns.Utils.Now() } end
+    local line = self.Line(sender, text, ChannelId(current))
+    for _, window in ipairs(self.Windows(current)) do
+        if window.AddMessage then window:AddMessage(line, self.Color()) end
+    end
 end
 
--- Chat filter: our channel's lines say "[Gang]" instead of "[6. HHGxk3...]"; its join and
--- leave notices are not shown. Only the shown name changes: the base name stays, as each
--- chat window keeps the lines of the channels it lists by that name.
-function GangChat.LabelFilter(_, _, text, sender, language, channelName, target, flags, zoneId, index, baseName, ...)
-    if not OurChannel(baseName or "", channelName) then return false end
-    return false, text, sender, language, L.TAB_GANG, target, flags, zoneId, index, baseName, ...
+-- Chat filter: the game's own line of our channel is hidden (we print it as [Gang]); its
+-- join and leave notices too
+function GangChat.LabelFilter(_, _, _, _, _, channelName, _, _, _, _, baseName)
+    return OurChannel(baseName or "", channelName)
+end
+
+-- "[Gang] [Andy Gue]: text": [Gang] opens the chat box on gang chat, the name a player link
+function GangChat.Line(sender, text, id)
+    local key = ns.Utils.PlayerKey(sender) or sender
+    local shown = ns.Utils.DisplayName(key) or key
+    local label = id and string.format("|Hchannel:channel:%d|h[%s]|h", id, L.TAB_GANG) or ("[" .. L.TAB_GANG .. "]")
+    return string.format("%s |Hplayer:%s|h[%s]|h: %s", label, sender, shown, text)
+end
+
+-- The chat windows that list a channel (the game's chat settings)
+function GangChat.Windows(name)
+    local windows = {}
+    for i = 1, (NUM_CHAT_WINDOWS or 10) do
+        local window = _G["ChatFrame" .. i]
+        local list = window and GetChatWindowChannels and { ns.Utils.SafeCall(GetChatWindowChannels, i) } or {}
+        for j = 1, #list, 2 do
+            if list[j] == name then windows[#windows + 1] = window end
+        end
+    end
+    return windows
 end
 
 function GangChat.NoticeFilter(_, _, _, _, _, channelName, _, _, _, _, baseName)
