@@ -62,6 +62,18 @@ local function Me()
     return ns.Utils.UnitKey("player")
 end
 
+-- Our class token ("ROGUE"), or nil
+local function MyClass()
+    if not UnitClass then return nil end
+    local _, class = UnitClass("player")
+    return class
+end
+
+-- A class token from a message, or nil ("ROGUE" only: capitals)
+local function ClassToken(text)
+    return type(text) == "string" and text:match("^%u+$") or nil
+end
+
 function Gangs.Enabled()
     return ns.Features.RealmlessNames == true
 end
@@ -149,8 +161,8 @@ function Gangs:Mine()
             if action.kind == "create" then
                 gang = { name = action.name, leader = me, members = { { key = me } }, pending = true }
             elseif action.kind == "accept" and (not gang or not result) then
-                gang = { name = action.name or "?", leader = action.leader, members = { { key = action.leader }, { key = me } },
-                    pending = true }
+                gang = { name = action.name or "?", leader = action.leader,
+                    members = { { key = action.leader, class = action.leaderClass }, { key = me } }, pending = true }
             elseif action.kind == "leave" then
                 gang = nil
             elseif action.kind == "rename" and gang then
@@ -164,7 +176,7 @@ function Gangs:Mine()
                 if not known then
                     local members = {}
                     for i, member in ipairs(gang.members) do members[i] = member end
-                    members[#members + 1] = { key = action.player, pending = true }
+                    members[#members + 1] = { key = action.player, pending = true, class = action.memberClass }
                     gang = { name = gang.name, leader = gang.leader, members = members, pending = gang.pending,
                         confirmed = gang.confirmed }
                 end
@@ -174,13 +186,19 @@ function Gangs:Mine()
     return gang
 end
 
--- A member's class: the website's, else ours for us, else what we saw of them
+-- A member's class: the website's, else ours for us, else what an invite or its answer
+-- carried, else what we saw of them
 function Gangs:MemberClass(member)
     if member.class then return member.class end
     local U = ns.Utils
-    if U.SameCharacter(member.key, Me()) and UnitClass then
-        local _, class = UnitClass("player")
-        return class
+    if U.SameCharacter(member.key, Me()) then return MyClass() end
+    for _, action in ipairs(self:Actions()) do
+        if action.kind == "invite" and U.SameCharacter(action.player, member.key) and action.memberClass then
+            return action.memberClass
+        end
+        if action.kind == "accept" and U.SameCharacter(action.leader, member.key) and action.leaderClass then
+            return action.leaderClass
+        end
     end
     local seen = ns.EnemyCache and ns.EnemyCache:ByKey(member.key)
     return seen and seen.class or nil
@@ -233,7 +251,7 @@ local function UnderInviteLimit(now)
 end
 
 -- Invite a player key; returns true when the whisper went out
-function Gangs:Invite(key)
+function Gangs:Invite(key, class)
     local gang = self:Mine()
     if not gang then ns:Print(L.GANG_NOT_IN_A_GANG) return false end
     if not self:IsLeader(gang) then ns:Print(L.GANG_NOT_LEADER) return false end
@@ -245,8 +263,8 @@ function Gangs:Invite(key)
     inviteLog[#inviteLog + 1] = now
     sentInvites[key] = now
     heard[key] = nil
-    ns.Transport:SendDirect(ns.Protocol.TYPES.GANG, { "i;" .. gang.name }, key)
-    self:Record("invite", { player = key })
+    ns.Transport:SendDirect(ns.Protocol.TYPES.GANG, { "i;" .. gang.name .. ";" .. (MyClass() or "") }, key)
+    self:Record("invite", { player = key, memberClass = ClassToken(class) })
     C_Timer.After(Gangs.ACK_WAIT, function()
         if sentInvites[key] == now and not heard[key] then
             ns:Print(string.format(L.GANG_NO_ADDON, ns.Utils.DisplayName(key)))
@@ -264,8 +282,8 @@ function Gangs:AcceptInvite()
     local invite = incoming
     incoming = nil
     if not invite or ns.Utils.Now() - invite.at > Gangs.INVITE_TIMEOUT then return nil end
-    local action = self:Record("accept", { leader = invite.leader, name = invite.name })
-    Answer("a", invite.sender)
+    local action = self:Record("accept", { leader = invite.leader, name = invite.name, leaderClass = invite.leaderClass })
+    Answer("a;" .. (MyClass() or ""), invite.sender)
     ns:Print(string.format(L.GANG_JOIN_WAITING, invite.name))
     return action
 end
@@ -276,16 +294,17 @@ function Gangs:DeclineInvite()
     if invite then Answer("d", invite.sender) end
 end
 
-local function OnInvite(name, sender)
+local function OnInvite(rest, sender)
     local leader = ns.Utils.PlayerKey(sender)
-    name = Gangs.CleanName(name)
+    local name, leaderClass = rest:match("^(.-);(%u*)$")
+    name = Gangs.CleanName(name or rest)
     if not leader or not Gangs.ValidName(name) then return end
     if not Gangs.Enabled() or ns.Database:GetSetting("gangInvites") == false or Gangs:Mine() then
         Answer("d", sender)
         return
     end
     Answer("r", sender)
-    incoming = { leader = leader, name = name, at = ns.Utils.Now(), sender = sender }
+    incoming = { leader = leader, name = name, at = ns.Utils.Now(), sender = sender, leaderClass = ClassToken(leaderClass) }
     StaticPopupDialogs[Gangs.POPUP].text = string.format(L.GANG_INVITE_POPUP, ns.Utils.DisplayName(leader), name)
     StaticPopup_Show(Gangs.POPUP)
 end
@@ -299,7 +318,7 @@ local function InviteActionOf(key)
     return found
 end
 
-local function OnAnswer(code, sender)
+local function OnAnswer(code, sender, rest)
     local key = ns.Utils.PlayerKey(sender)
     local at = key and sentInvites[key]
     if not at or ns.Utils.Now() - at > Gangs.INVITE_TIMEOUT then return end
@@ -309,7 +328,10 @@ local function OnAnswer(code, sender)
     local accepted = code == "a"
     if accepted then
         local action = InviteActionOf(key)
-        if action then action.accepted = true end
+        if action then
+            action.accepted = true
+            action.memberClass = ClassToken(rest) or action.memberClass
+        end
         ns.Events:Fire("HH_GANG_CHANGED", action)
     end
     ns:Print(string.format(accepted and L.GANG_INVITE_ACCEPTED or L.GANG_INVITE_DECLINED, ns.Utils.DisplayName(key)))
@@ -321,7 +343,7 @@ function Gangs:OnMessage(record, sender)
     if code == "i" then
         OnInvite(rest, sender)
     elseif code == "a" or code == "d" or code == "r" then
-        OnAnswer(code, sender)
+        OnAnswer(code, sender, rest)
     end
 end
 
@@ -340,12 +362,13 @@ local function Rest(args, from)
     return table.concat(words, " ")
 end
 
--- A typed name, else the target if it is a friendly player
+-- A typed name, else the target if it is a friendly player (then with its class)
 local function Named(args)
     local typed = Rest(args, 2)
     if typed ~= "" then return ns.Utils.PlayerKey(typed) end
     if UnitIsPlayer and UnitIsPlayer("target") and not (UnitIsEnemy and UnitIsEnemy("player", "target")) then
-        return ns.Utils.UnitKey("target")
+        local _, class = UnitClass and UnitClass("target")
+        return ns.Utils.UnitKey("target"), class
     end
     return nil
 end
@@ -382,7 +405,8 @@ function Gangs:Command(args)
         self:Record("create", { name = name })
         ns:Print(string.format(L.GANG_CREATE_WAITING, name))
     elseif sub == "invite" then
-        self:Invite(Named(args))
+        local key, class = Named(args)
+        self:Invite(key, class)
     elseif sub == "leave" then
         if not gang then ns:Print(L.GANG_NOT_IN_A_GANG) return end
         self:Record("leave")

@@ -403,4 +403,36 @@ return function(T, H)
         T.eq(#H.chatSent, 0, "nothing sent")
         T.ok(H.Printed("not in a gang chat"), "said why")
     end)
+
+    T.case("classes travel with the invite and the answer, so every member shows its class at once", function()
+        local ns = Boot(Data({ Gang("Black Hand", "Vati Guda", { "Vati Guda" }) }))
+        H.sent = {}
+        H.Slash("gang invite Tobin Ashford")
+        Settle()
+        T.ok(Whispers("i;Black Hand;ROGUE")[1] ~= nil, "our class goes with the invite")
+        H.Deliver(ns.Protocol.Pack("A", ns.Protocol.TYPES.GANG, { "a;MAGE" }), "Tobin Ashford")
+        local tobin
+        for _, member in ipairs(ns.Gangs:Mine().members) do
+            if member.key == "Tobin Ashford" then tobin = member end
+        end
+        T.eq(ns.Gangs:MemberClass(tobin), "MAGE", "their class from the answer")
+
+        local member = Boot()
+        H.sent = {}
+        H.Deliver(member.Protocol.Pack("A", member.Protocol.TYPES.GANG, { "i;Black Hand;WARRIOR" }), "Kira Dawnblade")
+        StaticPopupDialogs[member.Gangs.POPUP].OnAccept()
+        Settle()
+        T.ok(Whispers("a;ROGUE")[1] ~= nil, "our class goes with the accept")
+        local leader = member.Gangs:Mine().members[1]
+        T.eq(member.Gangs:MemberClass(leader), "WARRIOR", "the leader's class from the invite")
+    end)
+
+    T.case("Invite target: the target's class is known at once", function()
+        local ns = Boot(Data({ Gang("Black Hand", "Vati Guda", { "Vati Guda" }) }))
+        H.units.target = { name = "Mira Vale", isPlayer = true, faction = "Alliance", class = "PRIEST" }
+        ns.Gangs:Command({ "invite" })
+        local action = ns.Gangs:Actions()[#ns.Gangs:Actions()]
+        T.eq(action.player, "Mira Vale", "the target invited")
+        T.eq(action.memberClass, "PRIEST", "with its class")
+    end)
 end
