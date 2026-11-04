@@ -703,6 +703,7 @@ local TW = {
     SEARCH_PLAYER = "尋找玩家",
     SEARCH_EMPTY = "沒有叫 %s 的玩家",
     -- HH-155: gangs
+    TAG_NEW = "新",
     GANG_SYNC_NOTE = "成員需要 HeadHunter Sync 才能在網站上得到確認：幫派排名、幫派頁面和幫派聊天。沒有它，成員在這裡顯示為等待 Sync。",
     GANG_SLASHSWITCH_ON = "/gang + 空格會切換到幫派聊天。",
     GANG_SLASHSWITCH_OFF = "/gang + 空格不再切換到幫派聊天（只輸入 /gang 或頻道編號仍可切換）。",

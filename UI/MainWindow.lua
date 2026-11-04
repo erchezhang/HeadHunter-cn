@@ -53,16 +53,25 @@ MainWindow.EMPTY_SIZE = 16
 MainWindow.GANG_EMPTY_SIZE = 18
 MainWindow.GANG_EMPTY_SPACING = 8
 
+-- Sections new in this version carry a NEW tag on their top tab (HH-155: Gang in 1.0.0)
+MainWindow.NEW_SECTIONS = { gang = true }
+
+function MainWindow.SectionLabel(id)
+    local label = L["SECTION_" .. id:upper()]
+    if MainWindow.NEW_SECTIONS[id] then label = label .. " |cff40ff40" .. L.TAG_NEW .. "|r" end
+    return label
+end
+
 -- The top tabs and their views (the sub-tabs); a view is what the list shows
 MainWindow.SECTIONS = {
     { id = "board", views = { "wanted", "bullies", "deadbeats" } },
     { id = "busted", views = { "busted", "punished", "barflies" } },
     { id = "duels", views = { "duels" } },
+    -- HH-155: our gang (WoW Forever), with a way into the Social window's Gang tab
+    { id = "gang", views = { "gang" } },
     -- Upcoming first and opened by default (author, 2026-10-05)
     { id = "events", views = { "upcoming", "ongoing", "finished" } },
     { id = "me", views = { "deaths", "marks" } },
-    -- HH-155: our gang (WoW Forever), with a way into the Social window's Gang tab
-    { id = "gang", views = { "gang" } },
 }
 MainWindow.TABS = { "wanted", "bullies", "deadbeats", "busted", "punished", "barflies", "duels", "upcoming", "ongoing", "finished", "deaths", "marks", "gang" }
 -- Tabs of older versions
@@ -934,7 +943,7 @@ local function CreateMainFrame()
     Theme.ResizeGrip(f)
     local tabs = {}
     for i, section in ipairs(MainWindow.SECTIONS) do
-        tabs[i] = { id = section.id, label = L["SECTION_" .. section.id:upper()] }
+        tabs[i] = { id = section.id, label = MainWindow.SectionLabel(section.id) }
     end
     f.tabs = Theme.CreateTopTabs(f, tabs, function(id) MainWindow:SelectSection(id) end)
 

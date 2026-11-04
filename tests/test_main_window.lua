@@ -190,7 +190,9 @@ return function(T, H)
         local f = _G.HeadHunterMainFrame
         local ids = {}
         for i, tab in ipairs(f.tabs.buttons) do ids[i] = tab.id end
-        T.eq(table.concat(ids, ","), "board,busted,duels,events,me,gang", "the top tabs")
+        T.eq(table.concat(ids, ","), "board,busted,duels,gang,events,me", "the top tabs")
+        T.ok(M.SectionLabel("gang"):find("NEW", 1, true), "Gang carries a NEW tag")
+        T.ok(not M.SectionLabel("duels"):find("NEW", 1, true), "Duels does not")
         T.ok(f.subtabs.board:IsShown(), "WANTED and Bullies under the board")
         T.ok(not f.subtabs.events:IsShown(), "only the section's own sub-tabs")
         M:SelectSection("me")
@@ -221,7 +223,7 @@ return function(T, H)
         T.eq(select(1, M:Current()), "deaths", "tab")
         local tabs = _G.HeadHunterMainFrame.tabs.buttons
         T.eq(#tabs, 6, "six sections")
-        T.ok(tabs[5].selected and not tabs[1].selected, "My deaths: the Me section drawn selected")
+        T.ok(tabs[6].selected and not tabs[1].selected, "My deaths: the Me section drawn selected")
         T.eq(tabs[1].point[2], _G.HeadHunterMainFrame.header, "in the header, like the website's menu")
         T.eq(#M.shownRows, 0, "no deaths of ours")
         M:SelectTab("wanted")

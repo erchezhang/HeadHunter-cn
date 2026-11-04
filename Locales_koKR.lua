@@ -706,6 +706,7 @@ local KR = {
     SEARCH_PLAYER = "플레이어 찾기",
     SEARCH_EMPTY = "%s(이)라는 플레이어가 없습니다",
     -- HH-155: gangs
+    TAG_NEW = "신규",
     GANG_SYNC_NOTE = "멤버가 웹사이트에서 확인되려면 HeadHunter Sync가 필요합니다: 갱단 순위, 갱단 페이지, 갱단 채팅. 없으면 여기에 Sync 대기 중으로 표시됩니다.",
     GANG_SLASHSWITCH_ON = "/gang + 스페이스로 갱단 채팅으로 바뀝니다.",
     GANG_SLASHSWITCH_OFF = "/gang + 스페이스로 더 이상 갱단 채팅으로 바뀌지 않습니다 (/gang만 입력하거나 채널 번호는 여전히 됩니다).",
