@@ -259,7 +259,10 @@ return function(T, H)
         title:SetText("Raid")
         FriendsFrame.GetTitleText = function() return title end
         local portrait = { value = "Interface\\FriendsFrame\\FriendsFrameScrollIcon" }
-        portrait.GetTexture = function(self) return self.value end
+        portrait.GetTexture = function(self)
+            if type(self.value) == "string" and self.value:find("HeadHunter", 1, true) then return 4711 end
+            return self.value
+        end
         FriendsFrame.GetPortrait = function() return portrait end
         FriendsFrame.SetPortraitToAsset = function(_, asset) portrait.value = asset end
         tab:GetScript("OnClick")()
@@ -281,6 +284,8 @@ return function(T, H)
         FriendsListFrame:Show()
         hooked.FriendsFrame_Update()
         T.ok(not FriendsListFrame:IsShown(), "a refresh of the window hides its page again while ours is open")
+        hooked.FriendsFrame_Update()
+        T.ok(portrait.value:find("HeadHunter", 1, true), "refreshes keep the crosshair on our page")
 
         FriendsFrameTab3.hooks.OnClick(FriendsFrameTab3)
         T.ok(not panel:IsShown(), "a click on Raid closes ours")

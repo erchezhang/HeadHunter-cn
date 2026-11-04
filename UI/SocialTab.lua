@@ -226,12 +226,14 @@ local function SetPortrait(asset)
     if texture and texture.SetTexture then texture:SetTexture(asset) end
 end
 
-local function ShowOurPortrait()
+-- The page's icon is kept once, when our page opens and before we change it (the game may
+-- report our crosshair as a file number, so it is never read back while ours shows)
+local function KeepBlizzardPortrait()
     local texture = PortraitTexture()
-    local current = texture and texture.GetTexture and texture:GetTexture()
-    if current ~= nil and current ~= SocialTab.PORTRAIT and not tostring(current):find("HeadHunter", 1, true) then
-        blizzardPortrait = current
-    end
+    blizzardPortrait = texture and texture.GetTexture and texture:GetTexture() or nil
+end
+
+local function ShowOurPortrait()
     SetPortrait(SocialTab.PORTRAIT)
 end
 
@@ -240,6 +242,7 @@ SocialTab.DEFAULT_PORTRAIT = "Interface\\FriendsFrame\\FriendsFrameScrollIcon"
 
 local function ShowBlizzardPortrait()
     SetPortrait(blizzardPortrait or SocialTab.DEFAULT_PORTRAIT)
+    blizzardPortrait = nil
 end
 
 -- How the tabs look only: ours selected and every Blizzard tab not
@@ -258,6 +261,7 @@ function SocialTab:Open()
     HideBlizzardPages(hidden.atOpen)
     LookOurs()
     ShowOurTitle()
+    if not panel:IsShown() then KeepBlizzardPortrait() end
     ShowOurPortrait()
     panel:Show()
     self:Refresh()
