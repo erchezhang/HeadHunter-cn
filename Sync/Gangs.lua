@@ -267,14 +267,18 @@ function Gangs:MemberLevel(member)
     return nil
 end
 
--- Whether a member is online: us; seen in the gang chat channel (members join it at login
--- and leave at logout); else heard on the HeadHunter channel lately (Presence)
+-- Whether a member is online: us; else the latest sign wins. Joining or speaking in the gang
+-- chat channel says online; leaving it says offline (a logout, or leaving the gang) unless
+-- the HeadHunter channel heard them after that; else heard there lately (Presence).
 function Gangs:IsOnline(key)
     local U = ns.Utils
     if U.SameCharacter(key, Me()) then return true end
-    local inChat = ns.GangChat and ns.GangChat:Seen(key)
-    if inChat ~= nil then return inChat end
-    return ns.Presence:Knows(U.CompactName(key)) == true
+    local chat = ns.GangChat and ns.GangChat:Seen(key)
+    if chat and chat.online then return true end
+    local name = U.CompactName(key)
+    local heard = name and ns.Presence:LastHeard(name)
+    if chat and not chat.online and (not heard or heard <= chat.t) then return false end
+    return name ~= nil and ns.Presence:Knows(name) == true
 end
 
 function Gangs:IsLeader(gang)

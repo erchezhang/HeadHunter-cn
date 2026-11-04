@@ -19,7 +19,7 @@ GangChat.JOIN_DELAY = 12
 GangChat.DEFAULT_COLOR = "ff9f40"
 
 local current
--- player key -> true (joined or spoke in the gang channel) or false (left it)
+-- player key -> { online = true (joined or spoke in the gang channel) or false (left it), t }
 local presence = {}
 
 -- The channel and password the website sent for our character, or nil
@@ -86,10 +86,10 @@ function GangChat:Channel()
     return current
 end
 
--- true or false once the gang channel told us, else nil
+-- What the gang channel last told us of a player: { online, t (Utils.Now()) } or nil
 function GangChat:Seen(key)
-    for name, online in pairs(presence) do
-        if ns.Utils.SameCharacter(name, key) then return online end
+    for name, state in pairs(presence) do
+        if ns.Utils.SameCharacter(name, key) then return state end
     end
     return nil
 end
@@ -103,7 +103,7 @@ function GangChat:OnJoinLeave(joined, sender, channelBaseName, channelName)
     if not OurChannel(channelBaseName, channelName) then return end
     local key = ns.Utils.PlayerKey(sender)
     if not key then return end
-    presence[key] = joined
+    presence[key] = { online = joined, t = ns.Utils.Now() }
     ns.Events:Fire("HH_GANG_CHANGED")
 end
 
@@ -132,7 +132,7 @@ function GangChat:OnChannelText(text, sender, channelBaseName, channelName)
     local name = channelBaseName ~= "" and channelBaseName or (type(channelName) == "string" and channelName:match("^%d+%. (.+)$"))
     if not current or name ~= current or type(text) ~= "string" then return end
     local key = ns.Utils.PlayerKey(sender)
-    if key then presence[key] = true end
+    if key then presence[key] = { online = true, t = ns.Utils.Now() } end
     local window = DEFAULT_CHAT_FRAME
     if window and window.AddMessage then window:AddMessage(self.Line(sender, text), self.Color()) end
 end
