@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.1
+
+- **Gang chat works on WoW Forever.** The game refused the gang channels of 1.0.0 ("Invalid channel name"), so nobody got into gang chat. Gangs now get valid channels: a new gang has its chat at once, and a gang made with 1.0.0 gets its chat after one HeadHunter Sync and a reload.
+- Gang chat goes into the main chat window once the game has joined it, and a refused join now says why in chat.
+
 ## 1.0.0
 
 HeadHunter 1.0 for the WoW Forever release. Everything since 0.5.0:
