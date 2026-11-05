@@ -221,7 +221,7 @@ return function(T, H)
         T.noErrors()
     end)
 
-    T.case("Social window tab: off by default; on, our own tab after Raid that hides Blizzard's pages and never writes its tab state", function()
+    T.case("Social window tab: on by default (off when turned off), our own tab after Raid that hides Blizzard's pages and never writes its tab state", function()
         local ns = Boot(Data({ Gang("Black Hand", "Vati Guda", { "Vati Guda", "Tobin Ashford" }) }))
         _G.FriendsFrame = CreateFrame("Frame")
         FriendsFrame.hooks = {}
@@ -248,7 +248,8 @@ return function(T, H)
         _G.FriendsFrame_OnShow, _G.FriendsFrame_Update = function() end, function() end
         local secure = _G.hooksecurefunc
         _G.hooksecurefunc = function(name, fn) hooked[name] = fn end
-        T.ok(not ns.SocialTab:Install(), "off by default")
+        H.Slash("gang socialtab off")
+        T.ok(not ns.SocialTab:Install(), "not when turned off")
 
         H.Slash("gang socialtab on")
         T.ok(ns.SocialTab:Install(), "added once on")
@@ -317,6 +318,88 @@ return function(T, H)
         hooked.FriendsFrame_OnShow()
         T.ok(not panel:IsShown(), "reopening the window closes ours, and our icon with it")
         T.ok(not portraitChanged, "the game's portrait still untouched")
+        T.noErrors()
+    end)
+
+    T.case("Social window of 1.60 (side tabs): our Gang tab under Blizzard's last, its page and title, Blizzard's state never written", function()
+        local ns = Boot(Data({ Gang("Black Hand", "Vati Guda", { "Vati Guda", "Tobin Ashford" }) }))
+        local frame = CreateFrame("Frame")
+        _G.SocialUIFrame = frame
+        _G.SocialUIControl = { IsEnabled = function() return true end }
+        frame.hooks = {}
+        frame.HookScript = function(self, script, fn) self.hooks[script] = fn end
+        frame.BattleNetBar = CreateFrame("Frame")
+        frame.SetTitle = function(self, text) self.title = text end
+        local function SideTab(tabType)
+            local button = CreateFrame("Button")
+            button.tabData = { tabType = tabType }
+            button.SetChecked = function(self, checked) self.checked = checked end
+            return button
+        end
+        local tabs = { [1] = SideTab(1), [6] = SideTab(6) }
+        frame.availableTabData = { { tabType = 1 }, { tabType = 6 } }
+        frame.GetTabByType = function(_, tabType) return tabs[tabType] end
+        frame.FriendsList = CreateFrame("Frame")
+        frame.RaidFrame = CreateFrame("Frame")
+        frame.selectedTab = 1
+        frame.activeContentFrame = frame.FriendsList
+        frame.FriendsList:Show()
+        frame.GetSelectedTab = function(self) return self.selectedTab end
+        frame.RefreshTitle = function(self) self.title = ({ [1] = "Friends", [6] = "Raid" })[self.selectedTab] end
+        frame.SelectTab = function(self, tabType)
+            if self.selectedTab == tabType then return end
+            self.selectedTab = tabType
+            self:RefreshContentFrame()
+            for t, button in pairs(tabs) do button:SetChecked(t == tabType) end
+            self:RefreshTitle()
+        end
+        frame.RefreshContentFrame = function(self)
+            local page = self.selectedTab == 6 and self.RaidFrame or self.FriendsList
+            self.FriendsList:SetShown(page == self.FriendsList)
+            self.RaidFrame:SetShown(page == self.RaidFrame)
+            self.activeContentFrame = page
+        end
+        frame.RefreshTabs = function() end
+        frame:RefreshTitle()
+
+        H.Slash("gang socialtab off")
+        T.ok(not ns.SocialTab:InstallSide(), "not when turned off")
+        H.Slash("gang socialtab on")
+        T.ok(ns.SocialTab:InstallSide(), "added once on")
+        local tab, panel = ns.SocialTab:SideParts()
+        T.ok(tab.point[2] == tabs[6] and tab.point[3] == "BOTTOMLEFT", "under Raid, Blizzard's last tab")
+        T.eq(tab.point[5], -3, "with Blizzard's gap")
+        T.eq(panel.rows, 20, "every member of a full gang at once")
+
+        tab:GetScript("OnClick")()
+        T.ok(panel:IsShown(), "our page shows")
+        T.ok(not frame.FriendsList:IsShown(), "Blizzard's page hidden")
+        T.eq(frame.title, "Gang - Black Hand", "our title")
+        T.ok(not tabs[1].checked and not tabs[6].checked, "Blizzard's tabs look unselected")
+        T.eq(frame.selectedTab, 1, "Blizzard's selected tab never written")
+        T.ok(panel.lines[2].shownText:find("Tobin Ashford", 1, true), "the members")
+
+        frame:SelectTab(1)
+        T.ok(not panel:IsShown(), "a click on the tab Blizzard had selected closes ours")
+        T.ok(frame.FriendsList:IsShown(), "and its page comes back from us")
+        T.ok(tabs[1].checked, "and its tab looks selected")
+        T.eq(frame.title, "Friends", "and its title")
+
+        tab:GetScript("OnClick")()
+        frame:SelectTab(6)
+        T.ok(not panel:IsShown(), "a click on Raid closes ours")
+        T.ok(frame.RaidFrame:IsShown() and not frame.FriendsList:IsShown(), "the Raid page shows")
+        T.eq(frame.title, "Raid", "with its title")
+
+        H.inCombat = true
+        _G.InCombatLockdown = function() return true end
+        tab:GetScript("OnClick")()
+        T.ok(frame.RaidFrame:IsShown(), "in combat the Raid page is never hidden: our page covers it")
+        T.ok(panel:IsShown(), "ours on top")
+        _G.InCombatLockdown = function() return false end
+
+        frame.hooks.OnHide(frame)
+        T.ok(not panel:IsShown(), "closing the window closes ours")
         T.noErrors()
     end)
 
@@ -700,35 +783,52 @@ return function(T, H)
         T.eq(#Whispers("i;"), 0, "no invite sent")
     end)
 
-    T.case("gang rules: within 24 hours of leaving, an invite is turned down at once and both are told", function()
+    T.case("gang rules: within an hour of leaving, another gang's invite is turned down at once and both are told", function()
         local member = Boot(Data({ Gang("Old Crew", "Kira Dawnblade", { "Kira Dawnblade", "Vati Guda" }) }))
         H.Slash("gang leave")
         H.printed, H.sent, H.popups = {}, {}, {}
         H.Deliver(member.Protocol.Pack("A", member.Protocol.TYPES.GANG, { "i;Black Hand;WARRIOR" }), "Tobin Ashford")
         Settle()
         T.eq(#H.popups, 0, "no popup")
-        T.ok(H.Printed("Gang rules: you left a gang less than 24 hours ago"), "we are told")
-        T.ok(H.Printed("24 h"), "with the time left")
+        T.ok(H.Printed("Gang rules: you left a gang less than an hour ago"), "we are told")
+        T.ok(H.Printed("1 h"), "with the time left")
         T.ok(Whispers("c;")[1] ~= nil, "the inviter is told")
 
         local leader = Boot(Data({ Gang("Black Hand", "Vati Guda", { "Vati Guda" }) }))
         H.printed = {}
         H.Slash("gang invite Gang Ster")
-        H.Deliver(leader.Protocol.Pack("A", leader.Protocol.TYPES.GANG, { "c;61200" }), "Gang Ster")
-        T.ok(H.Printed("Gang rules: Gang Ster left a gang less than 24 hours ago and can join again in 17 h"), "the leader hears why")
+        H.Deliver(leader.Protocol.Pack("A", leader.Protocol.TYPES.GANG, { "c;1800" }), "Gang Ster")
+        T.ok(H.Printed("Gang rules: Gang Ster left a gang less than an hour ago and can join another gang in 30 min"), "the leader hears why")
     end)
 
-    T.case("gang rules: a member who told us they left is not invited again within 24 hours", function()
-        local ns = Boot(Data({ Gang("Black Hand", "Vati Guda", { "Vati Guda", "Tobin Ashford" }) }))
-        H.Deliver(ns.Protocol.Pack("A", ns.Protocol.TYPES.GANG, { "l" }), "Tobin Ashford")
-        H.printed, H.sent = {}, {}
+    T.case("gang rules: coming back to the gang we left or were kicked from needs no wait", function()
+        local member = Boot(Data({ Gang("Old Crew", "Kira Dawnblade", { "Kira Dawnblade", "Vati Guda" }) }))
+        H.Slash("gang leave")
+        H.popups = {}
+        H.Deliver(member.Protocol.Pack("A", member.Protocol.TYPES.GANG, { "i;Old Crew;WARRIOR" }), "Kira Dawnblade")
+        Settle()
+        T.eq(#H.popups, 1, "the invite back to the gang we left")
+        T.ok(member.Gangs:CooldownLeft() ~= nil, "another gang still waits")
+
+        local kicked = Boot(Data({ Gang("Old Crew", "Kira Dawnblade", { "Kira Dawnblade", "Vati Guda" }) }))
+        H.Deliver(kicked.Protocol.Pack("A", kicked.Protocol.TYPES.GANG, { "x" }), "Kira Dawnblade")
+        Settle()
+        T.eq(kicked.Gangs:Mine(), nil, "kicked")
+        H.popups, H.sent = {}, {}
+        H.Deliver(kicked.Protocol.Pack("A", kicked.Protocol.TYPES.GANG, { "i;Old Crew;WARRIOR" }), "Kira Dawnblade")
+        Settle()
+        T.eq(#H.popups, 1, "the leader who kicked us may invite us back at once")
+        T.eq(Whispers("c;")[1], nil, "no wait said")
+
+        local leader = Boot(Data({ Gang("Black Hand", "Vati Guda", { "Vati Guda", "Tobin Ashford" }) }))
+        H.Deliver(leader.Protocol.Pack("A", leader.Protocol.TYPES.GANG, { "l" }), "Tobin Ashford")
+        H.sent = {}
         H.Slash("gang invite Tobin Ashford")
         Settle()
-        T.ok(H.Printed("Gang rules: Tobin Ashford left a gang"), "said")
-        T.eq(#Whispers("i;"), 0, "no invite sent")
+        T.eq(#Whispers("i;"), 1, "and a member who left our gang may be invited back at once")
     end)
 
-    T.case("testreset (HeadHunter_Dev only) clears the 24-hour rule on this character", function()
+    T.case("testreset (HeadHunter_Dev only) clears the gang waiting time on this character", function()
         local ns = H.Boot({ client = "forever", playerGUID = "Player-" .. PVP .. "-00ABCDEF", dev = { trust = {} } })
         Settle()
         H.Slash("gang create Black Hand")
@@ -744,7 +844,7 @@ return function(T, H)
         T.ok(player.Gangs:CooldownLeft() ~= nil, "not without HeadHunter_Dev")
     end)
 
-    T.case("create: a name another gang of our world has is refused at once, and the 24-hour rule too", function()
+    T.case("create: a name another gang of our world has is refused at once, and the waiting time too", function()
         local ns = Boot(Data({ Gang("Western Gods", "Andy Gue", { "Andy Gue" }) }))
         H.printed = {}
         H.Slash("gang create western   gods")
@@ -754,7 +854,7 @@ return function(T, H)
         H.Slash("gang leave")
         H.printed = {}
         H.Slash("gang create Red Fang")
-        T.ok(H.Printed("Gang rules: you left a gang"), "the 24-hour rule")
+        T.ok(H.Printed("Gang rules: you left a gang"), "the waiting time")
     end)
 
     T.case("not in a gang: the Gang page says where to check that a name is free", function()

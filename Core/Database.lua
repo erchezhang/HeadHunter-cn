@@ -15,7 +15,7 @@ local addonName, ns = ...
 
 local DB = ns:RegisterModule("Database", {})
 
-DB.SCHEMA_VERSION = 4
+DB.SCHEMA_VERSION = 5
 
 -- Old saved data mixed every realm. On WoW Forever it goes to the PvP realm, where the
 -- author played most (author, 2026-09-29); Era takes the realm of the last character.
@@ -76,8 +76,9 @@ local DEFAULTS = {
         relay = true, -- HH-151: carry other HeadHunters' records to the players of other home servers
         -- HH-155: gang invites from other players show a popup; off declines them quietly
         gangInvites = true,
-        -- HH-155: the Gang tab in the Social window, off until its taint probe is clean (UI/SocialTab.lua)
-        gangSocialTab = false,
+        -- HH-155: the Gang tab in the Social window (UI/SocialTab.lua); on since 1.0.2, after the
+        -- in-game check of the side-tab window (2026-11-05)
+        gangSocialTab = true,
         -- HH-155: the colour of gang chat lines, hex (Sync/GangChat.lua)
         gangChatColor = "ff9f40",
         -- HH-155: the gang channel last put in the main chat window (once per channel, after the
@@ -186,6 +187,12 @@ end
 -- default (off) into every player's settings the same day, so it is turned on once
 MIGRATIONS[4] = function(db)
     if type(db.settings) == "table" then db.settings.screenshots = true end
+end
+
+-- The Gang tab in the Social window is on by default since 1.0.2. 1.0.0 and 1.0.1 saved the
+-- old default (off) into every player's settings, so it is turned on once
+MIGRATIONS[5] = function(db)
+    if type(db.settings) == "table" then db.settings.gangSocialTab = true end
 end
 
 -- Use this home's data. Returns true when the home changed. A confirmed home keeps the
