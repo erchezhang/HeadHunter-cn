@@ -1,5 +1,8 @@
--- HH-155: a Gang tab in the game's Social window (FriendsFrame) on WoW Forever, after
--- Contacts and Raid, showing our gang with Invite and Leave.
+-- HH-155: a Gang tab in the game's Social window on WoW Forever, after Blizzard's own tabs,
+-- showing our gang with Invite and Leave. WoW Forever has two Social windows and the server
+-- picks one (C_SocialUI.IsSystemEnabled, which may change while playing): the side-tab
+-- window SocialUIFrame of 1.60 (the second half of this file) or the older FriendsFrame
+-- with tabs at its bottom (the first half). Our tab is put on both; the one on show is used.
 --
 -- Taint rules, from Blizzard's WoW Forever code (Blizzard_FriendsFrame/Camelot): the
 -- Social, Raid and Friends keybinds read FriendsFrame.selectedTab before Show/HideUIPanel,
@@ -16,7 +19,8 @@
 --     FriendsFrame_Update (the window's own refreshes) hides its pages again while ours is
 --     open.
 -- Blizzard's tab numbers are not their button names: Raid is FriendsFrameTab3 with id 2,
--- and there is no FriendsFrameTab2. Off by default: /hh gang socialtab on|off, then /reload.
+-- and there is no FriendsFrameTab2. On by default since 1.0.2: /hh gang socialtab on|off, then
+-- /reload.
 
 local addonName, ns = ...
 local L = ns.L
@@ -85,15 +89,15 @@ end
 
 local ShowOurTitle
 
-function SocialTab:Refresh()
-    if not panel or not active then return end
-    ShowOurTitle()
+-- Our gang into a page: its rows from p.offset, the range when there are more members than
+-- rows, the text without a gang, and the buttons for who we are in it
+local function FillPanel(p)
     local gang = ns.Gangs:Mine()
-    local U = ns.Utils
     local count = gang and #gang.members or 0
-    SocialTab.offset = math.max(0, math.min(SocialTab.offset or 0, count - SocialTab.ROWS))
-    for i = 1, SocialTab.ROWS do
-        local member = gang and gang.members[SocialTab.offset + i]
+    p.offset = math.max(0, math.min(rawget(p, "offset") or 0, count - p.rows))
+    local panel = p
+    for i = 1, p.rows do
+        local member = gang and gang.members[p.offset + i]
         local line, role, border, click = panel.lines[i], panel.roles[i], panel.borders[i], panel.clicks[i]
         if member then
             line:SetText(SocialTab.MemberName(member))
@@ -109,9 +113,9 @@ function SocialTab:Refresh()
             click:Hide()
         end
     end
-    if count > SocialTab.ROWS then
-        local first = SocialTab.offset + 1
-        panel.more:SetText(string.format(L.GANG_MEMBERS_RANGE, first, math.min(count, SocialTab.offset + SocialTab.ROWS), count))
+    if count > p.rows then
+        local first = p.offset + 1
+        panel.more:SetText(string.format(L.GANG_MEMBERS_RANGE, first, math.min(count, p.offset + p.rows), count))
         panel.more:Show()
     else
         panel.more:Hide()
@@ -128,9 +132,25 @@ function SocialTab:Refresh()
     if gang then panel.create:Hide() else panel.create:Show() end
 end
 
--- The mouse wheel over the member list: up shows earlier members, down later ones
-function SocialTab:Scroll(delta)
-    SocialTab.offset = (SocialTab.offset or 0) - (delta or 0) * 3
+local side = {}
+local ShowSideTitle
+
+function SocialTab:Refresh()
+    if panel and active then
+        ShowOurTitle()
+        FillPanel(panel)
+    end
+    if side.panel and side.active then
+        ShowSideTitle()
+        FillPanel(side.panel)
+    end
+end
+
+-- The mouse wheel over a member list: up shows earlier members, down later ones
+function SocialTab:Scroll(delta, p)
+    p = p or panel
+    if not p then return end
+    p.offset = (rawget(p, "offset") or 0) - (delta or 0) * 3
     self:Refresh()
 end
 
@@ -218,8 +238,8 @@ end
 SocialTab.PORTRAIT = "Interface\\AddOns\\HeadHunter\\Assets\\Textures\\mark"
 local badge
 
-local function PortraitTexture()
-    local frame = _G.FriendsFrame
+local function PortraitTexture(frame)
+    frame = frame or _G.FriendsFrame
     if frame and frame.GetPortrait then
         local ok, texture = pcall(frame.GetPortrait, frame)
         if ok and texture then return texture end
@@ -230,13 +250,14 @@ end
 -- The game's round portrait shape: a filled circle, transparent around it
 SocialTab.CIRCLE = "Interface\\CharacterFrame\\TempPortraitAlphaMask"
 
-local function CreateBadge()
-    local portrait = PortraitTexture()
+local function CreateBadge(frame, page)
+    frame, page = frame or _G.FriendsFrame, page or panel
+    local portrait = PortraitTexture(frame)
     if not portrait then return nil end
-    local b = CreateFrame("Frame", nil, panel)
+    local b = CreateFrame("Frame", nil, page)
     b:SetAllPoints(portrait)
-    b:SetFrameStrata(_G.FriendsFrame.GetFrameStrata and _G.FriendsFrame:GetFrameStrata() or "MEDIUM")
-    b:SetFrameLevel((_G.FriendsFrame:GetFrameLevel() or 1) + 60)
+    b:SetFrameStrata(frame.GetFrameStrata and frame:GetFrameStrata() or "MEDIUM")
+    b:SetFrameLevel((frame:GetFrameLevel() or 1) + 60)
     b.background = b:CreateTexture(nil, "BACKGROUND")
     b.background:SetAllPoints(b)
     b.background:SetTexture(SocialTab.CIRCLE)
@@ -364,17 +385,25 @@ end
 -- members need HeadHunter Sync sits at the top, under the title bar, right after the round
 -- portrait, on up to two lines; set on the window itself, as the game moves the portrait
 -- when it changes pages.
-local function CreatePanel(frame)
-    local p = CreateFrame("Frame", nil, holder)
-    p:SetPoint("TOPLEFT", frame, "TOPLEFT", SocialTab.LIST_LEFT, -SocialTab.LIST_TOP)
-    p:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -SocialTab.LIST_RIGHT, SocialTab.LIST_BOTTOM)
+-- layout (the side-tab window): { parent, rows, listTop, Place(p), PlaceNote(p),
+-- PlaceButton(p, button, left) }
+local function CreatePanel(frame, layout)
+    layout = layout or {}
+    local p = CreateFrame("Frame", nil, layout.parent or holder)
+    p.rows = layout.rows or SocialTab.ROWS
+    if layout.Place then
+        layout.Place(p)
+    else
+        p:SetPoint("TOPLEFT", frame, "TOPLEFT", SocialTab.LIST_LEFT, -SocialTab.LIST_TOP)
+        p:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -SocialTab.LIST_RIGHT, SocialTab.LIST_BOTTOM)
+    end
     p:SetFrameLevel((frame:GetFrameLevel() or 1) + 50)
     p:EnableMouse(true)
     local bg = p:CreateTexture(nil, "BACKGROUND")
     bg:SetAllPoints(p)
     bg:SetColorTexture(0.05, 0.04, 0.03, 1)
     p.empty = p:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
-    p.empty:SetPoint("TOPLEFT", 16, -16)
+    p.empty:SetPoint("TOPLEFT", 16, -(layout.listTop or 16))
     p.empty:SetPoint("RIGHT", -16, 0)
     p.empty:SetJustifyH("LEFT")
     p.empty:SetSpacing(SocialTab.EMPTY_SPACING)
@@ -389,10 +418,10 @@ local function CreatePanel(frame)
     p.more:SetPoint("BOTTOMRIGHT", -14, 8)
     p.more:Hide()
     p:EnableMouseWheel(true)
-    p:SetScript("OnMouseWheel", function(_, delta) SocialTab:Scroll(delta) end)
+    p:SetScript("OnMouseWheel", function(self, delta) SocialTab:Scroll(delta, self) end)
     p.lines, p.roles, p.borders, p.clicks = {}, {}, {}, {}
-    for i = 1, SocialTab.ROWS do
-        local top = -8 - (i - 1) * SocialTab.ROW_HEIGHT
+    for i = 1, p.rows do
+        local top = -(layout.listTop or 8) - (i - 1) * SocialTab.ROW_HEIGHT
         local line = p:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
         line:SetPoint("TOPLEFT", 14, top - 4)
         line:SetPoint("RIGHT", -190, 0)
@@ -419,25 +448,34 @@ local function CreatePanel(frame)
     end
     p.invite = CreateFrame("Button", nil, p, "UIPanelButtonTemplate")
     p.invite:SetSize(120, 22)
-    p.invite:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", SocialTab.BAR_EDGE, SocialTab.BAR_BOTTOM)
+    local function PlaceButton(button, left)
+        if layout.PlaceButton then return layout.PlaceButton(p, button, left) end
+        if left then
+            button:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", SocialTab.BAR_EDGE, SocialTab.BAR_BOTTOM)
+        else
+            button:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -SocialTab.BAR_EDGE, SocialTab.BAR_BOTTOM)
+        end
+    end
+    PlaceButton(p.invite, true)
     p.invite:SetText(L.GANG_INVITE_BUTTON)
     p.invite:SetScript("OnClick", function() ns.Gangs:Command({ "invite" }) end)
     p.leave = CreateFrame("Button", nil, p, "UIPanelButtonTemplate")
     p.leave:SetSize(90, 22)
-    p.leave:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -SocialTab.BAR_EDGE, SocialTab.BAR_BOTTOM)
+    PlaceButton(p.leave, false)
     p.leave:SetText(L.GANG_LEAVE_BUTTON)
     p.leave:SetScript("OnClick", function() ns.Gangs:PromptLeave() end)
     p.create = CreateFrame("Button", nil, p, "UIPanelButtonTemplate")
     p.create:SetSize(140, 22)
-    p.create:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", SocialTab.BAR_EDGE, SocialTab.BAR_BOTTOM)
+    PlaceButton(p.create, true)
+    if layout.PlaceNote then layout.PlaceNote(p) end
     p.create:SetText(L.GANG_CREATE_BUTTON)
     p.create:SetScript("OnClick", function() ns.Gangs:PromptCreate() end)
     p:Hide()
     return p
 end
 
--- Returns true when the tab was added
-function SocialTab:Install()
+-- The older FriendsFrame: returns true when the tab was added
+function SocialTab:InstallFriends()
     local frame = _G.FriendsFrame
     if tab or not frame or not self:Enabled() or not self.LastShownTab() then return false end
     holder = CreateFrame("Frame", nil, frame)
@@ -468,6 +506,7 @@ end
 -- Out of combat only (Show/HideUIPanel are refused then), and never through
 -- ToggleFriendsFrame, which would write the window's selected tab from our code.
 function SocialTab:OpenFromWindow()
+    if self.SideWindowInUse() and side.tab then return self:OpenSideFromWindow() end
     local frame = _G.FriendsFrame
     if not (self:Enabled() and frame and tab) then return false end
     if InCombatLockdown and InCombatLockdown() then
@@ -479,12 +518,249 @@ function SocialTab:OpenFromWindow()
     return frame:IsShown()
 end
 
+-------------------------------------------------
+-- The side-tab Social window of WoW Forever 1.60 (SocialUIFrame, Blizzard_SocialUI)
+-------------------------------------------------
+-- Blizzard builds its tabs (Friends, Recent Allies, Friend Requests, Raid) from a private
+-- list into a pool, again on every opening, and the Social and Raid keybinds read the
+-- window's selected tab (SocialUIControl.ToggleToTab), while the Raid page holds secure unit
+-- buttons. So, as with the older window:
+--   * our tab is a button of our own (Blizzard's SocialUITabTemplate look) in a holder frame
+--     of ours, put under Blizzard's last tab after each RefreshTabs; Blizzard's tab list,
+--     selectedTab and lastSelectedTabType are never written, SelectTab never called;
+--   * opening our page: Blizzard's tabs look unselected (SetChecked: textures only), its
+--     page is hidden (the Raid page only out of combat; in combat our opaque page covers
+--     it), and the title is ours (SetTitle: the title text only);
+--   * post-hooks only: SelectTab (every Blizzard tab click, even on the tab already
+--     selected, and every opening and closing) closes our page and puts Blizzard's page,
+--     tab look and title back; RefreshContentFrame hides Blizzard's page again while ours
+--     is open; RefreshTabs places our tab again.
+
+SocialTab.SIDE_ROWS = 20
+SocialTab.SIDE_TAB_GAP = 3
+-- the first Blizzard tab's place, when no Blizzard tab is on show
+SocialTab.SIDE_FIRST_TAB_TOP = 122
+-- our tab's icon, the size of Blizzard's tab icons when the game tells it
+SocialTab.SIDE_ICON_SIZE = 30
+SocialTab.SIDE_ICON_ATLAS = "friends-icon-tab-friends"
+-- our page inside the window: where Blizzard puts its pages (under the Battle.net bar)
+SocialTab.SIDE_NOTE_TOP = 10
+SocialTab.SIDE_LIST_TOP = 44
+SocialTab.SIDE_EDGE = 8
+
+function SocialTab.SideWindow()
+    return _G.SocialUIFrame
+end
+
+-- True while the server has the side-tab window in use instead of the older one
+function SocialTab.SideWindowInUse()
+    local control = _G.SocialUIControl
+    if not (control and control.IsEnabled and SocialTab.SideWindow()) then return false end
+    local ok, enabled = pcall(control.IsEnabled)
+    return ok and enabled == true
+end
+
+local function InCombat()
+    return InCombatLockdown and InCombatLockdown() or false
+end
+
+-- Blizzard's tab buttons on show, in their order (read from the window, never written)
+function SocialTab.SideTabs()
+    local frame = SocialTab.SideWindow()
+    local tabs = {}
+    if not (frame and frame.GetTabByType and type(frame.availableTabData) == "table") then return tabs end
+    for _, data in ipairs(frame.availableTabData) do
+        local ok, button = pcall(frame.GetTabByType, frame, data.tabType)
+        if ok and button then tabs[#tabs + 1] = button end
+    end
+    return tabs
+end
+
+-- Under Blizzard's last tab, as it spaces its own
+function SocialTab:PlaceSide()
+    local frame = self.SideWindow()
+    if not (side.tab and frame) then return end
+    local tabs = self.SideTabs()
+    side.tab:ClearAllPoints()
+    if #tabs > 0 then
+        side.tab:SetPoint("TOPLEFT", tabs[#tabs], "BOTTOMLEFT", 0, -SocialTab.SIDE_TAB_GAP)
+    else
+        side.tab:SetPoint("TOPLEFT", frame, "TOPRIGHT", 0, -SocialTab.SIDE_FIRST_TAB_TOP)
+    end
+end
+
+local function SetLook(button, checked)
+    if button and button.SetChecked then pcall(button.SetChecked, button, checked) end
+end
+
+local function SidePage(frame)
+    local page = frame and frame.activeContentFrame
+    if type(page) ~= "table" or not page.IsShown then return nil end
+    return page
+end
+
+-- Blizzard's page out of sight; the Raid page only out of combat
+local function HideSidePage(frame)
+    local page = SidePage(frame)
+    if page and page:IsShown() and not (page == frame.RaidFrame and InCombat()) then page:Hide() end
+end
+
+function ShowSideTitle()
+    local frame = SocialTab.SideWindow()
+    if frame and frame.SetTitle then pcall(frame.SetTitle, frame, SocialTab.Title()) end
+end
+
+function SocialTab:OpenSide()
+    local frame = self.SideWindow()
+    if not (side.panel and frame) then return end
+    side.active = true
+    HideSidePage(frame)
+    for _, button in ipairs(self.SideTabs()) do SetLook(button, false) end
+    SetLook(side.tab, true)
+    side.badge = side.badge or CreateBadge(frame, side.panel)
+    if side.badge then side.badge:Show() end
+    side.panel:Show()
+    self:Refresh()
+end
+
+function SocialTab:CloseSide()
+    if not side.active then return end
+    side.active = false
+    if side.panel then side.panel:Hide() end
+    SetLook(side.tab, false)
+end
+
+-- After Blizzard's SelectTab: its page, tab look and title are back. A click on the tab it
+-- had selected all along changes nothing on its side, so they come back from us.
+function SocialTab.OnSideSelect()
+    if not side.active then return end
+    SocialTab:CloseSide()
+    local frame = SocialTab.SideWindow()
+    if not frame then return end
+    local page = SidePage(frame)
+    if page and not page:IsShown() and not (page == frame.RaidFrame and InCombat()) then page:Show() end
+    local selected = frame.GetSelectedTab and frame:GetSelectedTab()
+    for _, button in ipairs(SocialTab.SideTabs()) do
+        SetLook(button, selected ~= nil and button.tabData ~= nil and button.tabData.tabType == selected)
+    end
+    if frame.RefreshTitle then pcall(frame.RefreshTitle, frame) end
+end
+
+-- After Blizzard's RefreshContentFrame: its page hidden again while ours is open
+function SocialTab.OnSideContent()
+    if side.active then HideSidePage(SocialTab.SideWindow()) end
+end
+
+local function CreateSideTab(frame)
+    local ok, button = pcall(CreateFrame, "Button", "HeadHunterSocialSideGangTab", side.holder, "SocialUITabTemplate")
+    if not ok or not button then
+        ok, button = pcall(CreateFrame, "Button", "HeadHunterSocialSideGangTab", side.holder, "LargeSideTabButtonTemplate")
+    end
+    if not ok or not button then button = CreateFrame("Button", "HeadHunterSocialSideGangTab", side.holder) end
+    button.tooltipText = (HIGHLIGHT_FONT_COLOR and HIGHLIGHT_FONT_COLOR.WrapTextInColorCode)
+        and HIGHLIGHT_FONT_COLOR:WrapTextInColorCode(L.TAB_GANG) or L.TAB_GANG
+    local icon = rawget(button, "Icon")
+    if type(icon) == "table" and icon.SetTexture then
+        icon:SetTexture(SocialTab.PORTRAIT)
+        local size = SocialTab.SIDE_ICON_SIZE
+        local info = C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(SocialTab.SIDE_ICON_ATLAS)
+        if type(info) == "table" and info.width then size = info.width end
+        icon:SetSize(size, size)
+    end
+    -- No counter under our icon: the template starts with its Count shown, which lifts the
+    -- icon by 5 (Blizzard's tabs clear it in Initialize)
+    if type(rawget(button, "SetCount")) == "function" then
+        pcall(button.SetCount, button, nil)
+    end
+    button:SetScript("OnClick", function() SocialTab:OpenSide() end)
+    button:SetFrameLevel((frame:GetFrameLevel() or 1) + 2)
+    SetLook(button, false)
+    return button
+end
+
+local function CreateSidePanel(frame)
+    return CreatePanel(frame, {
+        parent = side.holder,
+        rows = SocialTab.SIDE_ROWS,
+        listTop = SocialTab.SIDE_LIST_TOP,
+        Place = function(p)
+            local bar = frame.BattleNetBar
+            if type(bar) == "table" then
+                p:SetPoint("TOPLEFT", bar, "BOTTOMLEFT", 0, 5)
+            else
+                p:SetPoint("TOPLEFT", frame, "TOPLEFT", SocialTab.LIST_LEFT, -SocialTab.LIST_TOP)
+            end
+            p:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -2, 2)
+        end,
+        PlaceNote = function(p)
+            p.note:SetPoint("TOPLEFT", p, "TOPLEFT", 14, -SocialTab.SIDE_NOTE_TOP)
+            p.note:SetPoint("RIGHT", p, "RIGHT", -14, 0)
+        end,
+        PlaceButton = function(p, button, left)
+            if left then
+                button:SetPoint("BOTTOMLEFT", p, "BOTTOMLEFT", SocialTab.SIDE_EDGE, SocialTab.SIDE_EDGE)
+            else
+                button:SetPoint("BOTTOMRIGHT", p, "BOTTOMRIGHT", -SocialTab.SIDE_EDGE, SocialTab.SIDE_EDGE)
+            end
+        end,
+    })
+end
+
+-- The side-tab window: returns true when the tab was added
+function SocialTab:InstallSide()
+    local frame = self.SideWindow()
+    if side.tab or not frame or not self:Enabled() then return false end
+    side.holder = CreateFrame("Frame", nil, frame)
+    side.holder:SetAllPoints(frame)
+    side.tab = CreateSideTab(frame)
+    side.panel = CreateSidePanel(frame)
+    self:PlaceSide()
+    if hooksecurefunc then
+        if frame.SelectTab then hooksecurefunc(frame, "SelectTab", SocialTab.OnSideSelect) end
+        if frame.RefreshContentFrame then hooksecurefunc(frame, "RefreshContentFrame", SocialTab.OnSideContent) end
+        if frame.RefreshTabs then hooksecurefunc(frame, "RefreshTabs", function() SocialTab:PlaceSide() end) end
+    end
+    if frame.HookScript then frame:HookScript("OnHide", function() SocialTab:CloseSide() end) end
+    return true
+end
+
+-- Our Gang page in the side-tab window, from the HeadHunter window: out of combat only
+function SocialTab:OpenSideFromWindow()
+    local frame = self.SideWindow()
+    if not (self:Enabled() and frame and side.tab) then return false end
+    if InCombat() then
+        ns:Print(L.GANG_SOCIAL_COMBAT)
+        return false
+    end
+    if not frame:IsShown() and ShowUIPanel then ShowUIPanel(frame) end
+    if frame:IsShown() then self:OpenSide() end
+    return frame:IsShown()
+end
+
+function SocialTab:IsSideActive()
+    return side.active == true
+end
+
+-- Both windows; returns true when a tab was added to either
+function SocialTab:Install()
+    local friends = self:InstallFriends()
+    local sideAdded = self:InstallSide()
+    return friends or sideAdded
+end
+
 -- For tests
 function SocialTab:Parts()
     return tab, panel
 end
 
+function SocialTab:SideParts()
+    return side.tab, side.panel
+end
+
 ns.Events:Register("HH_INITIALIZED", function()
     SocialTab:Install()
     ns.Events:Register("HH_GANG_CHANGED", function() SocialTab:Refresh() end, OWNER)
+    ns.Events:Register("ADDON_LOADED", function(_, name)
+        if name == "Blizzard_SocialUI" then SocialTab:InstallSide() end
+    end, OWNER)
 end, OWNER)
