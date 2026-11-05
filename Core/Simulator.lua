@@ -6,6 +6,9 @@
 --   /hh sim send ...       simulated deaths shared with other characters (debug)
 --   /hh sim clear          remove every simulated death and test catch
 --   /hh sim duels [clear]  test duel spots in our zone, only on our screen (HH-134)
+--   /hh sim gang [me|clear] the Wild Bunch for screenshots: Butch Cassidy leads (me, or a
+--                          character named Butch Cassidy: we do),
+--                          with the outlaws of the 1890s; this session only (HH-155)
 --
 -- Forever names contain a space, so quote them: /hh sim death "Grim Reaper" skull ROGUE Human
 -- Simulated data goes through the same internal events as real data:
@@ -16,6 +19,27 @@ local addonName, ns = ...
 local L = ns.L
 
 local Simulator = ns:RegisterModule("Simulator", {})
+
+-- The Wild Bunch (the Hole-in-the-Wall Gang) of the 1890s, for /hh sim gang, all Horde:
+-- name, class, level, online, race, sex (2 male, 3 female)
+Simulator.WILD_BUNCH = {
+    { "Butch Cassidy", "ROGUE", 60, true, "Orc", 2 },
+    { "Sundance Kid", "HUNTER", 60, true, "Troll", 2 },
+    { "Kid Curry", "WARRIOR", 58, true, "Tauren", 2 },
+    { "Elzy Lay", "MAGE", 57, false, "Scourge", 2 },
+    { "Ben Kilpatrick", "WARRIOR", 55, true, "Orc", 2 },
+    { "Will Carver", "PRIEST", 54, false, "Scourge", 2 },
+    { "Laura Bullion", "WARLOCK", 52, true, "Orc", 3 },
+    { "Etta Place", "MAGE", 51, false, "Troll", 3 },
+    { "George Curry", "DRUID", 50, true, "Tauren", 2 },
+}
+-- What the gang says in gang chat on the screenshot: sender index, text
+Simulator.WILD_BUNCH_CHAT = {
+    { 1, "Train leaves Ratchet at dusk. Saddle up." },
+    { 2, "I'll take the ridge and cover the bridge." },
+    { 7, "Posse spotted near the Crossroads, three riders." },
+    { 3, "Let them come. We ride at sundown." },
+}
 
 local CLASSES = {
     WARRIOR = true, PALADIN = true, HUNTER = true, ROGUE = true, PRIEST = true,
@@ -245,6 +269,41 @@ function Simulator:Event(kind)
     if ns.MainWindow and ns.MainWindow.Refresh then ns.MainWindow:Refresh() end
 end
 
+-- /hh sim gang: the Wild Bunch as our confirmed gang for screenshots (me: we lead it), with a
+-- few gang chat lines; clear: gone
+function Simulator:Gang(mode)
+    if mode == "clear" then
+        ns.Gangs:SetSim(nil)
+        ns:Print(L.SIM_GANG_CLEARED)
+        return
+    end
+    local U = ns.Utils
+    local me = U.UnitKey("player")
+    local _, myClass = UnitClass and UnitClass("player")
+    local leads = mode == "me" or (me ~= nil and U.SameCharacter(me, self.WILD_BUNCH[1][1]))
+    local members = {}
+    for _, m in ipairs(self.WILD_BUNCH) do
+        if not (me and U.SameCharacter(me, m[1])) then
+            members[#members + 1] = { key = m[1], class = m[2], level = m[3], online = m[4], race = m[5], sex = m[6],
+                faction = "Horde" }
+        end
+    end
+    if me then
+        local _, myRace = UnitRace and UnitRace("player")
+        table.insert(members, leads and 1 or 2, { key = me, class = myClass, level = UnitLevel and UnitLevel("player"),
+            race = myRace, sex = UnitSex and UnitSex("player"), faction = UnitFactionGroup and UnitFactionGroup("player") })
+    end
+    local leader = leads and me or self.WILD_BUNCH[1][1]
+    ns.Gangs:SetSim({ name = "Wild Bunch", leader = leader, members = members, confirmed = true, faction = "Horde" })
+    local window = DEFAULT_CHAT_FRAME
+    if window and window.AddMessage then
+        for _, line in ipairs(self.WILD_BUNCH_CHAT) do
+            window:AddMessage(ns.GangChat.Line(self.WILD_BUNCH[line[1]][1], line[2]), ns.GangChat.Color())
+        end
+    end
+    ns:Print(L.SIM_GANG_DONE)
+end
+
 -- /hh sim duels [clear] (HH-134): test duel spots in our zone, to see the map mark, the
 -- chat line and the invite clicks before a release. Only on our screen: never sent, and
 -- the made-up HeadHunters get no whisper (Alerts/DuelSpots.lua).
@@ -279,6 +338,10 @@ ns.SlashCommands:Register("sim", function(args)
         if args[1] and args[1]:lower() == "clear" then ns.Demo:Clear() else ns.Demo:Run() end
         return
     end
+    if kind == "gang" then
+        Simulator:Gang(args[1] and args[1]:lower())
+        return
+    end
     if kind == "event" then
         Simulator:Event(args[1] and args[1]:lower())
         return
@@ -293,6 +356,7 @@ ns.SlashCommands:Register("sim", function(args)
         print(L.SIM_USAGE_DEMO)
         print(L.SIM_USAGE_CLEAR)
         print(L.SIM_USAGE_DUELS)
+        print(L.SIM_USAGE_GANG)
         if ns.Dev.Present() then print(L.SIM_USAGE_EVENT) end
         return
     end

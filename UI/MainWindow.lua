@@ -48,12 +48,32 @@ MainWindow.REFRESH = 30      -- seconds, while shown ("5 min ago" texts)
 MainWindow.TAB_COUNT = "%s (%d)" -- a header tab with a count: "Events (2)"
 MainWindow.EVENT_LINK_WIDTH = 110 -- Join event / Event link; wider for longer languages
 MainWindow.BUTTON_PADDING = 12
+MainWindow.EMPTY_SIZE = 16
+-- HH-155: the blue of the note that gang members need HeadHunter Sync
+MainWindow.SYNC_NOTE_COLOR = { 0.4, 0.7, 1 }
+-- HH-155: the Gang view's text without a gang, bigger with more room between lines
+MainWindow.GANG_EMPTY_SIZE = 18
+MainWindow.GANG_EMPTY_SPACING = 8
+
+-- Sections new in this version carry a small raised NEW tag on their top tab (HH-155: Gang
+-- in 1.0.0)
+MainWindow.NEW_SECTIONS = { gang = true }
+
+function MainWindow.SectionLabel(id)
+    return L["SECTION_" .. id:upper()]
+end
+
+function MainWindow.SectionBadge(id)
+    return MainWindow.NEW_SECTIONS[id] and L.TAG_NEW or nil
+end
 
 -- The top tabs and their views (the sub-tabs); a view is what the list shows
 MainWindow.SECTIONS = {
     { id = "board", views = { "wanted", "bullies", "deadbeats" } },
     { id = "busted", views = { "busted", "punished", "barflies" } },
     { id = "duels", views = { "duels" } },
+    -- HH-155: our gang (WoW Forever), with a way into the Social window's Gang tab
+    { id = "gang", views = { "gang" } },
     -- Upcoming first and opened by default (author, 2026-10-05)
     { id = "events", views = { "upcoming", "ongoing", "finished" } },
     { id = "me", views = { "deaths", "marks" } },
@@ -61,7 +81,7 @@ MainWindow.SECTIONS = {
 -- The WeChat mini program: a tab right of Me that opens the code instead of a view. It
 -- is in the tab row (Theme sizes the row to fit) but not in SECTIONS, which own views.
 MainWindow.WECHAT_TAB = "wechat"
-MainWindow.TABS = { "wanted", "bullies", "deadbeats", "busted", "punished", "barflies", "duels", "upcoming", "ongoing", "finished", "deaths", "marks" }
+MainWindow.TABS = { "wanted", "bullies", "deadbeats", "busted", "punished", "barflies", "duels", "upcoming", "ongoing", "finished", "deaths", "marks", "gang" }
 -- Tabs of older versions
 MainWindow.OLD_TABS = { tours = "upcoming", shame = "bullies" }
 -- The faction crests in the Alliance / Horde switch: the game's PvP flag icons,
@@ -157,6 +177,14 @@ MainWindow.COLUMNS = {
         { key = "change", header = "COL_CHANGE", width = 80 },
         { key = "reason", header = "COL_REASON", width = 480 },
         { key = "total", header = "COL_TOTAL", width = 95 },
+    },
+    -- HH-155: our gang's members
+    gang = {
+        { key = "name", header = "COL_NAME", width = 260, font = "name" },
+        { key = "desc", header = "COL_WHO", width = 200 },
+        { key = "online", header = "COL_GANG_STATUS", width = 110 },
+        { key = "role", header = "COL_GANG_ROLE", width = 110 },
+        { key = "joined", header = "COL_GANG_JOINED", width = 100 },
     },
     deaths = {
         { key = "time", header = "COL_WHEN", width = 125 },
@@ -576,6 +604,35 @@ end
 -- website's of our world, newest first, each a bully or a Deadbeat; a glass as on Busted
 MainWindow.PUNISHED_KINDS = { bully = "PUNISHED_BULLY", deadbeat = "PUNISHED_DEADBEAT" }
 
+-- HH-155: our gang's members, leader first; a gang still waiting for HeadHunter Sync
+-- shows who we know of
+local function GangRows()
+    local U = ns.Utils
+    local gang = ns.Gangs:Mine()
+    local rows = {}
+    if not gang then return rows end
+    for _, member in ipairs(gang.members) do
+        local leads = U.SameCharacter(member.key, gang.leader)
+        local plain = U.DisplayName(member.key)
+        local race, sex = ns.Gangs:MemberRace(member)
+        local row = {
+            plain = plain,
+            name = Named(plain, { faction = ns.Gangs:MemberFaction(member, gang), race = race, sex = sex,
+                class = ns.Gangs:MemberClass(member) }),
+            gangMember = member.key,
+            desc = ns.DeathReports.Describe({ level = ns.Gangs:MemberLevel(member), class = ns.Gangs:MemberClass(member),
+                race = race, sex = sex }),
+            online = ns.Gangs:IsOnline(member.key) and ("|cff40ff40" .. L.GANG_ONLINE .. "|r") or ("|cff808080" .. L.GANG_OFFLINE .. "|r"),
+            role = leads and L.GANG_ROLE_LEADER or L.GANG_ROLE_MEMBER,
+            joined = member.joinedAt and date("%m-%d %H:%M", member.joinedAt) or (gang.pending and L.GANG_ROLE_PENDING or ""),
+            tooltip = { plain, gang.name, L.GANG_ROW_MENU_HINT },
+        }
+        if leads then table.insert(rows, 1, row) else rows[#rows + 1] = row end
+    end
+    return rows
+end
+MainWindow.GangRows = GangRows
+
 local function PunishedRows(now)
     local U = ns.Utils
     local list = {}
@@ -843,6 +900,8 @@ function MainWindow.Rows(tab, sortKey, now, faction, search)
         rows = PunishedRows(now)
     elseif tab == "barflies" then
         rows = BarflyRows(now)
+    elseif tab == "gang" then
+        rows = GangRows()
     else
         rows = WantedRows(sortKey, now, faction)
     end
@@ -895,7 +954,7 @@ local function CreateMainFrame()
     -- One tab per section, then the WeChat mini program at the right end of the row
     local tabs = {}
     for i, section in ipairs(MainWindow.SECTIONS) do
-        tabs[i] = { id = section.id, label = L["SECTION_" .. section.id:upper()] }
+        tabs[i] = { id = section.id, label = MainWindow.SectionLabel(section.id), badge = MainWindow.SectionBadge(section.id) }
     end
     tabs[#tabs + 1] = { id = MainWindow.WECHAT_TAB, label = L.WECHAT_TAG }
     f.tabs = Theme.CreateTopTabs(f, tabs, function(id) MainWindow:SelectSection(id) end)
@@ -969,6 +1028,25 @@ local function CreateMainFrame()
     f.eventsInfo:SetText(L.EVENTS_INFO)
     f.eventsCreate:Hide()
     f.eventsInfo:Hide()
+    f.gangLeave = Theme.Button(f, L.GANG_LEAVE_BUTTON, "outline", 90, 24)
+    f.gangLeave:SetPoint("TOPRIGHT", -18, toolbarY)
+    f.gangLeave:SetScript("OnClick", function() ns.Gangs:PromptLeave() end)
+    f.gangInvite = Theme.Button(f, L.GANG_INVITE_BUTTON, "gold", 140, 24)
+    f.gangInvite:SetPoint("RIGHT", f.gangLeave, "LEFT", -12, 0)
+    f.gangInvite:SetScript("OnClick", function() ns.Gangs:Command({ "invite" }) end)
+    f.gangInfo = Theme.Text(f, "heading", 15, "gold")
+    f.gangSocial = Theme.Button(f, L.GANG_SOCIAL_BUTTON, "outline", 150, 24)
+    f.gangSocial:SetPoint("TOPLEFT", 16, toolbarY)
+    f.gangSocial:SetScript("OnClick", function() ns.SocialTab:OpenFromWindow() end)
+    f.gangSocial:Hide()
+    f.gangInfo:SetPoint("LEFT", f.gangSocial, "RIGHT", 12, 0)
+    f.gangInfo:SetPoint("RIGHT", f.gangInvite, "LEFT", -12, 0)
+    f.gangInfo:SetJustifyH("LEFT")
+    f.gangInfo:SetWordWrap(false)
+    f.gangCreate = Theme.Button(f, L.GANG_CREATE_BUTTON, "gold", 140, 24)
+    f.gangCreate:SetPoint("TOPRIGHT", -18, toolbarY)
+    f.gangCreate:SetScript("OnClick", function() ns.Gangs:PromptCreate() end)
+    for _, w in ipairs({ f.gangLeave, f.gangInvite, f.gangInfo, f.gangCreate }) do w:Hide() end
     -- Our confirmed results to the website: a quick UI reload saves them, then HeadHunter
     -- Sync sends them (an addon cannot reach the website itself)
     f.eventSend = Theme.Button(f, "", "gold", 140, 24)
@@ -1030,6 +1108,14 @@ local function CreateMainFrame()
 
     f.count = Theme.Text(f, "text", 13, "muted")
     f.count:SetPoint("BOTTOMRIGHT", -26, 11)
+    f.gangNote = Theme.Text(f, "text", 13, "foreground")
+    f.gangNote:SetPoint("BOTTOMLEFT", 18, 11)
+    f.gangNote:SetPoint("RIGHT", f.count, "LEFT", -16, 0)
+    f.gangNote:SetJustifyH("LEFT")
+    f.gangNote:SetWordWrap(true)
+    f.gangNote:SetTextColor(unpack(MainWindow.SYNC_NOTE_COLOR))
+    f.gangNote:SetText(L.GANG_SYNC_NOTE)
+    f.gangNote:Hide()
 
     -- Forever: saved data resets on reload (known client issue), on every tab; hover for more
     f.forever = CreateFrame("Frame", nil, f)
@@ -1061,7 +1147,7 @@ local function CreateMainFrame()
     f.scroll:HookScript("OnVerticalScroll", function() MainWindow:PaintVisible() end)
     f.scroll:HookScript("OnSizeChanged", function() MainWindow:PaintVisible() end)
 
-    f.empty = Theme.Text(f, "text", 16, "muted")
+    f.empty = Theme.Text(f, "text", MainWindow.EMPTY_SIZE, "muted")
     f.empty:SetPoint("CENTER", f, "CENTER", 0, -20)
 
     f:SetScript("OnUpdate", function(_, elapsed)
@@ -1100,7 +1186,14 @@ local function RowFrame(i)
     row.cells = {}
     row:SetScript("OnEnter", ShowRowTooltip)
     row:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
-    row:SetScript("OnClick", function(self) MainWindow:OnRowClick(self.data) end)
+    row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    row:SetScript("OnClick", function(self, button)
+        if button == "RightButton" then
+            if self.data and self.data.gangMember then ns.GangMenu:Open(self.data.gangMember, self) end
+            return
+        end
+        MainWindow:OnRowClick(self.data)
+    end)
     rowFrames[i] = row
     return row
 end
@@ -1265,7 +1358,8 @@ function MainWindow:Refresh()
     elseif search then
         frame.empty:SetText(string.format(L.SEARCH_EMPTY, (search:gsub("|", "||"))))
     else
-        frame.empty:SetText(L["EMPTY_" .. current.tab:upper()])
+        frame.empty:SetText(current.tab == "gang" and ns.Gangs.EmptyText() or L["EMPTY_" .. current.tab:upper()])
+        self:StyleEmpty(current.tab == "gang")
     end
     self:LayoutToolbar(section, event)
     self.shownRows = rows
@@ -1404,6 +1498,7 @@ function MainWindow:LayoutToolbar(section, event)
     for _, w in ipairs({ frame.eventsCreate, frame.eventsInfo }) do
         if eventsList then w:Show() else w:Hide() end
     end
+    self:LayoutGang(section.id == "gang" and not event)
     local unsent = event and ns.Matches:Unsent() or 0
     if unsent > 0 then
         frame.eventSend:SetText(string.format(L.EVENT_SEND, unsent))
@@ -1425,6 +1520,33 @@ function MainWindow:LayoutToolbar(section, event)
             frame.eventNext:SetEnabled(round < count)
         end
     end
+end
+
+-- The empty text: bigger, with room between its lines, on the Gang view
+function MainWindow:StyleEmpty(gang)
+    ns.Theme.Font(frame.empty, "text", gang and MainWindow.GANG_EMPTY_SIZE or MainWindow.EMPTY_SIZE)
+    if frame.empty.SetSpacing then frame.empty:SetSpacing(gang and MainWindow.GANG_EMPTY_SPACING or 0) end
+end
+
+-- HH-155: the gang view's toolbar: our gang's name (or how to make one), Invite for the
+-- leader, Leave for a member
+function MainWindow:LayoutGang(shown)
+    local gang = shown and ns.Gangs.Enabled() and ns.Gangs:Mine()
+    if shown then
+        local info = not ns.Gangs.Enabled() and L.GANG_FOREVER_ONLY
+            or (gang and string.format(gang.pending and L.GANG_HEADER_PENDING or L.GANG_HEADER, gang.name))
+            or L.GANG_HEADER_NONE
+        frame.gangInfo:SetText(info)
+        frame.gangInfo:Show()
+    else
+        frame.gangInfo:Hide()
+    end
+    if gang and ns.Gangs:IsLeader(gang) then frame.gangInvite:Show() else frame.gangInvite:Hide() end
+    if frame.gangInvite.SetEnabled then frame.gangInvite:SetEnabled(gang ~= nil) end
+    if gang then frame.gangLeave:Show() else frame.gangLeave:Hide() end
+    if shown and not gang and ns.Gangs.Enabled() then frame.gangCreate:Show() else frame.gangCreate:Hide() end
+    if shown and ns.SocialTab:Enabled() then frame.gangSocial:Show() else frame.gangSocial:Hide() end
+    if shown and ns.Gangs.Enabled() then frame.gangNote:Show() else frame.gangNote:Hide() end
 end
 
 -- The open event, or nil (it may have ended since)
@@ -1737,7 +1859,7 @@ end
 ns.Events:Register("HH_INITIALIZED", function()
     local request = function() MainWindow:RequestRefresh() end
     for _, event in ipairs({ "HH_WANTED_UPDATED", "HH_DEATH_RECORDED", "HH_REPORT_UPDATED", "HH_MARKS_CHANGED",
-            "HH_HIGHNOON_UPDATED", "HH_BOUNTY_UPDATED", "HH_MATCHES_CHANGED", "HH_GLASS_ADDED", "HH_PUNISHMENT_ADDED" }) do
+            "HH_HIGHNOON_UPDATED", "HH_BOUNTY_UPDATED", "HH_MATCHES_CHANGED", "HH_GLASS_ADDED", "HH_PUNISHMENT_ADDED", "HH_GANG_CHANGED" }) do
         ns.Events:Register(event, request, OWNER)
     end
     -- New duels while the Duels tab is open: its lists are counted again (HH-137)

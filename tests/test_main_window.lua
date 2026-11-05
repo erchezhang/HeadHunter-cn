@@ -136,7 +136,7 @@ return function(T, H)
         T.noErrors()
     end)
 
-    T.case("My deaths: a 3 vs 1 shows as Gang, even if saved as fair before", function()
+    T.case("My deaths: a 3 vs 1 shows as Pack, even if saved as fair before", function()
         local ns = H.Boot({ client = "era" })
         table.insert(ns.db.deaths, { id = "Vati-Firemaw:1", t = H.serverTime - 60, classification = "fair",
             victim = { key = "Vati-Firemaw", level = 30 },
@@ -144,7 +144,7 @@ return function(T, H)
             assists = { { key = "Pal-Stonespine", level = 30 }, { key = "Buddy-Stonespine", level = 31 } },
             mapID = 1429 })
         local row = ns.MainWindow.Rows("deaths")[1]
-        T.eq(row.kind, "|cffcc66ffGang|r (3 vs 1)", "kind")
+        T.eq(row.kind, "|cffcc66ffPack|r (3 vs 1)", "kind")
     end)
 
     T.case("the window warns on Forever that saved data resets on reload, on every tab", function()
@@ -183,14 +183,17 @@ return function(T, H)
         T.noErrors()
     end)
 
-    T.case("five sections with their own sub-tabs; a section opens on its last view", function()
+    T.case("six sections with their own sub-tabs; a section opens on its last view", function()
         local ns = H.Boot({ client = "era" })
         local M = ns.MainWindow
         H.Slash("")
         local f = _G.HeadHunterMainFrame
         local ids = {}
         for i, tab in ipairs(f.tabs.buttons) do ids[i] = tab.id end
-        T.eq(table.concat(ids, ","), "board,busted,duels,events,me,wechat", "the top tabs")
+        T.eq(table.concat(ids, ","), "board,busted,duels,gang,events,me,wechat", "the top tabs")
+        T.eq(M.SectionBadge("gang"), "NEW", "Gang carries a small NEW tag")
+        T.eq(M.SectionLabel("gang"), "Gang", "beside its label, not in it")
+        T.eq(M.SectionBadge("duels"), nil, "Duels does not")
         T.ok(f.subtabs.board:IsShown(), "WANTED and Bullies under the board")
         T.ok(not f.subtabs.events:IsShown(), "only the section's own sub-tabs")
         M:SelectSection("me")
@@ -227,7 +230,7 @@ return function(T, H)
 
         T.eq(select(1, M:Current()), "deaths", "the view behind stays what it was")
         T.ok(not wechat.selected, "the tab itself never draws selected")
-        T.ok(f.tabs.buttons[5].selected, "Me stays the selected section")
+        T.ok(f.tabs.buttons[6].selected, "Me stays the selected section")
         T.noErrors()
     end)
 
@@ -245,8 +248,8 @@ return function(T, H)
         M:SelectTab("deaths")
         T.eq(select(1, M:Current()), "deaths", "tab")
         local tabs = _G.HeadHunterMainFrame.tabs.buttons
-        T.eq(#tabs, 6, "five sections and the WeChat tab")
-        T.ok(tabs[5].selected and not tabs[1].selected, "My deaths: the Me section drawn selected")
+        T.eq(#tabs, 7, "six sections and the WeChat tab")
+        T.ok(tabs[6].selected and not tabs[1].selected, "My deaths: the Me section drawn selected")
         T.eq(tabs[1].point[2], _G.HeadHunterMainFrame.header, "in the header, like the website's menu")
         T.eq(#M.shownRows, 0, "no deaths of ours")
         M:SelectTab("wanted")

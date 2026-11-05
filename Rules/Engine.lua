@@ -7,7 +7,17 @@
 --               even when the report names them twice, weighted by confidence:
 --               exact 1, inferred 0.5, sim 1
 --   WANTED      enters at WANTED_KILLS weighted kills within WANTED_WINDOW
---               (5 in 20 min); each kill while WANTED adds to the count
+--               (5 in 20 min) on at least WANTED_VICTIMS different victims (2); each
+--               kill while WANTED adds to the count
+--   Repeats     one victim's deaths to the same enemy count toward WANTED at most
+--               REPEAT_KILLS times per REPEAT_WINDOW (3 per hour); the others are
+--               still kills (totals, badges). A report comes from its victim, so
+--               one player alone can never make someone WANTED (author, 2026-10-04;
+--               2 victims and 3 an hour for the release 2026-11-04, so A, A, B, B, A
+--               makes WANTED. Emergency plan: 3 victims and 2 an hour, the same in
+--               the website's WantedEvaluator).
+--               Test deaths (sim: our own, or from a trusted character) are exempt; a lowered test threshold
+--               (/hh debug wanted <n>) lowers the victims needed too
 --   Ends        when a HeadHunter or their group kills the outlaw (a "catch",
 --               Sync/Justice.lua; author 2026-09-23), or after WANTED_IDLE (7 days)
 --               without a kill. Either way the count resets: the next WANTED
@@ -33,6 +43,9 @@ local MINUTE, DAY = 60, 86400
 
 Engine.WANTED_KILLS = 5
 Engine.WANTED_WINDOW = 20 * MINUTE
+Engine.WANTED_VICTIMS = 2
+Engine.REPEAT_KILLS = 3
+Engine.REPEAT_WINDOW = 60 * MINUTE
 Engine.ENGAGEMENT_GAP = 60
 Engine.SERIAL_VICTIMS = 5
 Engine.DEFAULT_SERIAL_WINDOW = 15 * MINUTE
@@ -139,6 +152,7 @@ function Engine.CollectKills(reports, yield)
                 bucket.kills[#bucket.kills + 1] = {
                     t = report.t,
                     weight = weight,
+                    sim = report.confidence == "sim" or nil,
                     victim = report.victim and report.victim.key,
                     class = class,
                     group = group,
@@ -201,6 +215,34 @@ function Engine.Evaluate(kills, now, opts, catches)
     local catchTimes = {}
     for i, t in ipairs(catches or {}) do catchTimes[i] = t end
     table.sort(catchTimes)
+    local wantedVictims = math.min(Engine.WANTED_VICTIMS, wantedKills)
+
+    local counted, byVictim = {}, {}
+    for i, kill in ipairs(kills) do
+        counted[i] = kill.weight
+        if kill.victim and not kill.sim then
+            local recent = {}
+            for _, t in ipairs(byVictim[kill.victim] or {}) do
+                if t > kill.t - Engine.REPEAT_WINDOW then recent[#recent + 1] = t end
+            end
+            if #recent >= Engine.REPEAT_KILLS then
+                counted[i] = 0
+            else
+                recent[#recent + 1] = kill.t
+            end
+            byVictim[kill.victim] = recent
+        end
+    end
+
+    local windowVictims, windowDistinct = {}, 0
+    local function WindowVictim(i, step)
+        if counted[i] <= 0 then return end
+        local victim = (not kills[i].sim and kills[i].victim) or ("#" .. i)
+        local n = (windowVictims[victim] or 0) + step
+        if step > 0 and n == 1 then windowDistinct = windowDistinct + 1 end
+        if step < 0 and n == 0 then windowDistinct = windowDistinct - 1 end
+        windowVictims[victim] = n > 0 and n or nil
+    end
 
     local wanted, count, wantedUntil, wantedSince = false, 0, 0, nil
     local timesWanted, peakRank = 0, nil
@@ -228,6 +270,7 @@ function Engine.Evaluate(kills, now, opts, catches)
         atLarge = false
         wanted, count = false, 0
         windowStart, windowSum = nextKill, 0
+        windowVictims, windowDistinct = {}, 0
     end
 
     for i, kill in ipairs(kills) do
@@ -244,9 +287,11 @@ function Engine.Evaluate(kills, now, opts, catches)
         if ns.Classify.IsFair(kill.class, kill.group) then fair = fair + 1 end
         if ns.Classify.IsGiant(kill.class, kill.group) then giant = giant + 1 end
 
-        windowSum = windowSum + kill.weight
+        windowSum = windowSum + counted[i]
+        WindowVictim(i, 1)
         while kills[windowStart].t < kill.t - Engine.WANTED_WINDOW do
-            windowSum = windowSum - kills[windowStart].weight
+            windowSum = windowSum - counted[windowStart]
+            WindowVictim(windowStart, -1)
             windowStart = windowStart + 1
         end
 
@@ -255,8 +300,8 @@ function Engine.Evaluate(kills, now, opts, catches)
             atLarge = true
         end
         if wanted then
-            count = count + kill.weight
-        elseif windowSum >= wantedKills - EPSILON then
+            count = count + counted[i]
+        elseif windowSum >= wantedKills - EPSILON and windowDistinct >= wantedVictims then
             wanted, count, wantedSince = true, windowSum, kill.t
             timesWanted = timesWanted + 1
             ranOut = false

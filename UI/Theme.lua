@@ -503,6 +503,11 @@ end
 Theme.TAB_FONT = 12
 Theme.TAB_PADDING = 12
 
+-- The raised tag on a top tab ("NEW"): its size, how far above the label's top, its colour
+Theme.BADGE_FONT = 7
+Theme.BADGE_RAISE = -7
+Theme.BADGE_COLOR = { 0.25, 1, 0.25 }
+
 local function CreateTopTab(f, info, onClick)
     local C = Theme.COLORS
     local tab = CreateFrame("Button", nil, f.header)
@@ -511,6 +516,12 @@ local function CreateTopTab(f, info, onClick)
     tab.label = Theme.Text(tab, "heading", Theme.TAB_FONT, "stone")
     tab.label:SetPoint("CENTER", 0, 1)
     tab.label:SetText(info.label)
+    if info.badge then
+        tab.badge = Theme.Text(tab, "bold", Theme.BADGE_FONT)
+        tab.badge:SetPoint("BOTTOMLEFT", tab.label, "TOPRIGHT", 1, Theme.BADGE_RAISE)
+        tab.badge:SetText(info.badge)
+        tab.badge:SetTextColor(Theme.BADGE_COLOR[1], Theme.BADGE_COLOR[2], Theme.BADGE_COLOR[3])
+    end
     tab.underline = Solid(tab, "ARTWORK", C.gold, 1)
     tab.underline:SetPoint("BOTTOMLEFT", 6, 4)
     tab.underline:SetPoint("BOTTOMRIGHT", -6, 4)
@@ -541,6 +552,11 @@ function Theme.CreateTopTabs(f, tabs, onSelect)
     -- Room a tab keeps for its live dot
     local function DotSpace(tab)
         return set.dotShown[tab.id] and (Theme.LIVE_DOT_SIZE + Theme.LIVE_DOT_GAP) or 0
+    end
+    -- Room a tab keeps for its raised tag
+    local function BadgeSpace(tab)
+        local badge = rawget(tab, "badge")
+        return badge and ((badge:GetStringWidth() or 20) + 2) or 0
     end
     for i, info in ipairs(tabs) do set.buttons[i] = CreateTopTab(f, info, onSelect) end
 
@@ -595,7 +611,9 @@ function Theme.CreateTopTabs(f, tabs, onSelect)
         local size, padding = Theme.TAB_FONT, Theme.TAB_PADDING
         local function Width()
             local total = 0
-            for _, tab in ipairs(shown) do total = total + (tab.label:GetStringWidth() or 60) + 2 * padding + DotSpace(tab) end
+            for _, tab in ipairs(shown) do
+                total = total + (tab.label:GetStringWidth() or 60) + 2 * padding + DotSpace(tab) + BadgeSpace(tab)
+            end
             return total
         end
         while Width() > room and (padding > 6 or size > 10) do
@@ -608,9 +626,9 @@ function Theme.CreateTopTabs(f, tabs, onSelect)
         end
         local x = left
         for _, tab in ipairs(shown) do
-            local width = (tab.label:GetStringWidth() or 60) + 2 * padding + DotSpace(tab)
+            local width = (tab.label:GetStringWidth() or 60) + 2 * padding + DotSpace(tab) + BadgeSpace(tab)
             tab.label:ClearAllPoints()
-            tab.label:SetPoint("CENTER", DotSpace(tab) / 2, 1)
+            tab.label:SetPoint("CENTER", (DotSpace(tab) - BadgeSpace(tab)) / 2, 1)
             tab:ClearAllPoints()
             tab:SetPoint("BOTTOMLEFT", f.header, "BOTTOMLEFT", x, 1)
             tab:SetWidth(width)

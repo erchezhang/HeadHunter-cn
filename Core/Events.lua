@@ -3,6 +3,9 @@ local addonName, ns = ...
 local Events = ns:RegisterModule("Events", {})
 
 local callbacks = {}
+-- event -> owners in the order they first registered, so handlers run in load (TOC)
+-- order instead of the hash order of `callbacks`, which shifted whenever a module was added
+local orders = {}
 local eventFrame = CreateFrame("Frame")
 
 -- Addon-internal events carry this prefix and never touch the frame
@@ -13,10 +16,15 @@ end
 local function Dispatch(event, ...)
     local list = callbacks[event]
     if not list then return end
-    for _, callback in pairs(list) do
-        local ok, err = pcall(callback, event, ...)
-        if not ok then
-            ns:Error(err)
+    local owners = {}
+    for i, owner in ipairs(orders[event] or {}) do owners[i] = owner end
+    for _, owner in ipairs(owners) do
+        local callback = list[owner]
+        if callback then
+            local ok, err = pcall(callback, event, ...)
+            if not ok then
+                ns:Error(err)
+            end
         end
     end
 end
@@ -90,6 +98,11 @@ function Events:Register(event, callback, owner)
             end
         end
         callbacks[event] = {}
+        orders[event] = {}
+    end
+    if callbacks[event][owner] == nil then
+        local order = orders[event]
+        order[#order + 1] = owner
     end
     callbacks[event][owner] = callback
     return true
@@ -99,8 +112,13 @@ function Events:Unregister(event, owner)
     local list = callbacks[event]
     if not list then return end
     list[owner] = nil
+    local order = orders[event] or {}
+    for i = #order, 1, -1 do
+        if order[i] == owner then table.remove(order, i) end
+    end
     if next(list) == nil then
         callbacks[event] = nil
+        orders[event] = nil
         if not IsCustom(event) then
             eventFrame:UnregisterEvent(event)
         end

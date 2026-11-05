@@ -44,7 +44,7 @@ local RACES = {
 }
 local FACTIONS = { alliance = "Alliance", horde = "Horde" }
 
-local world, wanted, duelists, deadbeats, bullies, tournaments, busted, glasses, posters, bountyTargets, punished
+local world, wanted, duelists, deadbeats, bullies, tournaments, busted, glasses, posters, bountyTargets, punished, gangs
 
 -------------------------------------------------
 -- Names
@@ -274,7 +274,7 @@ end
 
 function SiteData:Load()
     world, wanted, duelists, deadbeats, bullies, tournaments, busted, glasses = nil, nil, nil, nil, nil, nil, nil, nil
-    posters, bountyTargets, punished = nil, nil, nil
+    posters, bountyTargets, punished, gangs = nil, nil, nil, nil
     local data = Data()
     world = data and FindWorld(data)
     if not world then return false end
@@ -327,6 +327,11 @@ function SiteData:Load()
             punished[#punished + 1] = record
             glasses[record.outlaw .. ":" .. record.t] = record.glasses
         end
+    end
+    gangs = {}
+    for _, g in ipairs(type(world.gangs) == "table" and world.gangs or {}) do
+        local gang = type(g) == "table" and SiteData.Gang(g)
+        if gang then gangs[#gangs + 1] = gang end
     end
     -- HH-118: the running players' bounties, also those we never heard in game
     posters, bountyTargets = {}, {}
@@ -437,6 +442,66 @@ end
 -- The website's count of glasses raised to a catch, or nil
 function SiteData:Glasses(outlaw, caughtAt)
     return glasses and outlaw and caughtAt and glasses[outlaw .. ":" .. caughtAt] or nil
+end
+
+-- A gang of the download (HH-155): { id, name, faction, leader (key), leaderAt, renamedAt
+-- (when the website applied them), members = { { key, class, race, sex, level, joinedAt } } },
+-- or nil
+function SiteData.Gang(g)
+    local name = Text(g.name)
+    if not name then return nil end
+    local members = {}
+    for _, m in ipairs(type(g.members) == "table" and g.members or {}) do
+        local key = type(m) == "table" and SiteData.Key(m)
+        if key then
+            members[#members + 1] = { key = key, class = SiteData.Class(m.class), race = SiteData.Race(m.race),
+                sex = Number(m.sex), level = Number(m.level), joinedAt = Number(m.joined_at) }
+        end
+    end
+    return { id = Number(g.id), name = name, faction = SiteData.Faction(g.faction),
+        leader = ns.Utils.PlayerKey(Text(g.leader)), leaderAt = Number(g.leader_at), renamedAt = Number(g.renamed_at),
+        members = members }
+end
+
+function SiteData:Gangs()
+    return gangs or {}
+end
+
+-- Our character's gang chat channel and password (HH-155): { channel, password, at (when the
+-- website applied it) } or nil
+function SiteData:GangChat(me)
+    local data = Data()
+    if not (data and me and type(data.characters) == "table") then return nil end
+    local realmType = ForeverRealmType(data)
+    for _, c in ipairs(data.characters) do
+        if type(c) == "table" and IsOurWorld(c.world, realmType) and ns.Utils.SameCharacter(ns.Utils.PlayerKey(Text(c.name)), me)
+                and type(c.gang_chat) == "table" then
+            local channel, password = Text(c.gang_chat.channel), Text(c.gang_chat.password)
+            if channel and password then return { channel = channel, password = password, at = Number(c.gang_chat.at) } end
+        end
+    end
+    return nil
+end
+
+-- What came of our character's gang actions (HH-155): uid -> { kind, status, reason, gang,
+-- requested (a create's name that was taken, so the gang got a number) }
+function SiteData:GangResults(me)
+    local data = Data()
+    local results = {}
+    if not (data and me and type(data.characters) == "table") then return results end
+    local realmType = ForeverRealmType(data)
+    for _, c in ipairs(data.characters) do
+        if type(c) == "table" and IsOurWorld(c.world, realmType) and ns.Utils.SameCharacter(ns.Utils.PlayerKey(Text(c.name)), me) then
+            for _, r in ipairs(type(c.gang_results) == "table" and c.gang_results or {}) do
+                local uid = type(r) == "table" and Text(r.uid)
+                if uid then
+                    results[uid] = { kind = Text(r.kind), status = Text(r.status), reason = Text(r.reason), gang = Text(r.gang),
+                        requested = Text(r.requested) }
+                end
+            end
+        end
+    end
+    return results
 end
 
 -- A website page from the download's links ("tournaments", "create_tournament"), or nil

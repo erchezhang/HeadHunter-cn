@@ -115,7 +115,7 @@ return function(T, H)
         T.eq(select(2, B:Post("Grim-Stonespine", 1, 12, 5)), "days", "1, 2, 3 or 7 days")
         T.eq(ns.Bounties.MIN_GOLD, 20000, "2g is enough")
         T.eq(select(2, B:Post("Grim-Stonespine", 1, 16, 3)), "toomuch", "over 15g")
-        T.eq(ns.Bounties.MAX_GOLD, 150000, "15g at most on the beta")
+        T.eq(ns.Bounties.MAX_GOLD, 150000, "15g at most")
 
         T.ok(ns.BountyDialog:Open("Grim-Stonespine"), "the dialog opens")
         ns.BountyDialog.values.gold = 12

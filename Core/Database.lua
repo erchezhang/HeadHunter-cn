@@ -29,7 +29,7 @@ DB.HOME_TABLES = {
     deaths = true, reports = true, enemies = true, justice = true, posters = true, posse = true,
     bountyPay = true, duels = true, eventResults = true, marks = true, demoMarks = true, player = true,
     witness = true, pinned = true, glasses = true, screenshots = true, honorKills = true, wars = true,
-    invites = true, punishments = true,
+    invites = true, punishments = true, gangActions = true, gangDeparted = true, gangLocal = true,
 }
 
 DB.LIMITS = {
@@ -74,6 +74,18 @@ local DEFAULTS = {
         uiScale = 100, -- HH-125: window size, 70..150 %, set with the corner grip of the main window
         screenshots = true, -- HH-132: pictures of our PvP deaths and catches, for the admins (needs HeadHunter Sync)
         relay = true, -- HH-151: carry other HeadHunters' records to the players of other home servers
+        -- HH-155: gang invites from other players show a popup; off declines them quietly
+        gangInvites = true,
+        -- HH-155: the Gang tab in the Social window, off until its taint probe is clean (UI/SocialTab.lua)
+        gangSocialTab = false,
+        -- HH-155: the colour of gang chat lines, hex (Sync/GangChat.lua)
+        gangChatColor = "ff9f40",
+        -- HH-155: the gang channel last put in the main chat window (once per channel, after the
+        -- game joined it; gangChatShown before 1.0.1 was set even when the window refused it)
+        gangChatWindow = false,
+        -- HH-155: "/gang " + space switches the chat box to gang chat (Sync/GangChat.lua); on since
+        -- the in-game check of 2026-11-04 (/target typed in chat after it still worked)
+        gangChatSlash = true,
     },
     zones = {}, -- zone mapID -> { name, continent, locale }: names for the website (Alerts/Zones.lua)
     homes = {}, -- home key -> HOME_DEFAULTS
@@ -95,6 +107,13 @@ local HOME_DEFAULTS = {
     screenshots = {}, -- HH-132: pictures taken for the sync app (Sync/Screenshots.lua)
     -- Our honorable kills by map and time, oldest first (Detection/HonorKills.lua)
     honorKills = {},
+    -- HH-155: what we did with a gang, for HeadHunter Sync (Sync/Gangs.lua)
+    gangActions = {},
+    -- HH-155: members who told us they left, until the website's list catches up
+    gangDeparted = {},
+    -- HH-155: character key -> the gang chat and changes this character made or was told,
+    -- until a newer download (Sync/Gangs.lua)
+    gangLocal = {},
     -- HH-136: wars, a hotzone's fight from start to end (Alerts/Wars.lua), oldest first
     wars = {},
     -- HH-145: compact name -> when we asked that HeadHunter for a group invite (Alerts/Invites.lua)
