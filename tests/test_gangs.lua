@@ -783,35 +783,52 @@ return function(T, H)
         T.eq(#Whispers("i;"), 0, "no invite sent")
     end)
 
-    T.case("gang rules: within 24 hours of leaving, an invite is turned down at once and both are told", function()
+    T.case("gang rules: within an hour of leaving, another gang's invite is turned down at once and both are told", function()
         local member = Boot(Data({ Gang("Old Crew", "Kira Dawnblade", { "Kira Dawnblade", "Vati Guda" }) }))
         H.Slash("gang leave")
         H.printed, H.sent, H.popups = {}, {}, {}
         H.Deliver(member.Protocol.Pack("A", member.Protocol.TYPES.GANG, { "i;Black Hand;WARRIOR" }), "Tobin Ashford")
         Settle()
         T.eq(#H.popups, 0, "no popup")
-        T.ok(H.Printed("Gang rules: you left a gang less than 24 hours ago"), "we are told")
-        T.ok(H.Printed("24 h"), "with the time left")
+        T.ok(H.Printed("Gang rules: you left a gang less than an hour ago"), "we are told")
+        T.ok(H.Printed("1 h"), "with the time left")
         T.ok(Whispers("c;")[1] ~= nil, "the inviter is told")
 
         local leader = Boot(Data({ Gang("Black Hand", "Vati Guda", { "Vati Guda" }) }))
         H.printed = {}
         H.Slash("gang invite Gang Ster")
-        H.Deliver(leader.Protocol.Pack("A", leader.Protocol.TYPES.GANG, { "c;61200" }), "Gang Ster")
-        T.ok(H.Printed("Gang rules: Gang Ster left a gang less than 24 hours ago and can join again in 17 h"), "the leader hears why")
+        H.Deliver(leader.Protocol.Pack("A", leader.Protocol.TYPES.GANG, { "c;1800" }), "Gang Ster")
+        T.ok(H.Printed("Gang rules: Gang Ster left a gang less than an hour ago and can join another gang in 30 min"), "the leader hears why")
     end)
 
-    T.case("gang rules: a member who told us they left is not invited again within 24 hours", function()
-        local ns = Boot(Data({ Gang("Black Hand", "Vati Guda", { "Vati Guda", "Tobin Ashford" }) }))
-        H.Deliver(ns.Protocol.Pack("A", ns.Protocol.TYPES.GANG, { "l" }), "Tobin Ashford")
-        H.printed, H.sent = {}, {}
+    T.case("gang rules: coming back to the gang we left or were kicked from needs no wait", function()
+        local member = Boot(Data({ Gang("Old Crew", "Kira Dawnblade", { "Kira Dawnblade", "Vati Guda" }) }))
+        H.Slash("gang leave")
+        H.popups = {}
+        H.Deliver(member.Protocol.Pack("A", member.Protocol.TYPES.GANG, { "i;Old Crew;WARRIOR" }), "Kira Dawnblade")
+        Settle()
+        T.eq(#H.popups, 1, "the invite back to the gang we left")
+        T.ok(member.Gangs:CooldownLeft() ~= nil, "another gang still waits")
+
+        local kicked = Boot(Data({ Gang("Old Crew", "Kira Dawnblade", { "Kira Dawnblade", "Vati Guda" }) }))
+        H.Deliver(kicked.Protocol.Pack("A", kicked.Protocol.TYPES.GANG, { "x" }), "Kira Dawnblade")
+        Settle()
+        T.eq(kicked.Gangs:Mine(), nil, "kicked")
+        H.popups, H.sent = {}, {}
+        H.Deliver(kicked.Protocol.Pack("A", kicked.Protocol.TYPES.GANG, { "i;Old Crew;WARRIOR" }), "Kira Dawnblade")
+        Settle()
+        T.eq(#H.popups, 1, "the leader who kicked us may invite us back at once")
+        T.eq(Whispers("c;")[1], nil, "no wait said")
+
+        local leader = Boot(Data({ Gang("Black Hand", "Vati Guda", { "Vati Guda", "Tobin Ashford" }) }))
+        H.Deliver(leader.Protocol.Pack("A", leader.Protocol.TYPES.GANG, { "l" }), "Tobin Ashford")
+        H.sent = {}
         H.Slash("gang invite Tobin Ashford")
         Settle()
-        T.ok(H.Printed("Gang rules: Tobin Ashford left a gang"), "said")
-        T.eq(#Whispers("i;"), 0, "no invite sent")
+        T.eq(#Whispers("i;"), 1, "and a member who left our gang may be invited back at once")
     end)
 
-    T.case("testreset (HeadHunter_Dev only) clears the 24-hour rule on this character", function()
+    T.case("testreset (HeadHunter_Dev only) clears the gang waiting time on this character", function()
         local ns = H.Boot({ client = "forever", playerGUID = "Player-" .. PVP .. "-00ABCDEF", dev = { trust = {} } })
         Settle()
         H.Slash("gang create Black Hand")
@@ -827,7 +844,7 @@ return function(T, H)
         T.ok(player.Gangs:CooldownLeft() ~= nil, "not without HeadHunter_Dev")
     end)
 
-    T.case("create: a name another gang of our world has is refused at once, and the 24-hour rule too", function()
+    T.case("create: a name another gang of our world has is refused at once, and the waiting time too", function()
         local ns = Boot(Data({ Gang("Western Gods", "Andy Gue", { "Andy Gue" }) }))
         H.printed = {}
         H.Slash("gang create western   gods")
@@ -837,7 +854,7 @@ return function(T, H)
         H.Slash("gang leave")
         H.printed = {}
         H.Slash("gang create Red Fang")
-        T.ok(H.Printed("Gang rules: you left a gang"), "the 24-hour rule")
+        T.ok(H.Printed("Gang rules: you left a gang"), "the waiting time")
     end)
 
     T.case("not in a gang: the Gang page says where to check that a name is free", function()

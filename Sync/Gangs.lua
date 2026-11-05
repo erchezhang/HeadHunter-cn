@@ -43,7 +43,7 @@ Gangs.INVITE_WINDOW = 60
 -- online or no HeadHunter
 Gangs.ACK_WAIT = 10
 -- seconds after leaving a gang (or being kicked) before joining one again, as the website
-Gangs.JOIN_COOLDOWN = 86400
+Gangs.JOIN_COOLDOWN = 3600
 -- seconds our actions are kept
 Gangs.GANG_KEEP = 30 * 86400
 Gangs.POPUP = "HEADHUNTER_GANG_INVITE"
@@ -97,7 +97,8 @@ local function Me()
 end
 
 -- What this character was told or made itself, newer than the download until the next one:
--- { channel, password, t (chat), name, nameAt, leader, leaderAt, kickedAt, kickCleared }; the
+-- { channel, password, t (chat), name, nameAt, leader, leaderAt, kickedAt, kickedBy, kickedGang,
+-- kickCleared }; the
 -- times are those of the leader's actions
 function Gangs:Local()
     local me = Me()
@@ -546,12 +547,6 @@ function Gangs:Invite(key, class, level)
             return false
         end
     end
-    local leftAt = Departed()[key]
-    local wait = leftAt and (leftAt + Gangs.JOIN_COOLDOWN - ns.Utils.ServerTime())
-    if wait and wait > 0 then
-        ns:Print(string.format(L.GANG_RULE_COOLDOWN_OTHER, ns.Utils.DisplayName(key), Gangs.Hours(wait)))
-        return false
-    end
     if #gang.members >= Gangs.MAX_MEMBERS then ns:Print(L.GANG_FULL) return false end
     local now = ns.Utils.Now()
     if not UnderInviteLimit(now) then ns:Print(L.GANG_INVITE_SLOW) return false end
@@ -570,15 +565,24 @@ function Gangs:Invite(key, class, level)
     return true
 end
 
--- Seconds until we may join a gang again after our own last leave, or nil
-function Gangs:CooldownLeft(now)
+-- Seconds until we may join or make another gang after our own last leave or kick, or nil.
+-- Coming back to the gang we left (an invite from its leader, or under its name) needs no
+-- wait (author, 2026-11-05: a kick by mistake, or a re-invite to fix the chat channel)
+function Gangs:CooldownLeft(now, leader, name)
     now = now or ns.Utils.ServerTime()
-    local last
+    local last, lastLeader, lastGang
     for _, action in ipairs(self:Actions()) do
-        if action.kind == "leave" and not action.cooldownCleared and (not last or action.t > last) then last = action.t end
+        if action.kind == "leave" and not action.cooldownCleared and (not last or action.t > last) then
+            last, lastLeader, lastGang = action.t, action.leader, action.gang
+        end
     end
     local saved = self:Local()
-    if saved.kickedAt and not saved.kickCleared and (not last or saved.kickedAt > last) then last = saved.kickedAt end
+    if saved.kickedAt and not saved.kickCleared and (not last or saved.kickedAt > last) then
+        last, lastLeader, lastGang = saved.kickedAt, saved.kickedBy, saved.kickedGang
+    end
+    local sameLeader = leader and lastLeader and ns.Utils.SameCharacter(leader, lastLeader)
+    local sameGang = name and lastGang and Gangs.CleanName(name):lower() == Gangs.CleanName(lastGang):lower()
+    if sameLeader or sameGang then return nil end
     local left = last and (last + Gangs.JOIN_COOLDOWN - now)
     return left and left > 0 and left or nil
 end
@@ -626,7 +630,7 @@ local function OnInvite(rest, sender)
         Answer("d", sender)
         return
     end
-    local wait = Gangs:CooldownLeft()
+    local wait = Gangs:CooldownLeft(nil, leader, name)
     if wait then
         Answer("c;" .. wait, sender)
         ns:Print(string.format(L.GANG_RULE_COOLDOWN_SELF, Gangs.Hours(wait)))
@@ -721,7 +725,7 @@ function Gangs:OnLeaderNote(code, rest, sender)
         self:SaveChat(channel, password, at)
     elseif code == "x" then
         self:Forget()
-        saved.kickedAt, saved.kickCleared = at, nil
+        saved.kickedAt, saved.kickedBy, saved.kickedGang, saved.kickCleared = at, key, gang.name, nil
         ns:Print(string.format(L.GANG_YOU_WERE_KICKED, gang.name))
     elseif code == "k" then
         local kicked = ns.Utils.PlayerKey(text)
@@ -832,7 +836,7 @@ function Gangs:Command(args)
         if not gang then ns:Print(L.GANG_NOT_IN_A_GANG) return end
         self:TellMembers("l", gang)
         self:Forget()
-        self:Record("leave")
+        self:Record("leave", { gang = gang.name, leader = gang.leader })
         ns:Print(string.format(L.GANG_LEFT, gang.name))
     elseif sub == "kick" or sub == "lead" then
         if not gang then ns:Print(L.GANG_NOT_IN_A_GANG) return end
