@@ -385,7 +385,7 @@ return function(T, H)
         H.joinWorks = true
         H.Slash("gang create Black Hand")
         local create = ns.Gangs:Actions()[1]
-        T.ok(create.chatChannel:match("^Gang_HH[a-z0-9]+$") and #create.chatChannel == 19, "the create carries the channel for the website")
+        T.ok(create.chatChannel:match("^GangHH%l+$") and #create.chatChannel == 18, "the create carries the channel for the website")
         T.eq(#create.chatPassword, ns.Gangs.CHAT_PASSWORD_LENGTH, "and its password")
         T.eq(ns.GangChat:Channel(), create.chatChannel, "joined at once")
 
@@ -403,11 +403,11 @@ return function(T, H)
         Note(ns, "i;Black Hand", "Kira Dawnblade")
         StaticPopupDialogs[ns.Gangs.POPUP].OnAccept()
         Settle()
-        Note(ns, "p;Gang_HHzzzzzzzzzzzz;Other1", "Rowan Fairhill")
+        Note(ns, "p;GangHHzzzzzzzzzzzz;Other1", "Rowan Fairhill")
         T.eq(ns.Gangs:SavedChat(), nil, "not from someone else")
-        Note(ns, "p;Gang_HHabcdefghijkl;Secret123", "Kira Dawnblade")
-        T.eq(ns.GangChat:Channel(), "Gang_HHabcdefghijkl", "joined")
-        T.eq(ns.db.gangLocal["Vati Guda"].channel, "Gang_HHabcdefghijkl", "kept for the next login")
+        Note(ns, "p;GangHHabcdefghijkl;Secret123", "Kira Dawnblade")
+        T.eq(ns.GangChat:Channel(), "GangHHabcdefghijkl", "joined")
+        T.eq(ns.db.gangLocal["Vati Guda"].channel, "GangHHabcdefghijkl", "kept for the next login")
 
         Note(ns, "n;Red Fang", "Kira Dawnblade")
         T.eq(ns.Gangs:Mine().name, "Red Fang", "renamed by the leader")
@@ -424,15 +424,15 @@ return function(T, H)
         local data = Data({ Gang("Black Hand", "Kira Dawnblade", { "Kira Dawnblade", "Vati Guda" }) })
         data.worlds["forever|us|pvp"].gangs[1].members[2].joined_at = t - 500
         data.worlds["forever|us|pvp"].gangs[1].renamed_at = t - 400
-        data.characters[1].gang_chat = { channel = "Gang_HHoldoldoldold", password = "Old1", at = t - 400 }
+        data.characters[1].gang_chat = { channel = "GangHHoldoldoldold", password = "Old1", at = t - 400 }
         data.worlds["forever|us|pvp"].generated_at = t + 1000
         local ns = Boot(data)
-        Note(ns, "p;Gang_HHnewnewnewnew;New1;" .. (t - 100), "Kira Dawnblade")
+        Note(ns, "p;GangHHnewnewnewnew;New1;" .. (t - 100), "Kira Dawnblade")
         Note(ns, "n;Red Fang;" .. (t - 100), "Kira Dawnblade")
-        T.eq(ns.GangChat.Credentials().channel, "Gang_HHnewnewnewnew", "the whispered channel, though the download is newer")
+        T.eq(ns.GangChat.Credentials().channel, "GangHHnewnewnewnew", "the whispered channel, though the download is newer")
         T.eq(ns.Gangs:Mine().name, "Red Fang", "the whispered name")
 
-        data.characters[1].gang_chat = { channel = "Gang_HHnewnewnewnew", password = "New1", at = t - 100 }
+        data.characters[1].gang_chat = { channel = "GangHHnewnewnewnew", password = "New1", at = t - 100 }
         data.worlds["forever|us|pvp"].gangs[1].name = "Red Fang 2"
         data.worlds["forever|us|pvp"].gangs[1].renamed_at = t - 50
         ns.SiteData:Load()
@@ -543,14 +543,14 @@ return function(T, H)
 
     T.case("gang chat: an ordinary channel labelled [Gang], shown in the main window once, /gang sends or opens it", function()
         local data = Data({ Gang("Black Hand", "Vati Guda", { "Vati Guda" }) })
-        data.characters[1].gang_chat = { channel = "HHGabcdefghijkl", password = "secret" }
+        data.characters[1].gang_chat = { channel = "GangHHabcdefghijkl", password = "secret" }
         local ns = Boot(data)
         H.joinWorks = true
         local added = {}
         _G.DEFAULT_CHAT_FRAME = { AddChannel = function(_, name) added[#added + 1] = name end }
-        ns.db.settings.gangChatShown = false
+        ns.db.settings.gangChatWindow = false
         T.ok(ns.GangChat:Join(), "joined")
-        T.eq(added[1], "HHGabcdefghijkl", "shown in the main chat window")
+        T.eq(added[1], "GangHHabcdefghijkl", "shown in the main chat window")
         ns.GangChat:Join()
         T.eq(#added, 1, "only once: the player's chat settings decide after that")
         H.chatSent = {}
@@ -564,7 +564,7 @@ return function(T, H)
         T.eq(_G.SLASH_HEADHUNTERGANGCHAT2, nil, "no /gc (GudaChat has it)")
         local hidden = false
         for _, fn in ipairs(H.chatFilterList.CHAT_MSG_CHANNEL or {}) do
-            if fn(nil, "CHAT_MSG_CHANNEL", "hi", "Tobin Ashford", "", "5. HHGabcdefghijkl", "", "", 0, 5, "HHGabcdefghijkl") then
+            if fn(nil, "CHAT_MSG_CHANNEL", "hi", "Tobin Ashford", "", "5. GangHHabcdefghijkl", "", "", 0, 5, "GangHHabcdefghijkl") then
                 hidden = true
             end
         end
@@ -573,10 +573,10 @@ return function(T, H)
         _G.ChatFrame1 = { AddMessage = function(_, text) shown[#shown + 1] = text end }
         _G.ChatFrame3 = { AddMessage = function(_, text) shown[#shown + 1] = "tab3:" .. text end }
         _G.GetChatWindowChannels = function(i)
-            if i == 1 or i == 3 then return "Trade", 2, "HHGabcdefghijkl", 0 end
+            if i == 1 or i == 3 then return "Trade", 2, "GangHHabcdefghijkl", 0 end
             return "Trade", 2
         end
-        ns.GangChat:OnChannelText("hi all", "Tobin Ashford", "HHGabcdefghijkl", "5. HHGabcdefghijkl")
+        ns.GangChat:OnChannelText("hi all", "Tobin Ashford", "GangHHabcdefghijkl", "5. GangHHabcdefghijkl")
         T.eq(#shown, 2, "printed into every window that lists the gang channel")
         T.ok(shown[1]:find("[Gang]", 1, true) and shown[1]:find("hi all", 1, true), "as [Gang]")
         T.ok(shown[1]:find("|Hchannel:channel:5|h", 1, true), "[Gang] opens gang chat")
@@ -587,18 +587,40 @@ return function(T, H)
         ns.GangChat.OnHeaderUpdate(box)
         T.eq(header.text, "Gang: ", "the chat box says Gang:")
         local hooks = {}
-        local updateHeader = function() header:SetText("[5. HHGabcdefghijkl]: ") end
+        local updateHeader = function() header:SetText("[5. GangHHabcdefghijkl]: ") end
         local tab = { header = header, GetAttribute = box.GetAttribute, UpdateHeader = updateHeader,
             HookScript = function(self, script, fn) hooks[script] = fn end }
         _G.ChatFrame4EditBox = tab
         T.ok(ns.GangChat.HookHeaders() >= 1, "every chat box hooked")
         T.ok(rawequal(tab.UpdateHeader, updateHeader), "the box's own method is left alone")
-        header:SetText("[5. HHGabcdefghijkl]: ")
+        header:SetText("[5. GangHHabcdefghijkl]: ")
         hooks.OnShow(tab)
         T.eq(header.text, "Gang: ", "a new window's box says Gang: when it shows")
-        header:SetText("[5. HHGabcdefghijkl]: ")
+        header:SetText("[5. GangHHabcdefghijkl]: ")
         H.Advance(0)
         T.eq(header.text, "Gang: ", "and again right after, over the game's own header")
+    end)
+
+    T.case("gang chat: a new gang's channel goes to the main window once the game joined it, and a refused join says why", function()
+        local ns = Boot(Data())
+        H.Advance(ns.GangChat.JOIN_DELAY)
+        H.joinWorks = false
+        local added = {}
+        _G.DEFAULT_CHAT_FRAME = { AddChannel = function(_, name) added[#added + 1] = name end }
+        H.Slash("gang create Western Gods")
+        local channel = ns.GangChat:Channel()
+        T.ok(channel ~= nil, "the leader's addon joins the new channel at once")
+        T.eq(#added, 0, "not given to the window before the game joined it")
+        T.eq(ns.db.settings.gangChatWindow, false, "so it is tried again")
+        H.channels[channel] = 6
+        H.Fire("CHANNEL_UI_UPDATE")
+        T.eq(added[1], channel, "in the main window once joined")
+        H.Fire("CHAT_MSG_CHANNEL_NOTICE", "YOU_CHANGED", "", "", "6. " .. channel, "", "", 0, 6, channel)
+        T.eq(#added, 1, "only once")
+        T.ok(ns.GangChat.NoticeFilter(nil, "CHAT_MSG_CHANNEL_NOTICE", "YOU_CHANGED", "", "", "6. " .. channel, "", "", 0, 6, channel),
+            "our own join notice is hidden")
+        T.ok(not ns.GangChat.NoticeFilter(nil, "CHAT_MSG_CHANNEL_NOTICE", "WRONG_PASSWORD", "", "", channel, "", "", 0, 0, channel),
+            "a refusal is shown")
     end)
 
     T.case("gang chat: none without the website's channel, and leaving the gang leaves it", function()
@@ -776,17 +798,17 @@ return function(T, H)
     T.case("level and online: from the website or the invite, online from the gang channel", function()
         local data = Data({ Gang("Black Hand", "Vati Guda", { "Vati Guda", "Tobin Ashford" }) })
         data.worlds["forever|us|pvp"].gangs[1].members[2].level = 27
-        data.characters[1].gang_chat = { channel = "HHGabcdefghijkl", password = "secret" }
+        data.characters[1].gang_chat = { channel = "GangHHabcdefghijkl", password = "secret" }
         local ns = Boot(data)
         H.joinWorks = true
         ns.GangChat:Join()
         local tobin = ns.Gangs:Mine().members[2]
         T.eq(ns.Gangs:MemberLevel(tobin), 27, "the website's level")
         T.ok(not ns.Gangs:IsOnline("Tobin Ashford"), "not seen: offline")
-        ns.GangChat:OnJoinLeave(true, "Tobin Ashford", "HHGabcdefghijkl", "6. HHGabcdefghijkl")
+        ns.GangChat:OnJoinLeave(true, "Tobin Ashford", "GangHHabcdefghijkl", "6. GangHHabcdefghijkl")
         T.ok(ns.Gangs:IsOnline("Tobin Ashford"), "joined the gang channel: online")
         T.ok(ns.SocialTab.MemberDetails(tobin, ns.Gangs:Mine()):find("Level 27", 1, true), "level on the Social page")
-        ns.GangChat:OnJoinLeave(false, "Tobin Ashford", "HHGabcdefghijkl", "6. HHGabcdefghijkl")
+        ns.GangChat:OnJoinLeave(false, "Tobin Ashford", "GangHHabcdefghijkl", "6. GangHHabcdefghijkl")
         T.ok(not ns.Gangs:IsOnline("Tobin Ashford"), "left it: offline")
         H.Advance(5)
         ns.Presence:Heard("Tobin Ashford", "Alliance", "1.0.0")
@@ -818,7 +840,7 @@ return function(T, H)
 
     T.case("gang chat: /gang right after login joins the channel on the spot", function()
         local data = Data({ Gang("Black Hand", "Vati Guda", { "Vati Guda" }) })
-        data.characters[1].gang_chat = { channel = "HHGabcdefghijkl", password = "secret" }
+        data.characters[1].gang_chat = { channel = "GangHHabcdefghijkl", password = "secret" }
         Boot(data)
         H.joinWorks = true
         H.chatSent = {}
@@ -828,7 +850,7 @@ return function(T, H)
 
     T.case("gang chat: /gang + space switches the chat box, unless turned off", function()
         local data = Data({ Gang("Black Hand", "Vati Guda", { "Vati Guda" }) })
-        data.characters[1].gang_chat = { channel = "HHGabcdefghijkl", password = "secret" }
+        data.characters[1].gang_chat = { channel = "GangHHabcdefghijkl", password = "secret" }
         local ns = Boot(data)
         H.joinWorks = true
         ns.GangChat:Join()
@@ -844,11 +866,23 @@ return function(T, H)
         T.ok(not ns.GangChat.SwitchOnSlash(box), "off when the player turns it off")
     end)
 
-    T.case("gang chat channels: Gang_HH names, and old HHG ones are left", function()
+    T.case("gang chat channels: GangHH names, and old GangHH and HHG ones are left", function()
         local ns = Boot()
-        T.ok(ns.GangChat.IsGangChannel("Gang_HHook1esog2mvm"), "a gang channel")
+        T.ok(ns.GangChat.IsGangChannel("GangHHookesogmvmab"), "a gang channel")
+        T.ok(ns.GangChat.IsGangChannel("Gang_HHook1esog2mvm"), "a 1.0.0 one, to leave")
         T.ok(ns.GangChat.IsGangChannel("HHGenahnifl42vu"), "an old one, to leave")
         T.ok(not ns.GangChat.IsGangChannel("Trade"), "not Trade")
+    end)
+
+    T.case("gang chat: a Gang_HH channel of 1.0.0, which the game calls invalid, is never joined", function()
+        local data = Data({ Gang("Black Hand", "Vati Guda", { "Vati Guda" }) })
+        data.characters[1].gang_chat = { channel = "Gang_HHabcdefghijkl", password = "secret" }
+        local ns = Boot(data)
+        ns.Gangs:SaveChat("Gang_HHmnopqrstuvwx", "secret", H.serverTime)
+        T.eq(ns.GangChat.Credentials(), nil, "neither the saved one nor the download's")
+        data.characters[1].gang_chat = { channel = "GangHHabcdefghijkl", password = "secret", at = H.serverTime - 10 }
+        ns.SiteData:Load()
+        T.eq(ns.GangChat.Credentials().channel, "GangHHabcdefghijkl", "the website's renewed one")
     end)
 
     T.case("/hh sim gang: the Wild Bunch as our confirmed gang for screenshots, this session only", function()
@@ -887,7 +921,7 @@ return function(T, H)
 
     T.case("gang chat: no channel once we left the gang, though the download still has it", function()
         local data = Data({ Gang("Black Hand", "Tobin Ashford", { "Tobin Ashford", "Vati Guda" }) })
-        data.characters[1].gang_chat = { channel = "Gang_HHabcdefghijkl", password = "secret" }
+        data.characters[1].gang_chat = { channel = "GangHHabcdefghijkl", password = "secret" }
         local ns = Boot(data)
         H.joinWorks = true
         T.ok(ns.GangChat:Join(), "a member joins")

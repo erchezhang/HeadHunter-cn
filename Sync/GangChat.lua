@@ -8,7 +8,8 @@
 -- makes the chat windows drop the line. /gang <text> sends; /gang alone opens the
 -- chat box on gang chat. The chat box's chat type is never set from our code (that taints
 -- protected commands typed in chat). A gang's channel changes when a member is kicked; any
--- other gang channel we are in (Gang_HH…, or HHG… from before) is left. WoW Forever only.
+-- other gang channel we are in (GangHH…, or Gang_HH… and HHG… from before) is left. WoW
+-- Forever only.
 -- The channel works before any sync: the leader's addon makes it and whispers it to each
 -- member who accepts (Gangs.lua); what this character saved wins over an older download.
 
@@ -19,9 +20,10 @@ local GangChat = ns:RegisterModule("GangChat", {})
 
 local OWNER = "GangChat"
 
--- gang chat channel names (the website's Gang::CHAT_PREFIX); older ones started with HHG
+-- gang chat channel names (the website's Gang::CHAT_PREFIX); older ones started with
+-- Gang_HH or HHG
 GangChat.PREFIX = ns.Gangs.CHAT_PREFIX
-GangChat.OLD_PREFIX = "HHG"
+GangChat.OLD_PREFIXES = { ns.Gangs.OLD_CHAT_PREFIX, "HHG" }
 -- seconds after login before joining, so the game's own channels take the first slots
 GangChat.JOIN_DELAY = 5
 GangChat.DEFAULT_COLOR = "ff9f40"
@@ -36,12 +38,14 @@ local presence = {}
 -- Our gang's channel and password while we are in a gang: { channel, password, at (the
 -- leader's action that set it) }. The ones this character saved (made as leader, or
 -- whispered by the leader) unless the website applied a channel at least as new, else the
--- download's; nil once we left (the download still has it until the next sync)
+-- download's; nil once we left (the download still has it until the next sync), and for a
+-- channel name the game refuses
 function GangChat.Credentials()
     if not ns.Gangs.Enabled() or ns.Gangs:Sim() then return nil end
     if not ns.Gangs:Mine() then return nil end
     local saved = ns.Gangs:SavedChat()
     local site = ns.SiteData:GangChat(ns.Utils.UnitKey("player"))
+    if site and not ns.Gangs.ValidChat(site.channel, site.password) then site = nil end
     if saved and (not site or saved.at > (site.at or 0)) then return saved end
     return site or saved
 end
@@ -57,15 +61,20 @@ local function ChannelId(name)
 end
 
 local function IsGangChannel(name)
-    return type(name) == "string"
-        and (name:sub(1, #GangChat.PREFIX) == GangChat.PREFIX or name:sub(1, #GangChat.OLD_PREFIX) == GangChat.OLD_PREFIX)
+    if type(name) ~= "string" then return false end
+    if name:sub(1, #GangChat.PREFIX) == GangChat.PREFIX then return true end
+    for _, prefix in ipairs(GangChat.OLD_PREFIXES) do
+        if name:sub(1, #prefix) == prefix then return true end
+    end
+    return false
 end
 GangChat.IsGangChannel = IsGangChannel
 
 -- The first time we are in a gang channel it goes to the main chat window; after that the
--- player's own chat settings decide where it shows
+-- player's own chat settings decide where it shows. Only once the game has joined it: a chat
+-- window refuses a channel we are not in yet, and the join answers a moment later
 local function ShowInMainWindow(name)
-    if not ns.db or ns.db.settings.gangChatShown == name then return end
+    if not name or not ns.db or ns.db.settings.gangChatWindow == name or not ChannelId(name) then return end
     local window = _G.DEFAULT_CHAT_FRAME or _G.ChatFrame1
     if window then
         if window.AddChannel then
@@ -74,7 +83,7 @@ local function ShowInMainWindow(name)
             pcall(ChatFrame_AddChannel, window, name)
         end
     end
-    ns.Database:SetSetting("gangChatShown", name)
+    ns.Database:SetSetting("gangChatWindow", name)
 end
 
 
@@ -177,8 +186,19 @@ function GangChat.Windows(name)
     return windows
 end
 
-function GangChat.NoticeFilter(_, _, _, _, _, channelName, _, _, _, _, baseName)
+-- The notices of our own joining and leaving it (YOU_CHANGED, YOU_LEFT...)
+GangChat.QUIET_NOTICES = { YOU_JOINED = true, YOU_CHANGED = true, YOU_LEFT = true, SUSPENDED = true }
+
+-- Chat filter: others joining or leaving our channel, and our own joins, are hidden; the
+-- server's refusals (WRONG_PASSWORD, BANNED...) are shown, so a failed join says why
+function GangChat.NoticeFilter(_, event, notice, _, _, channelName, _, _, _, _, baseName)
+    if event == "CHAT_MSG_CHANNEL_NOTICE" and not GangChat.QUIET_NOTICES[notice] then return false end
     return OurChannel(baseName or "", channelName)
+end
+
+-- The game joined a channel: once it is ours, it goes to the main chat window
+function GangChat:OnChannelsChanged()
+    ShowInMainWindow(current)
 end
 
 -- The sticky chat box on our channel says "Gang:" (a post-hook on Blizzard's header update;
@@ -281,6 +301,8 @@ ns.Events:Register("HH_INITIALIZED", function()
     ns.Events:Register("HH_GANG_CHANGED", function()
         if ready then GangChat:Join() end
     end, OWNER)
+    ns.Events:Register("CHANNEL_UI_UPDATE", function() GangChat:OnChannelsChanged() end, OWNER)
+    ns.Events:Register("CHAT_MSG_CHANNEL_NOTICE", function() GangChat:OnChannelsChanged() end, OWNER)
     local add = ChatFrame_AddMessageEventFilter or (ChatFrameUtil and ChatFrameUtil.AddMessageEventFilter)
     if add then
         pcall(add, "CHAT_MSG_CHANNEL", GangChat.LabelFilter)

@@ -80,8 +80,9 @@ local DEFAULTS = {
         gangSocialTab = false,
         -- HH-155: the colour of gang chat lines, hex (Sync/GangChat.lua)
         gangChatColor = "ff9f40",
-        -- HH-155: the gang channel last put in the main chat window (once per channel)
-        gangChatShown = false,
+        -- HH-155: the gang channel last put in the main chat window (once per channel, after the
+        -- game joined it; gangChatShown before 1.0.1 was set even when the window refused it)
+        gangChatWindow = false,
         -- HH-155: "/gang " + space switches the chat box to gang chat (Sync/GangChat.lua); on since
         -- the in-game check of 2026-11-04 (/target typed in chat after it still worked)
         gangChatSlash = true,

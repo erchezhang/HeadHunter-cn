@@ -52,8 +52,11 @@ Gangs.LEAVE_POPUP = "HEADHUNTER_GANG_LEAVE"
 Gangs.RENAME_POPUP = "HEADHUNTER_GANG_RENAME"
 Gangs.SUFFIX_POPUP = "HEADHUNTER_GANG_SUFFIX"
 -- the gang chat channel the leader's addon makes: the prefix and CHAT_LETTERS random
--- letters or digits (the website's Gang::CHAT_PATTERN), with a CHAT_PASSWORD_LENGTH password
-Gangs.CHAT_PREFIX = "Gang_HH"
+-- lowercase letters (the website's Gang::CHAT_PATTERN), with a CHAT_PASSWORD_LENGTH password
+-- of letters. Letters only: WoW Forever says "Invalid channel name" to the Gang_HH… names of
+-- 1.0.0 (an underscore; digits are left out too)
+Gangs.CHAT_PREFIX = "GangHH"
+Gangs.OLD_CHAT_PREFIX = "Gang_HH"
 Gangs.CHAT_LETTERS = 12
 Gangs.CHAT_PASSWORD_LENGTH = 16
 -- seconds the game's "No player named ... is currently playing" is hidden for a member we
@@ -110,16 +113,17 @@ function Gangs:SaveChat(channel, password, at)
     saved.channel, saved.password, saved.t = channel, password, channel and (at or ns.Utils.ServerTime()) or nil
 end
 
--- The saved gang chat { channel, password, t }, or nil
+-- The saved gang chat { channel, password, t }, or nil (also for a Gang_HH… one of 1.0.0,
+-- which the game refuses)
 function Gangs:SavedChat()
     local saved = self:Local()
-    if not (saved.channel and saved.password) then return nil end
+    if not Gangs.ValidChat(saved.channel, saved.password) then return nil end
     return { channel = saved.channel, password = saved.password, at = saved.t or 0 }
 end
 
 -- A new gang chat channel and password: { channel, password }
 function Gangs.NewChat()
-    local letters = "abcdefghijklmnopqrstuvwxyz0123456789"
+    local letters = "abcdefghijklmnopqrstuvwxyz"
     local mixed = letters .. "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     local function Random(from, length)
         local out = {}
@@ -133,11 +137,13 @@ function Gangs.NewChat()
         password = Random(mixed, Gangs.CHAT_PASSWORD_LENGTH) }
 end
 
--- A gang chat channel and password from a whisper, when they look right
-local function ValidChat(channel, password)
-    return type(channel) == "string" and channel:match("^Gang_HH[a-z0-9]+$") ~= nil and #channel <= 32
+-- A gang chat channel and password the game takes (GangHH and lowercase letters, a password
+-- of letters or digits), from a whisper, a save or the download
+function Gangs.ValidChat(channel, password)
+    return type(channel) == "string" and channel:match("^" .. Gangs.CHAT_PREFIX .. "%l+$") ~= nil and #channel <= 32
         and type(password) == "string" and password:match("^%w+$") ~= nil and #password <= 32
 end
+local ValidChat = Gangs.ValidChat
 
 -- Our class token ("ROGUE"), or nil
 local function MyClass()
