@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.2
+
+- **Gang tab in the Social window.** WoW Forever's Social window now has a **Gang** tab under Raid, with your gang's members, their class, level and online status, and Invite, Leave or Create gang. It works in the new side-tab window and in the older one, and it is on for everyone (turn it off with `/hh gang socialtab off`).
+
 ## 1.0.1
 
 - **Gang chat works on WoW Forever.** The game refused the gang channels of 1.0.0 ("Invalid channel name"), so nobody got into gang chat. Gangs now get valid channels: a new gang has its chat at once, and a gang made with 1.0.0 gets its chat after one HeadHunter Sync and a reload.
