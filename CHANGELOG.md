@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.3
+
+- **Gang waiting time:** coming back to the gang you left or were kicked from needs no wait (a kick by mistake, or a re-invite to fix gang chat). Joining or making another gang waits **1 hour** (it was 24 hours).
+
 ## 1.0.2
 
 - **Gang tab in the Social window.** WoW Forever's Social window now has a **Gang** tab under Raid, with your gang's members, their class, level and online status, and Invite, Leave or Create gang. It works in the new side-tab window and in the older one, and it is on for everyone (turn it off with `/hh gang socialtab off`).
