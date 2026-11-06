@@ -23,6 +23,13 @@ local OWNER = "Presence"
 
 -- Logging out cannot send anything reliably, so a slow repeat is what lets players who
 -- left drop out and keeps those who stay counted.
+-- 1.0.4: the server refuses addon messages on the channel since WoW Forever's launch, so
+-- "here" is rarely heard. The channel's member list (Sync/Gossip.lua: SetRoster) is who is
+-- online instead: a member counts as known (Knows: the Gang tab's online, the relay), and
+-- the total is the list's when it has more; it does not tell factions (scope "channel").
+-- 1.0.4: a newer version heard from UPDATE_SOURCES different players is said once a session
+-- ("A newer HeadHunter ... is available"); versions come with presence (group) and with the
+-- first gossip whisper to each member (Sync/Gossip.lua). A version we cannot read is ignored.
 Presence.INTERVAL = 600      -- seconds between our announcements
 Presence.WINDOW = 1500       -- heard within this long counts as online
 Presence.FIRST_DELAY = 30    -- after login, once the channel is joined
@@ -31,6 +38,7 @@ Presence.ANSWER_COOLDOWN = 120
 Presence.ANSWER_TARGET = 5   -- about this many answer a newcomer, however many are online
 Presence.CAP = 500           -- above this many online the count switches off (author, 2026-09-26)
 Presence.PRUNE_EVERY = 60    -- seconds between drops of players not heard within WINDOW
+Presence.UPDATE_SOURCES = 2
 
 local seen = {}              -- compact name -> { t, faction, version }
 local counts = { Alliance = 0, Horde = 0 }
@@ -38,6 +46,12 @@ local capped = false
 local lastPrune = -math.huge
 local lastAnswer = -math.huge
 local lastTotal
+-- 1.0.4: compact name -> home server (or true) of the channel's members, from Sync/Gossip.lua
+local roster
+local rosterCount = 0
+-- 1.0.4: newer version -> { compact name -> true }, and the version we last said
+local newer = {}
+local told
 
 local function Announce()
     if capped or not ns.Guards:IsActive() then return end
@@ -60,8 +74,9 @@ function Presence:LastHeard(name)
     return peer and peer.t or nil
 end
 
--- HH-151: a HeadHunter heard lately (a compact name)
+-- HH-151: a HeadHunter heard lately, or on the channel's member list (a compact name)
 function Presence:Knows(name)
+    if roster and name and roster[name] then return true end
     local peer = seen[name]
     return peer ~= nil and ns.Utils.Now() - peer.t <= self.WINDOW
 end
@@ -71,6 +86,15 @@ end
 function Presence:Servers()
     local mine, now = ns.Utils.PlayerServer(), ns.Utils.Now()
     local ours, others = 0, 0
+    if roster then
+        local me = ns.Utils.CompactName(ns.Utils.UnitKey("player"))
+        for name, server in pairs(roster) do
+            if name ~= me then
+                if type(server) == "number" and mine and server ~= mine then others = others + 1 else ours = ours + 1 end
+            end
+        end
+        return ours, others
+    end
     for _, peer in pairs(seen) do
         if now - peer.t <= self.WINDOW then
             if peer.server and mine and peer.server ~= mine then others = others + 1 else ours = ours + 1 end
@@ -89,6 +113,10 @@ function Presence:Count()
         count.total = count.total + 1
     end
     count.scope = ns.Transport:RealmWideNeedsClick() and "group" or "region"
+    if roster and rosterCount > count.total then
+        count.total = rosterCount
+        count.scope = "channel"
+    end
     count.capped = capped
     return count
 end
@@ -110,6 +138,16 @@ local function Changed()
     end
 end
 
+-- 1.0.4: the channel's members (Sync/Gossip.lua), by compact name
+function Presence:SetRoster(members)
+    roster, rosterCount = {}, 0
+    for name, member in pairs(members or {}) do
+        roster[name] = member.server or true
+        rosterCount = rosterCount + 1
+    end
+    Changed()
+end
+
 -- The share of us that answers a newcomer: 1 while few are online
 function Presence.AnswerChance(online)
     return math.min(1, Presence.ANSWER_TARGET / math.max(1, (online or 1) - 1))
@@ -129,6 +167,7 @@ function Presence:Heard(sender, faction, version, server)
         counts[before.faction] = counts[before.faction] - 1
         counts[faction] = counts[faction] + 1
     end
+    if version then self:NoteVersion(name, tostring(version):sub(1, 16)) end
     seen[name] = {
         t = now,
         faction = faction,
@@ -141,6 +180,37 @@ function Presence:Heard(sender, faction, version, server)
         C_Timer.After(self.ANSWER_DELAY, Announce)
     end
     Changed()
+end
+
+-- "1.0.4" -> { 1, 0, 4 }; "1.1.0-rc.1" -> { 1, 1, 0, rc = true }; nil when it is no version
+function Presence.ParseVersion(text)
+    if type(text) ~= "string" then return nil end
+    local a, b, c, rest = text:match("^(%d+)%.(%d+)%.?(%d*)(.*)$")
+    if not a then return nil end
+    return { tonumber(a), tonumber(b), tonumber(c) or 0, rc = rest ~= "" }
+end
+
+-- True when version `a` is newer than `b`; a release candidate is older than its release
+function Presence.Newer(a, b)
+    local va, vb = Presence.ParseVersion(a), Presence.ParseVersion(b)
+    if not va or not vb then return false end
+    for i = 1, 3 do
+        if va[i] ~= vb[i] then return va[i] > vb[i] end
+    end
+    return vb.rc and not va.rc
+end
+
+-- A version another player runs: a newer one heard from UPDATE_SOURCES players is said once
+-- (again only for a version newer than the one said)
+function Presence:NoteVersion(name, version)
+    if not name or not self.Newer(version, ns.version) then return end
+    newer[version] = newer[version] or {}
+    newer[version][name] = true
+    local count = 0
+    for _ in pairs(newer[version]) do count = count + 1 end
+    if count < self.UPDATE_SOURCES or (told and not self.Newer(version, told)) then return end
+    told = version
+    ns:Print(string.format(L.UPDATE_AVAILABLE, version, ns.version))
 end
 
 -- Versions heard (for /hh online): version -> players
@@ -183,6 +253,9 @@ function Presence.Describe(count)
     end
     if count.scope == "group" then
         return string.format(L.ONLINE_GROUP, count.total)
+    end
+    if count.scope == "channel" then
+        return string.format(L.ONLINE_CHANNEL, count.total)
     end
     return string.format(L.ONLINE_REGION, count.total, count.Alliance, count.Horde)
 end

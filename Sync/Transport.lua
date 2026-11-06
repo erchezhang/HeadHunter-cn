@@ -11,6 +11,15 @@
 --            RAID or PARTY too when grouped, so a group always shares, also when the
 --            channel does not reach one of them (HH-150). A message heard twice (channel
 --            and group) from the same sender within DUPLICATE_WINDOW is taken once.
+--            1.0.4: since the launch (2026-11-04) the server refuses addon messages on
+--            custom channels, answering 0 then a hidden notice (or code 7). A refusal
+--            notice, code 7, or SILENT_SENDS channel sends without hearing anyone there
+--            for SILENT_FOR seconds make the channel deaf: it is left out of the routes and
+--            one probe goes on it every PROBE_EVERY seconds; hearing anyone there ends it.
+--            Records then spread by addon whisper among the channel's members
+--            (Sync/Gossip.lua), and Forever never falls back to GUILD (its messages may
+--            show in guild members' chat). If someone puts a password on the channel, we
+--            move to BACKUP_CHANNEL.
 --   Era:     GUILD when in a guild, RAID or PARTY when grouped. Era refuses addon
 --            messages on custom channels (result 4 InvalidChatType, in game 2026-09-23).
 -- Realm-wide on Era: plain chat text on the same channel IS delivered when it comes
@@ -31,6 +40,13 @@ local OWNER = "Transport"
 
 Transport.PREFIX = "HeadHunter"
 Transport.CHANNEL = "HeadHunterSync"
+Transport.BACKUP_CHANNEL = "HeadHunterSync2"
+-- 1.0.4: the channel refused (see the header)
+Transport.SILENT_SENDS = 3
+Transport.SILENT_FOR = 300
+Transport.PROBE_EVERY = 300
+Transport.HEARD_FOR = 600
+Transport.REFUSAL_NOTICES = { NOT_ALLOWED_IN_CHANNEL = true, TRIAL_RESTRICTED = true, MUTED = true }
 Transport.CHAT_MARK = "HH1:"     -- marks our lines in channel chat text
 
 Transport.FLUSH_INTERVAL = 3
@@ -124,6 +140,7 @@ function Transport:JoinChannel(attempt)
     attempt = attempt or 1
     if self:ChannelID() then
         self.joined = true
+        ns.Events:Fire("HH_SYNC_CHANNEL_JOINED")
         return
     end
     -- GetChannelName returns id, name, ...: keep only the id (a second argument to
@@ -145,6 +162,7 @@ function Transport:TryJoin(retry)
     C_Timer.After(3, function()
         self.joined = self:ChannelID() ~= nil
         ns:Debug("Sync channel", self.joined and "joined" or "NOT joined", self:ChannelID())
+        if self.joined then ns.Events:Fire("HH_SYNC_CHANNEL_JOINED") end
         if self.joined or self.channelRefused then return end
         if retry < self.JOIN_RETRIES then
             C_Timer.After(self.JOIN_RETRY_DELAY, function() self:TryJoin(retry + 1) end)
@@ -163,11 +181,72 @@ function Transport:ChannelBlocked(reason)
     ns:Print(ns.L.SYNC_CHANNEL_BLOCKED)
 end
 
--- CHANNEL_PASSWORD_REQUEST: someone put a password on our channel
+-- CHANNEL_PASSWORD_REQUEST: someone put a password on our channel. The first time we move
+-- to BACKUP_CHANNEL (its members are who the gossip whispers); on that one too, warned.
 function Transport:OnPasswordRequest(channelName)
-    if type(channelName) == "string" and channelName:lower() == self.CHANNEL:lower() then
-        self:ChannelBlocked("password")
+    if type(channelName) ~= "string" or channelName:lower() ~= self.CHANNEL:lower() then return end
+    if self.CHANNEL ~= self.BACKUP_CHANNEL then
+        ns.Log:Add("info", "Sync channel has a password: moving to " .. self.BACKUP_CHANNEL)
+        self.CHANNEL = self.BACKUP_CHANNEL
+        self:TryJoin(0)
+        return
     end
+    self:ChannelBlocked("password")
+end
+
+-- 1.0.4: the channel carries our messages: someone else was heard there lately
+function Transport:ChannelWorks()
+    local at = self.channelHeardAt
+    return at ~= nil and ns.Utils.Now() - at < self.HEARD_FOR
+end
+
+-- The server refuses our addon messages on the channel (the reason), or nil
+function Transport:ChannelDeaf()
+    return self.channelDeaf
+end
+
+function Transport:SetChannelDeaf(reason)
+    if self.channelDeaf then return end
+    self.channelDeaf = reason
+    self.silence = nil
+    ns.Log:Add("info", "Sync channel refused by the server (" .. tostring(reason) .. "): sharing by whisper")
+    ns.Events:Fire("HH_SYNC_CHANNEL_CHANGED")
+end
+
+-- Someone else's message came on the channel: it works again
+function Transport:HeardOnChannel()
+    self.channelHeardAt = ns.Utils.Now()
+    self.silence = nil
+    if self.channelDeaf then
+        self.channelDeaf = nil
+        ns.Log:Add("info", "Sync channel works again")
+        ns.Events:Fire("HH_SYNC_CHANNEL_CHANGED")
+    end
+end
+
+-- A channel send the game accepted: too many of them without hearing anyone there is a
+-- refusal that does not reach us
+function Transport:NoteChannelSend()
+    local now = ns.Utils.Now()
+    local silence = self.silence
+    if not silence then
+        silence = { sends = 0, since = now }
+        self.silence = silence
+    end
+    silence.sends = silence.sends + 1
+    if silence.sends >= self.SILENT_SENDS and now - silence.since >= self.SILENT_FOR then
+        self:SetChannelDeaf("nobody heard")
+    end
+end
+
+-- CHAT_MSG_CHANNEL_NOTICE(_USER) on our channel: a refusal notice makes it deaf. The
+-- arguments may be secret values, so every look at them is guarded.
+function Transport:OnChannelNotice(notice, channelName, channelBaseName)
+    local ok, ours = pcall(function()
+        return type(notice) == "string" and self.REFUSAL_NOTICES[notice] == true
+            and (IsOurChannel(channelBaseName, channelName))
+    end)
+    if ok and ours then self:SetChannelDeaf(notice) end
 end
 
 -------------------------------------------------
@@ -217,14 +296,33 @@ local function Send(message, route)
         end
         return false
     end
+    if route.chatType == "CHANNEL" then Transport:NoteChannelSend() end
     return true
+end
+
+-- 1.0.4: one addon whisper (Sync/Gossip.lua keeps its own budget). Returns true when the
+-- game took it.
+function Transport:Whisper(message, target)
+    local ok, result = RawSend(message, "WHISPER", target)
+    if not ok then ns:Debug("Sync whisper failed:", tostring(target), Describe(result)) end
+    return ok
+end
+
+-- 1.0.4: one small message on the deaf channel every PROBE_EVERY seconds; anyone heard
+-- there afterwards ends the deafness (HeardOnChannel)
+function Transport:Probe()
+    local channelID = self:ChannelID()
+    local faction = MyFactionCode()
+    if not (self.channelDeaf and channelID and faction and ns.Guards:IsActive()) then return end
+    local message = ns.Protocol.Pack(faction, ns.Protocol.TYPES.PRESENCE, { ns.version })[1]
+    if message then RawSend(message, "CHANNEL", channelID) end
 end
 
 -- Addon-message routes usable right now, without any player action
 function Transport:AutoRoutes()
     local routes = {}
     local channelID = self:ChannelID()
-    if channelID and not self.channelRefused then
+    if channelID and not self.channelRefused and not self.channelDeaf then
         routes[1] = { chatType = "CHANNEL", target = channelID }
         if ns.Utils.SafeCall(IsInRaid) then
             routes[2] = { chatType = "RAID" }
@@ -233,7 +331,7 @@ function Transport:AutoRoutes()
         end
         return routes
     end
-    if ns.Utils.SafeCall(IsInGuild) then
+    if ns.IsEra and ns.Utils.SafeCall(IsInGuild) then
         routes[#routes + 1] = { chatType = "GUILD" }
     end
     if ns.Utils.SafeCall(IsInRaid) then
@@ -255,6 +353,13 @@ end
 
 function Transport:Queue(typeCode, record, priority, coalesceKey)
     if type(record) ~= "string" or record == "" then return false end
+    if ns.Gossip then
+        if typeCode == ns.Protocol.TYPES.QUERY and record:sub(1, 1) == "h" then
+            ns.Gossip:Ask(record)
+        else
+            ns.Gossip:Spread(typeCode, record)
+        end
+    end
     local existing = coalesceKey and coalesce[coalesceKey]
     if existing then
         existing.record = record
@@ -295,7 +400,7 @@ local function RelayRoutes(channelID, refused)
     elseif ns.Utils.SafeCall(IsInGroup) then
         routes[#routes + 1] = { name = "GROUP", chatType = "PARTY" }
     end
-    if channelID and not refused then
+    if channelID and not refused and not Transport.channelDeaf then
         routes[#routes + 1] = { name = "CHANNEL", chatType = "CHANNEL", target = channelID }
     end
     return routes
@@ -342,6 +447,11 @@ function Transport:Flush()
         self.diag.blocked = "suspended (instance)"
     elseif not faction then
         self.diag.blocked = "faction unknown"
+    elseif #routes == 0 and ns.Gossip and ns.Gossip:Active() then
+        self:DropGossiped()
+        self.diag.blocked = nil
+        FlushRelay(faction)
+        return
     elseif #routes == 0 then
         self.diag.blocked = self.channelRefused
             and ("no automatic route (channel refused: " .. self.channelRefused
@@ -413,6 +523,20 @@ function Transport:Flush()
     end
 end
 
+-- 1.0.4: with no automatic route, what the gossip took is not kept for a later group
+function Transport:DropGossiped()
+    local kept = {}
+    for _, entry in ipairs(outbox) do
+        local gossiped = (ns.Gossip.SPREAD[entry.type] == true) or entry.type == ns.Protocol.TYPES.QUERY
+        if gossiped then
+            if entry.key then coalesce[entry.key] = nil end
+        else
+            kept[#kept + 1] = entry
+        end
+    end
+    outbox = kept
+end
+
 -------------------------------------------------
 -- Direct: addon whispers to one player (works on both clients, no route needed)
 -------------------------------------------------
@@ -447,6 +571,14 @@ function Transport:FlushDirect()
         end
         tokens = tokens - 1
     end
+end
+
+local function ProbeLoop()
+    C_Timer.After(Transport.PROBE_EVERY, function()
+        local ok, err = pcall(Transport.Probe, Transport)
+        if not ok then ns:Error(err) end
+        ProbeLoop()
+    end)
 end
 
 local function ScheduleFlush()
@@ -535,6 +667,7 @@ function Transport:Receive(message, chatType, sender)
         return
     end
     if ns.Utils.SameCharacter(sender, ns.Utils.UnitKey("player")) then return end
+    if chatType == "CHANNEL" then self:HeardOnChannel() end
     if self:HeardBefore(sender, message) then
         self.stats.duplicates = (self.stats.duplicates or 0) + 1
         return
@@ -553,6 +686,7 @@ function Transport:Receive(message, chatType, sender)
     -- more (HH-121, author 2026-10-02): a Deadbeat needs a verified claim, and their
     -- posters and witnesses never reach us; their Deadbeats come from the website.
     local TYPES = ns.Protocol.TYPES
+    if chatType == "WHISPER" and ns.Gossip then ns.Gossip:Heard(sender, faction) end
     -- HH-110: any message shows its sender is online, not only a presence one
     ns.Presence:Heard(sender, faction, typeCode == TYPES.PRESENCE and records[1] or nil, self.ServerOf(sender, chatType))
     if faction ~= ns.Utils.UnitFaction("player") then
@@ -648,6 +782,11 @@ ns.Events:Register("HH_INITIALIZED", function()
     Events:Register("CHAT_MSG_ADDON", function(_, ...) Transport:OnAddonMessage(...) end, OWNER)
     Events:Register("CHAT_MSG_CHANNEL", function(_, ...) Transport:OnChannelText(...) end, OWNER)
     pcall(Events.Register, Events, "CHANNEL_PASSWORD_REQUEST", function(_, name) Transport:OnPasswordRequest(name) end, OWNER)
+    for _, event in ipairs({ "CHAT_MSG_CHANNEL_NOTICE", "CHAT_MSG_CHANNEL_NOTICE_USER" }) do
+        pcall(Events.Register, Events, event, function(_, notice, _, _, channelName, _, _, _, _, channelBaseName)
+            Transport:OnChannelNotice(notice, channelName, channelBaseName)
+        end, OWNER .. event)
+    end
     Events:Register("PLAYER_ENTERING_WORLD", function()
         if not Transport.joinStarted then
             Transport.joinStarted = true
@@ -660,6 +799,7 @@ ns.Events:Register("HH_INITIALIZED", function()
             tostring(chatType)))
     end)
     ScheduleFlush()
+    if not ns.IsEra then ProbeLoop() end
 end, OWNER)
 
 -------------------------------------------------
@@ -700,6 +840,16 @@ ns.SlashCommands:Register("sync", function(args)
         return
     end
     -- /hh sync whisper "<name>": an addon whisper ping (HH-100: can it cross factions?)
+    -- /hh sync gossip "<name>": the same ping, in a gossip envelope (1.0.4)
+    if sub == "gossip" then
+        local target = args[2]
+        if not target or not ns.Gossip:Test(target) then
+            ns:Print(ns.L.SYNC_WHISPER_USAGE)
+            return
+        end
+        ns:Print(string.format(ns.L.SYNC_WHISPER_QUEUED, target))
+        return
+    end
     if sub == "whisper" then
         local target = args[2]
         if not target then
@@ -717,7 +867,12 @@ ns.SlashCommands:Register("sync", function(args)
     end
     local s, d = Transport.stats, Transport.diag
     local channelID = Transport:ChannelID()
-    ns:Print(string.format(ns.L.SYNC_STATUS, channelID and ("joined #" .. channelID) or "not joined",
+    local channelState = channelID and ("joined #" .. channelID) or "not joined"
+    local refusal = Transport.channelRefused or Transport.channelDeaf
+    if channelID and refusal then
+        channelState = channelState .. " (" .. string.format(ns.L.SYNC_CHANNEL_DEAF, refusal) .. ")"
+    end
+    ns:Print(string.format(ns.L.SYNC_STATUS, channelState,
         #outbox, s.sent, s.records, s.received, s.dropped, s.failed))
     local routes = {}
     for _, route in ipairs(Transport:AutoRoutes()) do routes[#routes + 1] = route.chatType end
@@ -734,6 +889,13 @@ ns.SlashCommands:Register("sync", function(args)
         ns:Print(string.format(ns.L.SYNC_RELAY, B.Enabled() and "on" or "off", B.World(), others,
             B.stats.forwarded, B.stats.delivered, B.stats.duplicates, B.stats.skipped, B.stats.dropped,
             B.stats.refused, B.QueueCount(), B.SeenCount(), B.stats.links))
+    end
+    local G = ns.Gossip
+    if G and G.Enabled() then
+        local reachable, ours = G:Reachable()
+        local gs = G.stats
+        ns:Print(string.format(ns.L.SYNC_GOSSIP, G:Active() and "on" or "off", G:PeerCount(), reachable, ours, G:KnownCount(),
+            gs.spread, gs.passed, gs.sent, gs.failed, gs.dropped, gs.unreachable, G:QueueCount()))
     end
     local rejected = ns.Reports and ns.Reports.lastRejected
     if rejected then ns:Print(string.format(ns.L.SYNC_REJECTED, rejected)) end

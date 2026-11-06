@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.4
+
+- **Sharing works again on WoW Forever.** Since the launch, the server silently refuses addon messages on the HeadHunter channel, so deaths, WANTED, duels and alerts only reached your group. HeadHunter now shares them by whisper with the other HeadHunters in the channel, who pass them on. Everyone on 1.0.4 shares with everyone else on 1.0.4, so please update.
+- `/hh sync` says when the server refuses the channel, and shows the new sharing with its counters.
+- The online count and the Gang tab's online status come from the channel's member list.
+- HeadHunter now tells you in chat when a newer version is out, once it hears it from two other players. From this version on, every update announces itself.
+
 ## 1.0.3
 
 - **Gang waiting time:** coming back to the gang you left or were kicked from needs no wait (a kick by mistake, or a re-invite to fix gang chat). Joining or making another gang waits **1 hour** (it was 24 hours).
