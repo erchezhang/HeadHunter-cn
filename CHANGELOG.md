@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.5
+
+- **Quiet players get shared records too.** Each HeadHunter now says hello to the others in the channel once per session, so players who rarely fight are known and receive kills, duels and alerts like everyone else. Records also travel one step further, so about 96% of players get each one instead of 80%.
+- **PvP alerts:** a fight next to you is announced even when you're fighting a mob nearby, or fought in that zone a few minutes earlier. Before, HeadHunter thought you were already in that fight and stayed quiet.
+- **Chat channels:** the HeadHunter and gang channels now join after the game's own channels, so General stays /1.
+
 ## 1.0.4
 
 - **Sharing works again on WoW Forever.** Since the launch, the server silently refuses addon messages on the HeadHunter channel, so deaths, WANTED, duels and alerts only reached your group. HeadHunter now shares them by whisper with the other HeadHunters in the channel, who pass them on. Everyone on 1.0.4 shares with everyone else on 1.0.4, so please update.
