@@ -24,7 +24,9 @@
 --   * members known to run this gossip (they whispered us an envelope) are picked first, plus
 --     DISCOVER unknown ones so newly updated players are found; while fewer than MANY_KNOWN
 --     are known our own records go to OWN_FANOUT members (an older addon drops an envelope,
---     so in the first days most picks would end there).
+--     so in the first days most picks would end there);
+--   * the first whisper to each member in a session also carries our version (a presence
+--     record), so players learn of newer versions without the channel (Sync/Presence.lua).
 -- WoW Forever only: Classic Era keeps its guild, group and whisper routes.
 
 local addonName, ns = ...
@@ -266,6 +268,12 @@ local function Add(peer, typeCode, record, own, low)
     seq = seq + 1
     queue[#queue + 1] = { target = peer.key, name = ns.Utils.CompactName(peer.key), type = typeCode, record = record,
         own = own, low = low, seq = seq }
+    if not peer.toldVersion then
+        peer.toldVersion = true
+        seq = seq + 1
+        queue[#queue + 1] = { target = peer.key, name = ns.Utils.CompactName(peer.key), type = TYPES.PRESENCE,
+            record = ns.version, own = own, low = true, seq = seq }
+    end
 end
 
 local function Order(a, b)

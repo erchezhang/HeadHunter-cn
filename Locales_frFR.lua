@@ -483,6 +483,7 @@ local FR = {
     ONLINE_REGION = "HeadHunters connectés : %d (Alliance %d, Horde %d), vous compris",
     ONLINE_GROUP = "HeadHunters connectés dans votre guilde et votre groupe : %d, vous compris (Classic Era ne peut pas compter plus loin)",
     ONLINE_CHANNEL = "HeadHunters en ligne sur le canal : %d, toi compris",
+    UPDATE_AVAILABLE = "Une version plus récente de HeadHunter (%s) est disponible ; tu as la %s. Mets-le à jour (CurseForge, Wago ou headhunterwow.com).",
     ONLINE_VERSIONS = "Versions de l'addon : %s",
     ONLINE_SERVERS = "Sur ton serveur : %d · sur d'autres serveurs : %d",
     ONLINE_SHORT = "connectés : %d",

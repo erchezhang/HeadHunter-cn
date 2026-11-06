@@ -483,6 +483,7 @@ local RU = {
     ONLINE_REGION = "HeadHunter в сети: %d (Альянс %d, Орда %d), включая вас",
     ONLINE_GROUP = "HeadHunter в сети в вашей гильдии и группе: %d, включая вас (Classic Era не может считать дальше)",
     ONLINE_CHANNEL = "HeadHunter в сети на канале: %d, включая вас",
+    UPDATE_AVAILABLE = "Доступна новая версия HeadHunter (%s), у вас %s. Пожалуйста, обновите её (CurseForge, Wago или headhunterwow.com).",
     ONLINE_VERSIONS = "Версии аддона: %s",
     ONLINE_SERVERS = "На вашем сервере: %d · на других серверах: %d",
     ONLINE_SHORT = "в сети: %d",

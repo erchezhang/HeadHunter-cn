@@ -491,6 +491,7 @@ L.HELP_ONLINE = "|cffffff00/hh online|r: HeadHunters online now, per faction, an
 L.ONLINE_REGION = "HeadHunters online: %d (Alliance %d, Horde %d), you included"
 L.ONLINE_GROUP = "HeadHunters online in your guild and group: %d, you included (Classic Era cannot count further)"
 L.ONLINE_CHANNEL = "HeadHunters online in the channel: %d, you included"
+L.UPDATE_AVAILABLE = "A newer HeadHunter (%s) is available; you have %s. Please update it (CurseForge, Wago or headhunterwow.com)."
 L.ONLINE_VERSIONS = "Addon versions: %s"
 L.ONLINE_SERVERS = "On your server: %d · on other servers: %d"
 L.ONLINE_SHORT = "%d online"

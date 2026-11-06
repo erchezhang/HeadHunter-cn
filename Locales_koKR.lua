@@ -483,6 +483,7 @@ local KR = {
     ONLINE_REGION = "접속 중인 HeadHunter: %d (얼라이언스 %d, 호드 %d), 나 포함",
     ONLINE_GROUP = "길드와 파티에서 접속 중인 HeadHunter: %d, 나 포함 (Classic Era는 더 멀리 셀 수 없음)",
     ONLINE_CHANNEL = "채널에 접속한 HeadHunter: %d명, 본인 포함",
+    UPDATE_AVAILABLE = "새 HeadHunter(%s)가 나왔습니다. 현재 버전은 %s입니다. 업데이트해 주세요 (CurseForge, Wago 또는 headhunterwow.com).",
     ONLINE_VERSIONS = "애드온 버전: %s",
     ONLINE_SERVERS = "내 서버: %d · 다른 서버: %d",
     ONLINE_SHORT = "%d명 접속",

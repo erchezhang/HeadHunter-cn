@@ -27,6 +27,9 @@ local OWNER = "Presence"
 -- "here" is rarely heard. The channel's member list (Sync/Gossip.lua: SetRoster) is who is
 -- online instead: a member counts as known (Knows: the Gang tab's online, the relay), and
 -- the total is the list's when it has more; it does not tell factions (scope "channel").
+-- 1.0.4: a newer version heard from UPDATE_SOURCES different players is said once a session
+-- ("A newer HeadHunter ... is available"); versions come with presence (group) and with the
+-- first gossip whisper to each member (Sync/Gossip.lua). A version we cannot read is ignored.
 Presence.INTERVAL = 600      -- seconds between our announcements
 Presence.WINDOW = 1500       -- heard within this long counts as online
 Presence.FIRST_DELAY = 30    -- after login, once the channel is joined
@@ -35,6 +38,7 @@ Presence.ANSWER_COOLDOWN = 120
 Presence.ANSWER_TARGET = 5   -- about this many answer a newcomer, however many are online
 Presence.CAP = 500           -- above this many online the count switches off (author, 2026-09-26)
 Presence.PRUNE_EVERY = 60    -- seconds between drops of players not heard within WINDOW
+Presence.UPDATE_SOURCES = 2
 
 local seen = {}              -- compact name -> { t, faction, version }
 local counts = { Alliance = 0, Horde = 0 }
@@ -45,6 +49,9 @@ local lastTotal
 -- 1.0.4: compact name -> home server (or true) of the channel's members, from Sync/Gossip.lua
 local roster
 local rosterCount = 0
+-- 1.0.4: newer version -> { compact name -> true }, and the version we last said
+local newer = {}
+local told
 
 local function Announce()
     if capped or not ns.Guards:IsActive() then return end
@@ -160,6 +167,7 @@ function Presence:Heard(sender, faction, version, server)
         counts[before.faction] = counts[before.faction] - 1
         counts[faction] = counts[faction] + 1
     end
+    if version then self:NoteVersion(name, tostring(version):sub(1, 16)) end
     seen[name] = {
         t = now,
         faction = faction,
@@ -172,6 +180,37 @@ function Presence:Heard(sender, faction, version, server)
         C_Timer.After(self.ANSWER_DELAY, Announce)
     end
     Changed()
+end
+
+-- "1.0.4" -> { 1, 0, 4 }; "1.1.0-rc.1" -> { 1, 1, 0, rc = true }; nil when it is no version
+function Presence.ParseVersion(text)
+    if type(text) ~= "string" then return nil end
+    local a, b, c, rest = text:match("^(%d+)%.(%d+)%.?(%d*)(.*)$")
+    if not a then return nil end
+    return { tonumber(a), tonumber(b), tonumber(c) or 0, rc = rest ~= "" }
+end
+
+-- True when version `a` is newer than `b`; a release candidate is older than its release
+function Presence.Newer(a, b)
+    local va, vb = Presence.ParseVersion(a), Presence.ParseVersion(b)
+    if not va or not vb then return false end
+    for i = 1, 3 do
+        if va[i] ~= vb[i] then return va[i] > vb[i] end
+    end
+    return vb.rc and not va.rc
+end
+
+-- A version another player runs: a newer one heard from UPDATE_SOURCES players is said once
+-- (again only for a version newer than the one said)
+function Presence:NoteVersion(name, version)
+    if not name or not self.Newer(version, ns.version) then return end
+    newer[version] = newer[version] or {}
+    newer[version][name] = true
+    local count = 0
+    for _ in pairs(newer[version]) do count = count + 1 end
+    if count < self.UPDATE_SOURCES or (told and not self.Newer(version, told)) then return end
+    told = version
+    ns:Print(string.format(L.UPDATE_AVAILABLE, version, ns.version))
 end
 
 -- Versions heard (for /hh online): version -> players

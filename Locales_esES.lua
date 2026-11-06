@@ -484,6 +484,7 @@ local ES = {
     ONLINE_REGION = "HeadHunters conectados: %d (Alianza %d, Horda %d), contándote a ti",
     ONLINE_GROUP = "HeadHunters conectados en tu hermandad y grupo: %d, contándote a ti (Classic Era no puede contar más allá)",
     ONLINE_CHANNEL = "HeadHunters conectados en el canal: %d, tú incluido",
+    UPDATE_AVAILABLE = "Hay un HeadHunter más reciente (%s); tienes la %s. Actualízalo (CurseForge, Wago o headhunterwow.com).",
     ONLINE_VERSIONS = "Versiones del addon: %s",
     ONLINE_SERVERS = "En tu servidor: %d · en otros servidores: %d",
     ONLINE_SHORT = "conectados: %d",

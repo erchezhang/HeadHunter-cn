@@ -304,6 +304,102 @@ return function(T, H)
         T.eq(ours, ns.Gossip.FANOUT + ns.Gossip.DISCOVER, "with many known, our record goes to three plus one")
     end)
 
+    T.case("versions: newer is compared by numbers, a release candidate is older than its release", function()
+        local ns = Boot()
+        local P = ns.Presence
+        T.ok(P.Newer("1.0.5", "1.0.4"), "1.0.5 > 1.0.4")
+        T.ok(P.Newer("1.1.0", "1.0.10"), "1.1.0 > 1.0.10")
+        T.ok(not P.Newer("1.0.4", "1.0.4"), "not the same")
+        T.ok(not P.Newer("1.0.3", "1.0.4"), "not an older one")
+        T.ok(P.Newer("1.1.0", "1.1.0-rc.1"), "a release over its candidate")
+        T.ok(not P.Newer("@project-version@", "1.0.4"), "something that is no version is ignored")
+    end)
+
+    T.case("a newer version heard from two players is said once a session; from one, or an older one, not", function()
+        local ns = Boot()
+        ns.version = "1.0.4"
+        local function Version(sender, version, chatType)
+            H.Fire("CHAT_MSG_ADDON", "HeadHunter", ns.Protocol.Pack("H", "N", { version })[1], chatType or "WHISPER", sender)
+            H.Advance(0)
+        end
+        H.printed = {}
+        Version("Moon Sedai", "1.0.3")
+        Version("Moon Sedai", "1.0.5")
+        T.ok(not H.Printed("newer HeadHunter"), "not from one player")
+        Version("Tobin Ashford", "1.0.5", "PARTY")
+        T.ok(H.Printed("newer HeadHunter %(1.0.5%) is available; you have 1.0.4"), "said once two players run it")
+        H.printed = {}
+        Version("Kira Dawnblade", "1.0.5")
+        T.ok(not H.Printed("newer HeadHunter"), "only once")
+        Version("Kira Dawnblade", "1.0.6")
+        Version("Rowan Fairhill", "1.0.6")
+        T.ok(H.Printed("newer HeadHunter %(1.0.6%)"), "again for an even newer one")
+    end)
+
+    T.case("the first whisper to a member in a session carries our version, the next ones not", function()
+        local ns = Boot({ { "Arisaka Hautelame", "Player-6940-0008D0A4" }, { "Vati Guda", MY_GUID } })
+        ReadRoster(ns)
+        H.sent = {}
+        ns.Transport:Queue("D", Death(ns), ns.Transport.PRIORITY.alert)
+        Wait(1)
+        local presence = Whispers("1HN:")
+        T.eq(#presence, 1, "our version once")
+        T.ok(presence[1].message:find(ns.version, 1, true), "with our version")
+        H.sent = {}
+        ns.Transport:Queue("D", Death(ns, H.serverTime - 5), ns.Transport.PRIORITY.alert)
+        Wait(1)
+        T.eq(#Whispers("1HN:"), 0, "not again this session")
+        T.eq(#Whispers("1HE:"), 1, "the record still goes")
+    end)
+
+    T.case("versions: newer is compared by numbers, a release candidate is older than its release", function()
+        local ns = Boot()
+        local P = ns.Presence
+        T.ok(P.Newer("1.0.5", "1.0.4"), "1.0.5 > 1.0.4")
+        T.ok(P.Newer("1.1.0", "1.0.10"), "1.1.0 > 1.0.10")
+        T.ok(not P.Newer("1.0.4", "1.0.4"), "not the same")
+        T.ok(not P.Newer("1.0.3", "1.0.4"), "not an older one")
+        T.ok(P.Newer("1.1.0", "1.1.0-rc.1"), "a release over its candidate")
+        T.ok(not P.Newer("@project-version@", "1.0.4"), "something that is no version is ignored")
+    end)
+
+    T.case("a newer version heard from two players is said once a session; from one, or an older one, not", function()
+        local ns = Boot()
+        ns.version = "1.0.4"
+        local function Version(sender, version, chatType)
+            H.Fire("CHAT_MSG_ADDON", "HeadHunter", ns.Protocol.Pack("H", "N", { version })[1], chatType or "WHISPER", sender)
+            H.Advance(0)
+        end
+        H.printed = {}
+        Version("Moon Sedai", "1.0.3")
+        Version("Moon Sedai", "1.0.5")
+        T.ok(not H.Printed("newer HeadHunter"), "not from one player")
+        Version("Tobin Ashford", "1.0.5", "PARTY")
+        T.ok(H.Printed("newer HeadHunter %(1.0.5%) is available; you have 1.0.4"), "said once two players run it")
+        H.printed = {}
+        Version("Kira Dawnblade", "1.0.5")
+        T.ok(not H.Printed("newer HeadHunter"), "only once")
+        Version("Kira Dawnblade", "1.0.6")
+        Version("Rowan Fairhill", "1.0.6")
+        T.ok(H.Printed("newer HeadHunter %(1.0.6%)"), "again for an even newer one")
+    end)
+
+    T.case("the first whisper to a member in a session carries our version, the next ones not", function()
+        local ns = Boot({ { "Arisaka Hautelame", "Player-6940-0008D0A4" }, { "Vati Guda", MY_GUID } })
+        ReadRoster(ns)
+        H.sent = {}
+        ns.Transport:Queue("D", Death(ns), ns.Transport.PRIORITY.alert)
+        Wait(1)
+        local presence = Whispers("1HN:")
+        T.eq(#presence, 1, "our version once")
+        T.ok(presence[1].message:find(ns.version, 1, true), "with our version")
+        H.sent = {}
+        ns.Transport:Queue("D", Death(ns, H.serverTime - 5), ns.Transport.PRIORITY.alert)
+        Wait(1)
+        T.eq(#Whispers("1HN:"), 0, "not again this session")
+        T.eq(#Whispers("1HE:"), 1, "the record still goes")
+    end)
+
     T.case("cleanup: the channel list and region stubs of these tests", function()
         _G.GetCurrentRegion, _G.GetNumDisplayChannels, _G.GetChannelDisplayInfo = nil, nil, nil
         _G.SetSelectedDisplayChannel, _G.ERR_CHAT_PLAYER_NOT_FOUND_S = nil, nil

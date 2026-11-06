@@ -641,6 +641,7 @@ local CN = {
     ONLINE_REGION = "在线 HeadHunter：%d（联盟 %d，部落 %d），含你在内",
     ONLINE_GROUP = "你的公会与队伍中在线的 HeadHunter：%d，含你在内（Classic Era 无法统计更多）",
     ONLINE_CHANNEL = "频道内在线的 HeadHunter：%d，含你在内",
+    UPDATE_AVAILABLE = "HeadHunter 有新版本（%s），你的版本是 %s。请更新（CurseForge、Wago 或 headhunterwow.com）。",
     ONLINE_VERSIONS = "插件版本：%s",
     ONLINE_SERVERS = "你的服务器：%d · 其他服务器：%d",
     ONLINE_SHORT = "%d 在线",
