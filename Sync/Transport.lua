@@ -686,7 +686,9 @@ function Transport:Receive(message, chatType, sender)
     -- more (HH-121, author 2026-10-02): a Deadbeat needs a verified claim, and their
     -- posters and witnesses never reach us; their Deadbeats come from the website.
     local TYPES = ns.Protocol.TYPES
-    if chatType == "WHISPER" and ns.Gossip then ns.Gossip:Heard(sender, faction) end
+    if chatType == "WHISPER" and ns.Gossip then
+        ns.Gossip:Heard(sender, faction, nil, typeCode == TYPES.PRESENCE)
+    end
     -- HH-110: any message shows its sender is online, not only a presence one
     ns.Presence:Heard(sender, faction, typeCode == TYPES.PRESENCE and records[1] or nil, self.ServerOf(sender, chatType))
     if faction ~= ns.Utils.UnitFaction("player") then
