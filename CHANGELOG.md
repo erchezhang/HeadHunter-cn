@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.6
+
+- **Your chat channels keep their numbers.** HeadHunter now waits until all your channels (General, Trade, LocalDefense and your own) are back after logging in, and only then joins its hidden channel, so it never takes /1 or /2 from them.
+
 ## 1.0.5
 
 - **Quiet players get shared records too.** Each HeadHunter now says hello to the others in the channel once per session, so players who rarely fight are known and receive kills, duels and alerts like everyone else. Records also travel one step further, so about 96% of players get each one instead of 80%.
