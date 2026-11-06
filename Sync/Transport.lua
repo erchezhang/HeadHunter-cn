@@ -133,9 +133,32 @@ local function InstallChatFilters()
     pcall(add, "CHAT_MSG_CHANNEL", ChannelTextFilter)
 end
 
+-- 1.0.5: our own channels: this one, its backup, and gang chat channels (Sync/GangChat.lua)
+function Transport.IsOwnChannel(name)
+    if type(name) ~= "string" then return false end
+    local lower = name:lower()
+    if lower == Transport.CHANNEL:lower() or lower == Transport.BACKUP_CHANNEL:lower() then return true end
+    return ns.GangChat ~= nil and ns.GangChat.IsGangChannel(name) == true
+end
+
+-- The game's or the player's own channels are in place: one joined channel that is not
+-- ours (1.0.5: our gang channel in /1 used to count, so ours took /2 and General /3;
+-- seen in game 2026-11-06). Without GetChannelList: anything in slot 1.
+function Transport.OthersJoined()
+    if type(GetChannelList) ~= "function" then
+        local slotOne = tonumber((ns.Utils.SafeCall(GetChannelName, 1)))
+        return slotOne ~= nil and slotOne > 0
+    end
+    local list = { ns.Utils.SafeCall(GetChannelList) }
+    for i = 2, #list, 3 do
+        local ok, other = pcall(function() return type(list[i]) == "string" and not Transport.IsOwnChannel(list[i]) end)
+        if ok and other then return true end
+    end
+    return false
+end
+
 -- Join after the server channels (General, Trade...) so ours never takes /1.
--- A player who left every server channel keeps slot 1 empty forever, so the wait
--- is capped.
+-- A player who left every server channel has none, so the wait is capped.
 function Transport:JoinChannel(attempt)
     attempt = attempt or 1
     if self:ChannelID() then
@@ -143,10 +166,7 @@ function Transport:JoinChannel(attempt)
         ns.Events:Fire("HH_SYNC_CHANNEL_JOINED")
         return
     end
-    -- GetChannelName returns id, name, ...: keep only the id (a second argument to
-    -- tonumber would be taken as the number base)
-    local slotOne = tonumber((ns.Utils.SafeCall(GetChannelName, 1)))
-    if (not slotOne or slotOne == 0) and attempt <= self.JOIN_DEFER_MAX then
+    if not self.OthersJoined() and attempt <= self.JOIN_DEFER_MAX then
         C_Timer.After(2, function() self:JoinChannel(attempt + 1) end)
         return
     end

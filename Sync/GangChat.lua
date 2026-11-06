@@ -24,8 +24,11 @@ local OWNER = "GangChat"
 -- Gang_HH or HHG
 GangChat.PREFIX = ns.Gangs.CHAT_PREFIX
 GangChat.OLD_PREFIXES = { ns.Gangs.OLD_CHAT_PREFIX, "HHG" }
--- seconds after login before joining, so the game's own channels take the first slots
-GangChat.JOIN_DELAY = 5
+-- 1.0.5: joined this long after our sync channel (Transport: after the game's own
+-- channels), so it never takes /1 ahead of General (seen in game 2026-11-06: gang /1,
+-- sync /2, General /3); without the sync channel, at JOIN_WAIT_MAX after login
+GangChat.JOIN_DELAY = 1
+GangChat.JOIN_WAIT_MAX = 45
 GangChat.DEFAULT_COLOR = "ff9f40"
 
 local current
@@ -312,8 +315,11 @@ ns.Events:Register("HH_INITIALIZED", function()
         end
     end
     GangChat.HookHeaders()
-    C_Timer.After(GangChat.JOIN_DELAY, function()
+    local function Start()
+        if ready then return end
         ready = true
         GangChat:Join()
-    end)
+    end
+    ns.Events:Register("HH_SYNC_CHANNEL_JOINED", function() C_Timer.After(GangChat.JOIN_DELAY, Start) end, OWNER)
+    C_Timer.After(GangChat.JOIN_WAIT_MAX, Start)
 end, OWNER)

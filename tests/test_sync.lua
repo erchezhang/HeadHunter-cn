@@ -56,6 +56,29 @@ return function(T, H)
         T.noErrors()
     end)
 
+    T.case("our own gang channel in /1 does not count as the game's channels: we wait for General", function()
+        H.Install({ client = "forever" })
+        H.channels = { GangHHabcdefghijkl = 1 }
+        _G.GetChannelList = function()
+            local list = {}
+            for name, id in pairs(H.channels) do
+                list[#list + 1] = id
+                list[#list + 1] = name
+                list[#list + 1] = false
+            end
+            return unpack(list)
+        end
+        local ns = H.Load()
+        H.Fire("ADDON_LOADED", "HeadHunter")
+        H.Fire("PLAYER_ENTERING_WORLD", true, false)
+        T.eq(ns.Transport:ChannelID(), nil, "not joined while only our gang channel is there")
+        H.channels.General = 2
+        H.Advance(2)
+        T.eq(ns.Transport:ChannelID(), 5, "joined once a channel of the game is in place")
+        _G.GetChannelList = nil
+        T.noErrors()
+    end)
+
     T.case("own death is queued, batched and sent silently on the channel", function()
         local ns = H.Boot({ client = "forever" })
         H.printed = {}
