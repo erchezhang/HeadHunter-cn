@@ -45,7 +45,7 @@ MapMarkers.REFRESH = 10                    -- seconds, while the map is shown (t
 MapMarkers.FRAME_LEVEL = 2000              -- above the map's own pins
 MapMarkers.MAX_FRAME_LEVEL = 10000         -- the game's highest frame level
 -- Strata from low to high. Ours sit one above the highest other pins on the map (author,
--- 2026-10-16: Overlord's marks covered ours), up to FULLSCREEN_DIALOG, never TOOLTIP, so
+-- 2026-10-16: another addon's marks covered ours), up to FULLSCREEN_DIALOG, never TOOLTIP, so
 -- tooltips stay on top.
 MapMarkers.STRATA = { "BACKGROUND", "LOW", "MEDIUM", "HIGH", "DIALOG", "FULLSCREEN", "FULLSCREEN_DIALOG" }
 MapMarkers.MAX_PER_KIND = 10               -- PvP areas and skulls each, per map (author,
@@ -303,7 +303,7 @@ local STRATA_RANK = {}
 for rank, strata in ipairs(MapMarkers.STRATA) do STRATA_RANK[strata] = rank end
 
 -- Other addons draw on the same canvas (map notes, quest helpers, fog clearing), or on
--- frames of their own over it on the map's scroll area (Overlord), and may put their
+-- frames of their own over it on the map's scroll area, and may put their
 -- pins high. The highest strata and frame level among them, two frames deep (the
 -- canvas's own when none is higher), read again at every redraw, as addons add pins later.
 local function TopOfMap()
