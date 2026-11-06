@@ -23,6 +23,10 @@ local OWNER = "Presence"
 
 -- Logging out cannot send anything reliably, so a slow repeat is what lets players who
 -- left drop out and keeps those who stay counted.
+-- 1.0.4: the server refuses addon messages on the channel since WoW Forever's launch, so
+-- "here" is rarely heard. The channel's member list (Sync/Gossip.lua: SetRoster) is who is
+-- online instead: a member counts as known (Knows: the Gang tab's online, the relay), and
+-- the total is the list's when it has more; it does not tell factions (scope "channel").
 Presence.INTERVAL = 600      -- seconds between our announcements
 Presence.WINDOW = 1500       -- heard within this long counts as online
 Presence.FIRST_DELAY = 30    -- after login, once the channel is joined
@@ -38,6 +42,9 @@ local capped = false
 local lastPrune = -math.huge
 local lastAnswer = -math.huge
 local lastTotal
+-- 1.0.4: compact name -> home server (or true) of the channel's members, from Sync/Gossip.lua
+local roster
+local rosterCount = 0
 
 local function Announce()
     if capped or not ns.Guards:IsActive() then return end
@@ -60,8 +67,9 @@ function Presence:LastHeard(name)
     return peer and peer.t or nil
 end
 
--- HH-151: a HeadHunter heard lately (a compact name)
+-- HH-151: a HeadHunter heard lately, or on the channel's member list (a compact name)
 function Presence:Knows(name)
+    if roster and name and roster[name] then return true end
     local peer = seen[name]
     return peer ~= nil and ns.Utils.Now() - peer.t <= self.WINDOW
 end
@@ -71,6 +79,15 @@ end
 function Presence:Servers()
     local mine, now = ns.Utils.PlayerServer(), ns.Utils.Now()
     local ours, others = 0, 0
+    if roster then
+        local me = ns.Utils.CompactName(ns.Utils.UnitKey("player"))
+        for name, server in pairs(roster) do
+            if name ~= me then
+                if type(server) == "number" and mine and server ~= mine then others = others + 1 else ours = ours + 1 end
+            end
+        end
+        return ours, others
+    end
     for _, peer in pairs(seen) do
         if now - peer.t <= self.WINDOW then
             if peer.server and mine and peer.server ~= mine then others = others + 1 else ours = ours + 1 end
@@ -89,6 +106,10 @@ function Presence:Count()
         count.total = count.total + 1
     end
     count.scope = ns.Transport:RealmWideNeedsClick() and "group" or "region"
+    if roster and rosterCount > count.total then
+        count.total = rosterCount
+        count.scope = "channel"
+    end
     count.capped = capped
     return count
 end
@@ -108,6 +129,16 @@ local function Changed()
         lastTotal = total
         ns.Events:Fire("HH_PRESENCE_UPDATED")
     end
+end
+
+-- 1.0.4: the channel's members (Sync/Gossip.lua), by compact name
+function Presence:SetRoster(members)
+    roster, rosterCount = {}, 0
+    for name, member in pairs(members or {}) do
+        roster[name] = member.server or true
+        rosterCount = rosterCount + 1
+    end
+    Changed()
 end
 
 -- The share of us that answers a newcomer: 1 while few are online
@@ -183,6 +214,9 @@ function Presence.Describe(count)
     end
     if count.scope == "group" then
         return string.format(L.ONLINE_GROUP, count.total)
+    end
+    if count.scope == "channel" then
+        return string.format(L.ONLINE_CHANNEL, count.total)
     end
     return string.format(L.ONLINE_REGION, count.total, count.Alliance, count.Horde)
 end

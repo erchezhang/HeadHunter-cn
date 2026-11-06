@@ -198,6 +198,12 @@ function Bridge.SeenCount()
     return seenCount
 end
 
+-- 1.0.4: a record of ours that went into the gossip (Sync/Gossip.lua), so its copies coming
+-- back are taken as seen
+function Bridge:MarkSeen(key)
+    Remember(key)
+end
+
 -------------------------------------------------
 -- Queue: carried records waiting for their hold and the budget
 -------------------------------------------------
@@ -299,9 +305,13 @@ end
 -- An envelope
 -------------------------------------------------
 
-local function Deliver(env, carrier)
+-- 1.0.4: an envelope whispered by its own author (the first hop of the gossip) is their
+-- direct copy, handled as if they had sent it; the next hops go through the relay rules
+local function Deliver(env, carrier, chatType)
     local T = env.type
-    if T == TYPES.DEATH then
+    if chatType == "WHISPER" and env.hops == 1 and ns.Utils.SameCharacter(env.author, carrier) then
+        ns.Transport:Dispatch(T, env.record, env.author, env.faction, "WHISPER")
+    elseif T == TYPES.DEATH then
         ns.Reports:AddRelayed(env.record, carrier)
     elseif T == TYPES.JUSTICE then
         ns.Justice:AddRelayed(env.record, carrier, env.author)
@@ -320,30 +330,40 @@ local function Deliver(env, carrier)
     end
 end
 
-function Bridge:OnEnvelope(record, carrier, _, chatType)
+-- 1.0.4: by whisper (the gossip, Sync/Gossip.lua) an envelope goes up to Gossip.MAX_HOPS,
+-- its first hop comes from the author, and what is new is passed on by whisper again
+function Bridge:OnEnvelope(record, carrier, carrierFaction, chatType)
     if not self.Enabled() then return end
     local U = ns.Utils
     local env = ns.Protocol.DecodeEnvelope(record)
     local now = U.ServerTime()
+    local whispered = chatType == "WHISPER"
+    local maxHops = whispered and ns.Gossip.MAX_HOPS or self.MAX_HOPS
+    local fromAuthor = env and U.SameCharacter(env.author, carrier)
     if not env or not self.CARRIED[env.type] or not self.SameWorld(env.world)
-        or env.hops < 1 or env.hops > self.MAX_HOPS
+        or env.hops < 1 or env.hops > maxHops
         or env.at > now + self.MAX_SKEW or now - env.at > self.LIFETIME
-        or U.SameCharacter(env.author, carrier) then
+        or (fromAuthor and not (whispered and env.hops == 1)) then
         self.stats.refused = self.stats.refused + 1
         return
     end
+    if whispered then ns.Gossip:Heard(carrier, carrierFaction, env.world) end
     if U.SameCharacter(env.author, U.UnitKey("player")) then return end
     if env.faction ~= U.UnitFaction("player") and not CROSS_FACTION[env.type] then return end
     local key = self.Key(env.author, env.type, env.record)
     if seen[key] then
         carried[key] = true
         self.stats.duplicates = self.stats.duplicates + 1
-        if self.COUNTED[env.type] then Deliver(env, carrier) end
+        if self.COUNTED[env.type] then Deliver(env, carrier, chatType) end
         return
     end
     Remember(key)
     self.stats.delivered = self.stats.delivered + 1
-    Deliver(env, carrier)
+    Deliver(env, carrier, chatType)
+    if whispered then
+        ns.Gossip:Forward(env, carrier)
+        return
+    end
     if env.hops >= self.MAX_HOPS or not ns.Guards:IsActive() then return end
     local next = { world = env.world, author = env.author, faction = env.faction, server = env.server,
         hops = env.hops + 1, at = env.at, type = env.type, record = env.record }

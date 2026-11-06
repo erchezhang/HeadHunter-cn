@@ -87,6 +87,7 @@ Sync\Witness.lua
 Sync\Glasses.lua
 Sync\Evidence.lua
 Sync\Bridge.lua
+Sync\Gossip.lua
 Sync\Screenshots.lua
 
 # Rules (M3)
