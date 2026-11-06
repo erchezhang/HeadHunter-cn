@@ -56,7 +56,7 @@ return function(T, H)
         T.noErrors()
     end)
 
-    T.case("our own gang channel in /1 does not count as the game's channels: we wait for General", function()
+    T.case("we wait for the player's channels, and for their list to stop changing; our gang channel does not count", function()
         H.Install({ client = "forever" })
         H.channels = { GangHHabcdefghijkl = 1 }
         _G.GetChannelList = function()
@@ -73,9 +73,14 @@ return function(T, H)
         H.Fire("PLAYER_ENTERING_WORLD", true, false)
         T.eq(ns.Transport:ChannelID(), nil, "not joined while only our gang channel is there")
         H.channels.General = 2
-        H.Advance(2)
-        T.eq(ns.Transport:ChannelID(), 5, "joined once a channel of the game is in place")
+        H.Advance(1)
+        local early = ns.Transport:ChannelID()
+        H.channels.LocalDefense = 3
+        for _ = 1, 4 do H.Advance(1) end
+        local joined = ns.Transport:ChannelID()
         _G.GetChannelList = nil
+        T.eq(early, nil, "not right after General: the list is still changing")
+        T.eq(joined, 5, "joined once the list stayed the same for two seconds")
         T.noErrors()
     end)
 

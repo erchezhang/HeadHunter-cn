@@ -54,7 +54,10 @@ Transport.COMBAT_FLUSH_INTERVAL = 10
 Transport.BURST = 4          -- messages that may go out back to back
 Transport.PER_SECOND = 1     -- sustained messages per second
 Transport.INBOX_BUDGET_MS = 3
-Transport.JOIN_DEFER_MAX = 15 -- x 2 s waiting for the server channels to take /1
+Transport.JOIN_DEFER_MAX = 30 -- x JOIN_STEP s waiting for the player's channels to be back
+Transport.JOIN_STEP = 1
+-- 1.0.6: the player's channel list must stay the same this many steps before we join
+Transport.JOIN_CALM_STEPS = 2
 Transport.MAX_OUTBOX = 200    -- records kept while no route is available
 Transport.MAX_TEXT_MESSAGES = 2 -- channel text lines sent per click
 Transport.DUPLICATE_WINDOW = 30 -- seconds a message heard on one route is not taken again
@@ -145,29 +148,42 @@ end
 -- ours (1.0.5: our gang channel in /1 used to count, so ours took /2 and General /3;
 -- seen in game 2026-11-06). Without GetChannelList: anything in slot 1.
 function Transport.OthersJoined()
-    if type(GetChannelList) ~= "function" then
-        local slotOne = tonumber((ns.Utils.SafeCall(GetChannelName, 1)))
-        return slotOne ~= nil and slotOne > 0
-    end
-    local list = { ns.Utils.SafeCall(GetChannelList) }
-    for i = 2, #list, 3 do
-        local ok, other = pcall(function() return type(list[i]) == "string" and not Transport.IsOwnChannel(list[i]) end)
-        if ok and other then return true end
-    end
-    return false
+    return Transport.OtherChannels() ~= ""
 end
 
--- Join after the server channels (General, Trade...) so ours never takes /1.
--- A player who left every server channel has none, so the wait is capped.
-function Transport:JoinChannel(attempt)
+-- The player's channels that are not ours, as "number:name" in order ("" when none);
+-- without GetChannelList: what holds slot 1
+function Transport.OtherChannels()
+    if type(GetChannelList) ~= "function" then
+        local slotOne = tonumber((ns.Utils.SafeCall(GetChannelName, 1)))
+        return (slotOne and slotOne > 0) and "1" or ""
+    end
+    local list = { ns.Utils.SafeCall(GetChannelList) }
+    local parts = {}
+    for i = 2, #list, 3 do
+        local ok, other = pcall(function() return type(list[i]) == "string" and not Transport.IsOwnChannel(list[i]) end)
+        if ok and other then parts[#parts + 1] = tostring(list[i - 1]) .. ":" .. list[i] end
+    end
+    return table.concat(parts, ",")
+end
+
+-- Join after the player's channels (General, Trade, LocalDefense, their own...), so ours
+-- never takes a number of theirs: once a channel not ours is there and the list stayed the
+-- same JOIN_CALM_STEPS steps (1.0.6: joined as soon as General was back, ours could take
+-- /2 before LocalDefense or Trade; reported by a player 2026-11-07). A player who left
+-- every server channel has none, so the wait is capped at JOIN_DEFER_MAX steps.
+function Transport:JoinChannel(attempt, last, calm)
     attempt = attempt or 1
     if self:ChannelID() then
         self.joined = true
         ns.Events:Fire("HH_SYNC_CHANNEL_JOINED")
         return
     end
-    if not self.OthersJoined() and attempt <= self.JOIN_DEFER_MAX then
-        C_Timer.After(2, function() self:JoinChannel(attempt + 1) end)
+    local others = self.OtherChannels()
+    calm = (others ~= "" and others == last) and (calm or 0) + 1 or 0
+    local settled = others ~= "" and (calm >= self.JOIN_CALM_STEPS or type(GetChannelList) ~= "function")
+    if not settled and attempt <= self.JOIN_DEFER_MAX then
+        C_Timer.After(self.JOIN_STEP, function() self:JoinChannel(attempt + 1, others, calm) end)
         return
     end
     self:TryJoin(0)
