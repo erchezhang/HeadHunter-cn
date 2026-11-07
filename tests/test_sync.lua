@@ -154,7 +154,7 @@ return function(T, H)
         local sync = sim.NumberOf("HeadHunterSync")
         local pads = 0
         for _, name in pairs(sim.byNumber) do
-            if name:find("^HHPad") then pads = pads + 1 end
+            if name:find("^HeadHunterWait") or name:find("^HHPad") then pads = pads + 1 end
         end
         T.eq(sim.NumberOf("General - The Barrens"), 3, "General never touched")
         T.eq(sim.NumberOf("General"), nil, "no custom channel named General")

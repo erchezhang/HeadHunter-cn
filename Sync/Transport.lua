@@ -59,11 +59,14 @@ Transport.JOIN_STEP = 1
 -- 1.0.6: the player's channel list must stay the same this many steps before we join
 Transport.JOIN_CALM_STEPS = 2
 -- 1.0.6: placeholders in the free numbers below the player's last channel while ours join,
--- left PAD_HOLD seconds after; at most PAD_MAX of them
-Transport.PAD_PREFIX = "HHPad"
+-- left PAD_HOLD seconds after (time for ours and the gang channel to be in); at most PAD_MAX
+-- of them. Named HeadHunterWait plus a code of this session, so nobody else shares them;
+-- OLD_PAD_PREFIX ones (the first 1.0.6 build) are swept too.
+Transport.PAD_PREFIX = "HeadHunterWait"
+Transport.OLD_PAD_PREFIX = "HHPad"
 Transport.PAD_MAX = 8
 Transport.PAD_WAIT = 2
-Transport.PAD_HOLD = 8
+Transport.PAD_HOLD = 5
 Transport.MAX_OUTBOX = 200    -- records kept while no route is available
 Transport.MAX_TEXT_MESSAGES = 2 -- channel text lines sent per click
 Transport.DUPLICATE_WINDOW = 30 -- seconds a message heard on one route is not taken again
@@ -160,7 +163,12 @@ function Transport.IsOwnChannel(name)
 end
 
 function Transport.IsPad(name)
-    return type(name) == "string" and name:sub(1, #Transport.PAD_PREFIX):lower() == Transport.PAD_PREFIX:lower()
+    if type(name) ~= "string" then return false end
+    local lower = name:lower()
+    for _, prefix in ipairs({ Transport.PAD_PREFIX, Transport.OLD_PAD_PREFIX }) do
+        if lower:sub(1, #prefix) == prefix:lower() then return true end
+    end
+    return false
 end
 
 -- The joined channels: { { number, name } } in order (empty without GetChannelList)
@@ -272,7 +280,7 @@ function Transport:FillHoles()
     local taken = {}
     for _, channel in ipairs(self.Channels()) do taken[channel.number] = true end
     local pads = {}
-    self.padSalt = self.padSalt or string.format("%05x", math.random(0, 1048575))
+    self.padSalt = self.padSalt or string.format("%04x", math.random(0, 65535))
     for number = 1, others do
         if not taken[number] and #pads < self.PAD_MAX then
             local name = self.PAD_PREFIX .. self.padSalt .. (#pads + 1)
