@@ -58,6 +58,13 @@ Transport.JOIN_DEFER_MAX = 30 -- x JOIN_STEP s waiting for the player's channels
 Transport.JOIN_STEP = 1
 -- 1.0.6: the player's channel list must stay the same this many steps before we join
 Transport.JOIN_CALM_STEPS = 2
+-- 1.0.6: placeholders in the free numbers below the player's last channel while ours join,
+-- left PAD_HOLD seconds after; at most PAD_MAX of them
+Transport.PAD_PREFIX = "HHPad"
+Transport.PAD_MAX = 8
+Transport.PAD_WAIT = 2
+Transport.PAD_HOLD = 8
+Transport.GENERAL_REJOIN_WAIT = 1
 Transport.MAX_OUTBOX = 200    -- records kept while no route is available
 Transport.MAX_TEXT_MESSAGES = 2 -- channel text lines sent per click
 Transport.DUPLICATE_WINDOW = 30 -- seconds a message heard on one route is not taken again
@@ -111,12 +118,20 @@ local function IsOurChannel(channelBaseName, channelName)
     return type(channelName) == "string" and channelName:lower():match("^%d+%. (.+)$") == ours
 end
 
+-- 1.0.6: our placeholders' join and leave notices are hidden too
+local function IsOurPad(channelBaseName, channelName)
+    local ok, pad = pcall(function()
+        return Transport.IsPad(channelBaseName) or Transport.IsPad(type(channelName) == "string" and channelName:match("^%d+%. (.+)$"))
+    end)
+    return ok and pad
+end
+
 -- Chat filter args: self, event, text, playerName, languageName, channelName ("5. Name"),
 -- playerName2, specialFlags, zoneChannelID, channelIndex, channelBaseName, ...
 
 -- Hide our channel's join/leave/notice lines
 local function ChannelNoticeFilter(_, _, _, _, _, channelName, _, _, _, _, channelBaseName)
-    return IsOurChannel(channelBaseName, channelName)
+    return IsOurChannel(channelBaseName, channelName) or IsOurPad(channelBaseName, channelName)
 end
 
 -- Hide our marked chat-text lines
@@ -141,7 +156,38 @@ function Transport.IsOwnChannel(name)
     if type(name) ~= "string" then return false end
     local lower = name:lower()
     if lower == Transport.CHANNEL:lower() or lower == Transport.BACKUP_CHANNEL:lower() then return true end
+    if Transport.IsPad(name) then return true end
     return ns.GangChat ~= nil and ns.GangChat.IsGangChannel(name) == true
+end
+
+function Transport.IsPad(name)
+    return type(name) == "string" and name:sub(1, #Transport.PAD_PREFIX):lower() == Transport.PAD_PREFIX:lower()
+end
+
+-- The joined channels: { { number, name } } in order (empty without GetChannelList)
+function Transport.Channels()
+    local channels = {}
+    if type(GetChannelList) ~= "function" then return channels end
+    local list = { ns.Utils.SafeCall(GetChannelList) }
+    for i = 2, #list, 3 do
+        local number, name = tonumber(list[i - 1]), list[i]
+        local ok, readable = pcall(function() return type(name) == "string" and name ~= "" end)
+        if number and ok and readable then channels[#channels + 1] = { number = number, name = name } end
+    end
+    return channels
+end
+
+-- The highest number of the player's channels (not ours), and of ours, or 0
+function Transport.HighestNumbers()
+    local others, ours = 0, 0
+    for _, channel in ipairs(Transport.Channels()) do
+        if Transport.IsOwnChannel(channel.name) then
+            if not Transport.IsPad(channel.name) then ours = math.max(ours, channel.number) end
+        else
+            others = math.max(others, channel.number)
+        end
+    end
+    return others, ours
 end
 
 -- The game's or the player's own channels are in place: one joined channel that is not
@@ -175,9 +221,13 @@ end
 function Transport:JoinChannel(attempt, last, calm)
     attempt = attempt or 1
     if self:ChannelID() then
-        self.joined = true
-        ns.Events:Fire("HH_SYNC_CHANNEL_JOINED")
-        return
+        if attempt == 1 and self:Misplaced() then
+            self:LeaveOwnChannels()
+        else
+            self.joined = true
+            ns.Events:Fire("HH_SYNC_CHANNEL_JOINED")
+            return
+        end
     end
     local others = self.OtherChannels()
     calm = (others ~= "" and others == last) and (calm or 0) + 1 or 0
@@ -186,7 +236,111 @@ function Transport:JoinChannel(attempt, last, calm)
         C_Timer.After(self.JOIN_STEP, function() self:JoinChannel(attempt + 1, others, calm) end)
         return
     end
-    self:TryJoin(0)
+    self:Seat()
+end
+
+-- 1.0.6: one of ours sits below one of the player's channels (an older version took /1 and
+-- /2, and the game saved its own channels behind them; seen in game 2026-11-07: gang /1,
+-- ours /2, General /3, LocalDefense /5)
+function Transport:Misplaced()
+    local others, ours = self.HighestNumbers()
+    local lowestOurs
+    for _, channel in ipairs(self.Channels()) do
+        if self.IsOwnChannel(channel.name) and not self.IsPad(channel.name) then
+            lowestOurs = math.min(lowestOurs or channel.number, channel.number)
+        end
+    end
+    return ours > 0 and lowestOurs ~= nil and lowestOurs < others
+end
+
+-- Our sync and gang channels, left so they can join again at the end
+function Transport:LeaveOwnChannels()
+    for _, channel in ipairs(self.Channels()) do
+        if self.IsOwnChannel(channel.name) and not self.IsPad(channel.name) then
+            pcall(LeaveChannelByName, channel.name)
+        end
+    end
+    ns.Log:Add("info", "Sync channels were before the player's channels: joined again at the end")
+end
+
+-- 1.0.6: once per character, General back to the lowest number when the game saved it
+-- behind our old channels (it rejoins into the lowest free number, and the game saves that)
+function Transport:FixGeneralOnce(continue)
+    local db = ns.db
+    local me = ns.Utils.UnitKey("player")
+    local done = db and me and type(db.channelOrderFixed) == "table" and db.channelOrderFixed[me]
+    if not (db and me) or done then return continue() end
+    db.channelOrderFixed = type(db.channelOrderFixed) == "table" and db.channelOrderFixed or {}
+    db.channelOrderFixed[me] = true
+    local general
+    for _, channel in ipairs(self.Channels()) do
+        if not general and not self.IsOwnChannel(channel.name) and channel.name:lower():find("^general") then general = channel end
+    end
+    local lowestFree = 1
+    for _, channel in ipairs(self.Channels()) do
+        if channel.number == lowestFree then lowestFree = lowestFree + 1 end
+    end
+    if not general or general.number <= lowestFree then return continue() end
+    pcall(LeaveChannelByName, general.name)
+    local frame = _G.DEFAULT_CHAT_FRAME
+    local frameID = frame and frame.GetID and frame:GetID() or 1
+    local function Back()
+        for _, channel in ipairs(self.Channels()) do
+            if channel.name:lower():find("^general") then return true end
+        end
+        return false
+    end
+    C_Timer.After(self.GENERAL_REJOIN_WAIT, function()
+        pcall(JoinChannelByName, "General", nil, frameID)
+        C_Timer.After(self.GENERAL_REJOIN_WAIT, function()
+            if not Back() then pcall(JoinChannelByName, general.name, nil, frameID) end
+            C_Timer.After(self.GENERAL_REJOIN_WAIT, function()
+                if Back() then
+                    ns.Log:Add("info", "General moved back to the lowest free number, once for this character")
+                else
+                    ns.Log:Add("info", "General could not be joined again after the channel order fix")
+                    ns:Print(ns.L.SYNC_GENERAL_REJOIN)
+                end
+                continue()
+            end)
+        end)
+    end)
+end
+
+-- Placeholders in the free numbers below the player's last channel, so ours take numbers
+-- after it; returns their names
+function Transport:FillHoles()
+    local others = self.HighestNumbers()
+    local taken = {}
+    for _, channel in ipairs(self.Channels()) do taken[channel.number] = true end
+    local pads = {}
+    self.padSalt = self.padSalt or string.format("%05x", math.random(0, 1048575))
+    for number = 1, others do
+        if not taken[number] and #pads < self.PAD_MAX then
+            local name = self.PAD_PREFIX .. self.padSalt .. (#pads + 1)
+            pads[#pads + 1] = name
+            local join = type(JoinTemporaryChannel) == "function" and JoinTemporaryChannel or JoinChannelByName
+            pcall(join, name, nil, 0)
+        end
+    end
+    return pads
+end
+
+function Transport:LeavePads(pads)
+    for _, name in ipairs(pads or {}) do pcall(LeaveChannelByName, name) end
+end
+
+-- General fixed once, the holes filled, then ours join at the end; the placeholders go
+-- PAD_HOLD seconds later (the gang channel joins after ours, Sync/GangChat.lua)
+function Transport:Seat()
+    if type(GetChannelList) ~= "function" then return self:TryJoin(0) end
+    self:FixGeneralOnce(function()
+        local pads = self:FillHoles()
+        C_Timer.After(#pads > 0 and self.PAD_WAIT or 0, function()
+            self:TryJoin(0)
+            C_Timer.After(self.PAD_HOLD, function() self:LeavePads(pads) end)
+        end)
+    end)
 end
 
 -- frameID 0: the channel is not added to any chat window. Not joined after the retries

@@ -492,6 +492,7 @@ local CN = {
     SYNC_RELAY = "中继：%s · 世界 %s · 队伍中的其他服务器 %d · 转发 %d · 收到 %d · 重复 %d · 跳过 %d · 丢弃 %d · 拒绝 %d · 等待 %d · 记录 %d · 连接 %d",
     SYNC_CHANNEL_DEAF = "被服务器拒绝：%s，改用密语共享",
     SYNC_GOSSIP = "传播：%s · 成员 %d · 可联系 %d · 本阵营 %d · 新传播 %d · 发出 %d · 转传 %d · 密语 %d · 失败 %d · 丢弃 %d · 无法联系 %d · 等待 %d",
+    SYNC_GENERAL_REJOIN = "HeadHunter 已把隐藏频道移到你的频道之后。未能自动重新加入综合频道：请输入 /join General。",
     HELP_REPORT = "|cffffff00/hh report|r：把等待中的死亡报告发送给所有 HeadHunter（Classic Era）",
     REPORT_SENT = "已向所有 HeadHunter 报告 %d 条死亡。",
     REPORT_FAILED = "未能接通 HeadHunter 频道。请再试一次 /hh report。",

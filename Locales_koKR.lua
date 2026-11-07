@@ -78,6 +78,7 @@ local KR = {
     SYNC_RELAY = "중계: %s · 세계 %s · 파티 안의 다른 서버 %d · 전달 %d · 받음 %d · 중복 %d · 건너뜀 %d · 버림 %d · 거부 %d · 대기 %d · 기억 %d · 연결 %d",
     SYNC_CHANNEL_DEAF = "서버에서 거부됨: %s, 귓속말로 공유 중",
     SYNC_GOSSIP = "전파: %s · 멤버 %d · 연결 가능 %d · 우리 진영 %d · 새 전파 사용 %d · 퍼뜨림 %d · 전달 %d · 귓속말 %d · 실패 %d · 버림 %d · 연결 불가 %d · 대기 %d",
+    SYNC_GENERAL_REJOIN = "HeadHunter가 숨겨진 채널을 내 채널 뒤로 옮겼습니다. 일반 채널에 자동으로 다시 들어가지 못했습니다: /join General 을 입력해 주세요.",
     HELP_REPORT = "|cffffff00/hh report|r: 대기 중인 죽음 보고를 모든 HeadHunter에게 전송 (Classic Era)",
     REPORT_PROMPT = "HeadHunter\n\n|cffff4040%s|r (%s) 신고를 모든 HeadHunter에게 보낼까요?",
     REPORT_MORE = "(%d개 더 대기 중)",
