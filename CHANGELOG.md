@@ -2,7 +2,8 @@
 
 ## 1.0.6
 
-- **Your chat channels keep their numbers.** HeadHunter now waits until all your channels (General, Trade, LocalDefense and your own) are back after logging in, and only then joins its hidden channel, so it never takes /1 or /2 from them.
+- **Your chat channels keep their numbers.** HeadHunter now waits until all your channels (General, Trade, LocalDefense, LookingForGroup and your own) are back after logging in, and joins its hidden channels after them, so it never takes /1 or /2 from them.
+- **Fixed for players who already had it:** if an older version left HeadHunter's channels at /1 or /2, they move behind yours, and General goes back to /1 once.
 
 ## 1.0.5
 
