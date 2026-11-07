@@ -199,6 +199,55 @@ return function(T, H)
         T.noErrors()
     end)
 
+    T.case("fighting a mob while enemies fight another player of our faction nearby is not our fight: we are alerted", function()
+        local ns = H.Boot({ client = "forever" })
+        H.inCombat = true
+        H.units.nameplate1 = { name = "Nox", realm = "Argy", level = 21, class = "WARLOCK", race = "Human",
+            faction = "Horde", isPlayer = true, guid = "Player-4613-00ABCDEF", inCombat = true }
+        H.units.nameplate1target = { name = "Garmegg", realm = "Doomcrusher", level = 21, class = "WARRIOR", race = "Human",
+            faction = "Alliance", isPlayer = true, guid = "Player-4613-00000077" }
+        H.Fire("NAME_PLATE_UNIT_ADDED", "nameplate1")
+        local fighting, _, _, engaged = ns.Hotspots.ScanFighters()
+        T.eq(fighting, 1, "the enemy is in a fight with our side")
+        T.eq(engaged, 0, "but not with us or our group")
+        H.sent = {}
+        H.Advance(5)
+        H.Advance(10)
+        for _, m in ipairs(H.sent) do T.ok(not m.message:find("^1AP:"), "no ping naming us as a fighter") end
+        local nowA = ns.Hotspots:Now(1429)
+        T.eq(nowA, 0, "we are not counted in that fight")
+        H.inCombat = false
+        H.popups = {}
+        Ping(ns, 1429, "Other Hunter", Ids(1, 12))
+        T.eq(Popups(), 1, "the fight of others next to us is announced to us")
+        T.noErrors()
+    end)
+
+    T.case("kept quiet for our own fight, the zone alerts again once others fight there after it", function()
+        local ns = H.Boot({ client = "forever" })
+        H.inCombat = true
+        H.units.nameplate1 = { name = "Grim", realm = "Reaper", level = 60, class = "ROGUE", race = "Orc",
+            faction = "Horde", isPlayer = true, guid = "Player-4613-00ABCDEF" }
+        H.units.nameplate1target = H.units.player
+        H.Fire("NAME_PLATE_UNIT_ADDED", "nameplate1")
+        H.Advance(5)
+        H.popups = {}
+        Ping(ns, 1429, "Other Hunter", Ids(1, 12))
+        T.eq(Popups(), 0, "our own fight: quiet")
+        H.inCombat = false
+        H.units.nameplate1 = nil
+        H.units.nameplate1target = nil
+        for _ = 1, 3 do
+            H.serverTime = H.serverTime + 30
+            H.Advance(30)
+        end
+        Ping(ns, 1429, "Other Hunter", Ids(1, 12), 120)
+        T.eq(Popups(), 0, "nothing new since our fight: still quiet")
+        Ping(ns, 1429, "Garmegg Doomcrusher", Ids(20, 24), 1)
+        T.eq(Popups(), 1, "another fight there after ours is announced")
+        T.noErrors()
+    end)
+
     T.case("our own deaths put us in the fight: no alert about it", function()
         local ns = H.Boot({ client = "era" })
         local me = ns.Utils.UnitKey("player")

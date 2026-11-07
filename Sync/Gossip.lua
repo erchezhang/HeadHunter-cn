@@ -26,7 +26,12 @@
 --     are known our own records go to OWN_FANOUT members (an older addon drops an envelope,
 --     so in the first days most picks would end there);
 --   * the first whisper to each member in a session also carries our version (a presence
---     record), so players learn of newer versions without the channel (Sync/Presence.lua).
+--     record), so players learn of newer versions without the channel (Sync/Presence.lua);
+--   * 1.0.5: after the member list is read we say hello (our version) to each member once a
+--     session, one every HELLO_SPACING seconds; a member whose hello reaches us runs this
+--     gossip too (older addons never whisper a presence) and gets our hello back once. A
+--     quiet player was known to nobody before (seen in game 2026-11-06: hours with 1.0.4
+--     and no duels from others), as only a player who whispered a record became known.
 -- WoW Forever only: Classic Era keeps its guild, group and whisper routes.
 
 local addonName, ns = ...
@@ -36,10 +41,11 @@ local Gossip = ns:RegisterModule("Gossip", {})
 local OWNER = "Gossip"
 
 Gossip.FANOUT = 3
+Gossip.HELLO_SPACING = 2
 Gossip.OWN_FANOUT = 5
 Gossip.DISCOVER = 1
 Gossip.MANY_KNOWN = 10
-Gossip.MAX_HOPS = 4
+Gossip.MAX_HOPS = 5
 Gossip.HELLO_PEERS = 5
 Gossip.ROSTER_EVERY = 300
 Gossip.ROSTER_WAIT = 3
@@ -184,8 +190,9 @@ end
 -------------------------------------------------
 
 -- A whisper from a member says their faction and that they can be reached; one that
--- carried an envelope (world given) also runs this gossip
-function Gossip:Heard(sender, faction, world)
+-- carried an envelope (world given) or said hello (`hello`) also runs this gossip, and a
+-- hello gets ours back once
+function Gossip:Heard(sender, faction, world, hello)
     local name = ns.Utils.CompactName(sender)
     if not name then return end
     local peer = peers[name]
@@ -195,8 +202,9 @@ function Gossip:Heard(sender, faction, world)
     end
     peer.faction = faction or peer.faction
     peer.world = world or peer.world
-    peer.modern = peer.modern or world ~= nil
+    peer.modern = peer.modern or world ~= nil or hello == true
     peer.unreachableUntil = nil
+    if hello and not peer.toldVersion then self:Hello(peer) end
 end
 
 -- Members known to run this gossip and in reach
@@ -328,6 +336,28 @@ function Gossip:Flush()
     end
 end
 
+-- 1.0.5: our version to one member, once a session
+function Gossip:Hello(peer)
+    if peer.toldVersion or peer.me then return end
+    peer.toldVersion = true
+    seq = seq + 1
+    queue[#queue + 1] = { target = peer.key, name = ns.Utils.CompactName(peer.key), type = TYPES.PRESENCE,
+        record = ns.version, own = true, low = true, seq = seq }
+end
+
+-- The next member to say hello to: not told yet, in reach, and of our faction when known
+function Gossip:NextHello()
+    if not self:Active() then return nil end
+    local now, mine = ns.Utils.Now(), ns.Utils.UnitFaction("player")
+    for _, peer in pairs(peers) do
+        if not peer.toldVersion and not peer.me and (peer.unreachableUntil or 0) <= now
+            and (not peer.faction or peer.faction == mine) then
+            return peer
+        end
+    end
+    return nil
+end
+
 -------------------------------------------------
 -- Spreading
 -------------------------------------------------
@@ -448,6 +478,14 @@ local function FlushLoop()
     end)
 end
 
+local function HelloLoop()
+    C_Timer.After(Gossip.HELLO_SPACING, function()
+        local peer = Gossip:NextHello()
+        if peer then Gossip:Hello(peer) end
+        HelloLoop()
+    end)
+end
+
 local function RosterLoop()
     C_Timer.After(Gossip.ROSTER_EVERY, function()
         Gossip:RequestRoster()
@@ -463,4 +501,5 @@ ns.Events:Register("HH_INITIALIZED", function()
     ns.Events:Register("HH_SYNC_CHANNEL_JOINED", function() Gossip:RequestRoster() end, OWNER)
     FlushLoop()
     RosterLoop()
+    HelloLoop()
 end, OWNER)

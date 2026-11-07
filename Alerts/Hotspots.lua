@@ -20,8 +20,16 @@
 -- near us is not enough, both may be fighting NPCs). Then, at most every PING_INTERVAL seconds, a ping
 -- (protocol type P: map, time, position, short enemy ids) goes out on the
 -- automatic routes.
+-- We are in the fight ourselves only when an enemy is engaged with us or our group: it
+-- targets us or a group member close to us, or we or such a member target it (1.0.5:
+-- fighting a turtle while enemies fought another Horde player nearby made us a fighter,
+-- pinged as one and kept from the alert; seen in game 2026-11-06). Enemies fighting
+-- others of our faction are still seen for the map and the pings of a fight we are in.
 -- Alerts: when a zone climbs a level, inside the alert range, never for a fight we
--- are in ourselves, at most once per zone and level per LEVEL_THROTTLE.
+-- are in ourselves, at most once per zone and level per LEVEL_THROTTLE. Kept quiet for
+-- our own fight, a zone alerts again once there is new activity there after it (1.0.5:
+-- it used to stay "announced" while the zone kept burning, so a later fight of others
+-- there was never said).
 -- [Help] sets a waypoint to the newest fight; [Ignore] mutes the zone for IGNORE_TIME.
 -- HH-136: fires HH_PVP_SEEN(zone, fighters, layer, t) with the players seen fighting,
 -- from our own scan and from other HeadHunters' pings, for Alerts/Wars.lua:
@@ -53,6 +61,7 @@ Hotspots.INVITE_LEVEL = 2
 
 local zones = {}        -- zone mapID -> { fighters = {id -> {t, x, y}}, allies = {id -> t}, enemies = {id -> t}, deaths = {id -> t} }
 local announced = {}    -- zone -> highest level announced in the current burst
+local quietSince = {}   -- zone -> when our own fight there kept it quiet (its latest moment)
 local remembered = {}   -- zone -> the zone's last hot state, for the map (MAP_TIME)
 local ignored = {}      -- zone -> GetTime() until which it is muted
 local lastPing = 0
@@ -469,17 +478,21 @@ function Hotspots:Evaluate(zone)
     local now = ns.Utils.ServerTime()
     local heat, level, a, e, d = self:Heat(zone, now)
     if level == 0 then
-        announced[zone] = nil
+        announced[zone], quietSince[zone] = nil, nil
         return
     end
     Burning(zone, now) -- the map keeps it for MAP_TIME, even if the map is not open now
     if (announced[zone] or 0) >= level then return end
-    -- Our own fight: nothing to tell us
     local me = ns.Utils.CompactName(ns.Utils.UnitKey("player"))
     local mine = me and zones[zone].fighters[me]
     if mine and now - mine.t <= self.FIGHT_RECENT * 4 then
-        announced[zone] = level
+        quietSince[zone] = mine.t
+        ns:Debug("Hotspot: quiet, our own fight in", zone, "level", level)
         return
+    end
+    if quietSince[zone] then
+        if not self:ActivitySince(zone, quietSince[zone] + self.FIGHT_RECENT * 4, me) then return end
+        quietSince[zone] = nil
     end
     if ignored[zone] and ns.Utils.Now() < ignored[zone] then return end
     if not ns.Zones.InRange(zone) then return end
@@ -523,6 +536,23 @@ function Hotspots:Evaluate(zone)
     ns.Events:Fire("HH_HOTSPOT", zone, level, heat)
 end
 
+-- 1.0.5: someone else fought, an enemy was seen fighting, or someone died in the zone at
+-- `since` or later (our own fight left out)
+function Hotspots:ActivitySince(zone, since, me)
+    local data = zones[zone]
+    if not data then return false end
+    for who, fighter in pairs(data.fighters) do
+        if who ~= me and (fighter.t or 0) >= since then return true end
+    end
+    for _, list in ipairs({ data.enemies, data.deaths }) do
+        for _, value in pairs(list) do
+            local t = type(value) == "table" and value.t or value
+            if (tonumber(t) or 0) >= since then return true end
+        end
+    end
+    return false
+end
+
 -------------------------------------------------
 -- Our own fight
 -------------------------------------------------
@@ -537,6 +567,7 @@ for i = 1, 40 do SCAN_UNITS[#SCAN_UNITS + 1] = "raid" .. i .. "target" end
 for i = 1, 40 do SCAN_UNITS[#SCAN_UNITS + 1] = "nameplate" .. i end
 
 local fightingEnemies, fightingAllies = {}, {} -- guid -> Now() last seen in combat
+local engagedAt                                -- Now() an enemy was last engaged with us or our group
 local allyInfo = {}                            -- guid -> who that ally is (HH_PVP_SEEN)
 
 -- Who a player of our side is, read while their unit is in sight
@@ -563,6 +594,12 @@ local function TargetsOurSide(unit, mine)
     return mine ~= nil and U.UnitIsPlayer(target) and U.UnitFaction(target) == mine
 end
 
+-- 1.0.5: an enemy whose target is us or a group member close to us (`ours`: GUID -> true)
+local function TargetsUs(unit, ours)
+    local guid = ns.Utils.UnitGUID(unit .. "target")
+    return guid ~= nil and ours[guid] == true
+end
+
 -- A group member too far away to be in our fight, or what that member targets (HH-143:
 -- a raid spread over the zone filled wars with players who were not there)
 local function FarGroupUnit(unit)
@@ -575,6 +612,20 @@ end
 local GROUP_TARGETS = { "target" }
 for i = 1, 4 do GROUP_TARGETS[#GROUP_TARGETS + 1] = "party" .. i end
 for i = 1, 40 do GROUP_TARGETS[#GROUP_TARGETS + 1] = "raid" .. i end
+
+-- 1.0.5: us and the group members close to us (GUID -> true)
+local function OurSide()
+    local U = ns.Utils
+    local ours = {}
+    local me = U.UnitGUID("player")
+    if me then ours[me] = true end
+    for i = 2, #GROUP_TARGETS do
+        local unit = GROUP_TARGETS[i]
+        local guid = U.UnitGUID(unit)
+        if guid and not FarGroupUnit(unit) then ours[guid] = true end
+    end
+    return ours
+end
 
 local function OurTargets()
     local U = ns.Utils
@@ -590,12 +641,14 @@ end
 
 -- Players in the fight around us now: enemies fighting our side, and players of our
 -- faction in combat (not us). Returns what it saw, for the debug log: enemies fighting,
--- enemies not, combat unknown
+-- enemies not, combat unknown, and enemies engaged with us or our group
 function Hotspots.ScanFighters()
     local U = ns.Utils
     local now = U.Now()
     local me, mine = U.UnitGUID("player"), U.UnitFaction("player")
     local attacked = OurTargets()
+    local ours = OurSide()
+    local engaged = 0
     local seen = {}
     local fighting, idle, unknown = 0, 0, 0
     for _, unit in ipairs(SCAN_UNITS) do
@@ -605,10 +658,15 @@ function Hotspots.ScanFighters()
             local combat = InCombat(unit)
             if U.UnitIsEnemyPlayer(unit) then
                 if combat == nil then unknown = unknown + 1 end
-                if TargetsOurSide(unit, mine) or (combat ~= false and attacked[guid]) then
+                local withUs = TargetsUs(unit, ours) or (combat ~= false and attacked[guid] == true)
+                if withUs or TargetsOurSide(unit, mine) then
                     ns.EnemyCache:ObserveUnit(unit, "nameplate")
                     fightingEnemies[guid] = now
                     fighting = fighting + 1
+                    if withUs then
+                        engaged = engaged + 1
+                        engagedAt = now
+                    end
                 else
                     idle = idle + 1
                 end
@@ -618,7 +676,12 @@ function Hotspots.ScanFighters()
             end
         end
     end
-    return fighting, idle, unknown
+    return fighting, idle, unknown, engaged
+end
+
+-- 1.0.5: an enemy was engaged with us or our group within FIGHT_RECENT
+function Hotspots.Engaged()
+    return engagedAt ~= nil and ns.Utils.Now() - engagedAt <= Hotspots.FIGHT_RECENT
 end
 
 -- GUIDs seen in combat within `seconds` (older ones are forgotten)
@@ -640,10 +703,11 @@ function Hotspots:Tick()
     if not ns.Guards:IsActive() then return end
     local U = ns.Utils
     if not U.SafeCall(UnitAffectingCombat, "player") then return end
-    local fighting, idle, unknown = Hotspots.ScanFighters()
-    ns.Log:Add("debug", string.format("PvP scan: enemies fighting %d, not fighting %d, combat unknown %d", fighting, idle, unknown))
+    local fighting, idle, unknown, engaged = Hotspots.ScanFighters()
+    ns.Log:Add("debug", string.format("PvP scan: enemies fighting %d (with us %d), not fighting %d, combat unknown %d",
+        fighting, engaged, idle, unknown))
     local guids = Recent(fightingEnemies, self.FIGHT_RECENT)
-    if #guids == 0 then return end
+    if #guids == 0 or not Hotspots.Engaged() then return end
     -- Our side: us first, then the players of our faction fighting around us
     local allies = { Hotspots.ShortId(U.UnitGUID("player")) }
     local seen = { PlayerInfo("player", "ally") }

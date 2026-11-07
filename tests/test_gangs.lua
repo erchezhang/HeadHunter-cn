@@ -684,6 +684,25 @@ return function(T, H)
         T.eq(header.text, "Gang: ", "and again right after, over the game's own header")
     end)
 
+    T.case("gang chat waits for our sync channel, so it never takes /1 ahead of the game's channels", function()
+        local data = Data({ Gang("Black Hand", "Vati Guda", { "Vati Guda" }) })
+        data.characters[1].gang_chat = { channel = "GangHHabcdefghijkl", password = "secret" }
+        H.Install({ client = "forever", playerGUID = "Player-" .. PVP .. "-00ABCDEF" })
+        H.channels = {}
+        local joins = {}
+        local ns = H.Load()
+        _G.JoinChannelByName = function(name) joins[#joins + 1] = name end
+        H.Fire("ADDON_LOADED", "HeadHunter")
+        _G.HeadHunter_SiteData = nil
+        H.Fire("PLAYER_LOGIN")
+        H.Fire("PLAYER_ENTERING_WORLD", true, false)
+        H.Advance(10)
+        for _, name in ipairs(joins) do T.ok(not name:find("^GangHH"), "no gang channel before ours") end
+        ns.Events:Fire("HH_SYNC_CHANNEL_JOINED")
+        H.Advance(ns.GangChat.JOIN_DELAY)
+        T.noErrors()
+    end)
+
     T.case("gang chat: a new gang's channel goes to the main window once the game joined it, and a refused join says why", function()
         local ns = Boot(Data())
         H.Advance(ns.GangChat.JOIN_DELAY)

@@ -54,7 +54,19 @@ Transport.COMBAT_FLUSH_INTERVAL = 10
 Transport.BURST = 4          -- messages that may go out back to back
 Transport.PER_SECOND = 1     -- sustained messages per second
 Transport.INBOX_BUDGET_MS = 3
-Transport.JOIN_DEFER_MAX = 15 -- x 2 s waiting for the server channels to take /1
+Transport.JOIN_DEFER_MAX = 30 -- x JOIN_STEP s waiting for the player's channels to be back
+Transport.JOIN_STEP = 1
+-- 1.0.6: the player's channel list must stay the same this many steps before we join
+Transport.JOIN_CALM_STEPS = 2
+-- 1.0.6: placeholders in the free numbers below the player's last channel while ours join,
+-- left PAD_HOLD seconds after (time for ours and the gang channel to be in); at most PAD_MAX
+-- of them. Named HeadHunterWait plus a code of this session, so nobody else shares them;
+-- OLD_PAD_PREFIX ones (the first 1.0.6 build) are swept too.
+Transport.PAD_PREFIX = "HeadHunterWait"
+Transport.OLD_PAD_PREFIX = "HHPad"
+Transport.PAD_MAX = 8
+Transport.PAD_WAIT = 2
+Transport.PAD_HOLD = 5
 Transport.MAX_OUTBOX = 200    -- records kept while no route is available
 Transport.MAX_TEXT_MESSAGES = 2 -- channel text lines sent per click
 Transport.DUPLICATE_WINDOW = 30 -- seconds a message heard on one route is not taken again
@@ -108,12 +120,20 @@ local function IsOurChannel(channelBaseName, channelName)
     return type(channelName) == "string" and channelName:lower():match("^%d+%. (.+)$") == ours
 end
 
+-- 1.0.6: our placeholders' join and leave notices are hidden too
+local function IsOurPad(channelBaseName, channelName)
+    local ok, pad = pcall(function()
+        return Transport.IsPad(channelBaseName) or Transport.IsPad(type(channelName) == "string" and channelName:match("^%d+%. (.+)$"))
+    end)
+    return ok and pad
+end
+
 -- Chat filter args: self, event, text, playerName, languageName, channelName ("5. Name"),
 -- playerName2, specialFlags, zoneChannelID, channelIndex, channelBaseName, ...
 
 -- Hide our channel's join/leave/notice lines
 local function ChannelNoticeFilter(_, _, _, _, _, channelName, _, _, _, _, channelBaseName)
-    return IsOurChannel(channelBaseName, channelName)
+    return IsOurChannel(channelBaseName, channelName) or IsOurPad(channelBaseName, channelName)
 end
 
 -- Hide our marked chat-text lines
@@ -133,24 +153,169 @@ local function InstallChatFilters()
     pcall(add, "CHAT_MSG_CHANNEL", ChannelTextFilter)
 end
 
--- Join after the server channels (General, Trade...) so ours never takes /1.
--- A player who left every server channel keeps slot 1 empty forever, so the wait
--- is capped.
-function Transport:JoinChannel(attempt)
+-- 1.0.5: our own channels: this one, its backup, and gang chat channels (Sync/GangChat.lua)
+function Transport.IsOwnChannel(name)
+    if type(name) ~= "string" then return false end
+    local lower = name:lower()
+    if lower == Transport.CHANNEL:lower() or lower == Transport.BACKUP_CHANNEL:lower() then return true end
+    if Transport.IsPad(name) then return true end
+    return ns.GangChat ~= nil and ns.GangChat.IsGangChannel(name) == true
+end
+
+function Transport.IsPad(name)
+    if type(name) ~= "string" then return false end
+    local lower = name:lower()
+    for _, prefix in ipairs({ Transport.PAD_PREFIX, Transport.OLD_PAD_PREFIX }) do
+        if lower:sub(1, #prefix) == prefix:lower() then return true end
+    end
+    return false
+end
+
+-- The joined channels: { { number, name } } in order (empty without GetChannelList)
+function Transport.Channels()
+    local channels = {}
+    if type(GetChannelList) ~= "function" then return channels end
+    local list = { ns.Utils.SafeCall(GetChannelList) }
+    for i = 2, #list, 3 do
+        local number, name = tonumber(list[i - 1]), list[i]
+        local ok, readable = pcall(function() return type(name) == "string" and name ~= "" end)
+        if number and ok and readable then channels[#channels + 1] = { number = number, name = name } end
+    end
+    return channels
+end
+
+-- The highest number of the player's channels (not ours), and of ours, or 0
+function Transport.HighestNumbers()
+    local others, ours = 0, 0
+    for _, channel in ipairs(Transport.Channels()) do
+        if Transport.IsOwnChannel(channel.name) then
+            if not Transport.IsPad(channel.name) then ours = math.max(ours, channel.number) end
+        else
+            others = math.max(others, channel.number)
+        end
+    end
+    return others, ours
+end
+
+-- The game's or the player's own channels are in place: one joined channel that is not
+-- ours (1.0.5: our gang channel in /1 used to count, so ours took /2 and General /3;
+-- seen in game 2026-11-06). Without GetChannelList: anything in slot 1.
+function Transport.OthersJoined()
+    return Transport.OtherChannels() ~= ""
+end
+
+-- The player's channels that are not ours, as "number:name" in order ("" when none);
+-- without GetChannelList: what holds slot 1
+function Transport.OtherChannels()
+    if type(GetChannelList) ~= "function" then
+        local slotOne = tonumber((ns.Utils.SafeCall(GetChannelName, 1)))
+        return (slotOne and slotOne > 0) and "1" or ""
+    end
+    local list = { ns.Utils.SafeCall(GetChannelList) }
+    local parts = {}
+    for i = 2, #list, 3 do
+        local ok, other = pcall(function() return type(list[i]) == "string" and not Transport.IsOwnChannel(list[i]) end)
+        if ok and other then parts[#parts + 1] = tostring(list[i - 1]) .. ":" .. list[i] end
+    end
+    return table.concat(parts, ",")
+end
+
+-- Join after the player's channels (General, Trade, LocalDefense, their own...), so ours
+-- never takes a number of theirs: once a channel not ours is there and the list stayed the
+-- same JOIN_CALM_STEPS steps (1.0.6: joined as soon as General was back, ours could take
+-- /2 before LocalDefense or Trade; reported by a player 2026-11-07). A player who left
+-- every server channel has none, so the wait is capped at JOIN_DEFER_MAX steps.
+function Transport:JoinChannel(attempt, last, calm)
     attempt = attempt or 1
+    if attempt == 1 then self:SweepPads() end
     if self:ChannelID() then
-        self.joined = true
-        ns.Events:Fire("HH_SYNC_CHANNEL_JOINED")
+        if attempt == 1 and self:Misplaced() then
+            self:LeaveOwnChannels()
+        else
+            self.joined = true
+            ns.Events:Fire("HH_SYNC_CHANNEL_JOINED")
+            return
+        end
+    end
+    local others = self.OtherChannels()
+    calm = (others ~= "" and others == last) and (calm or 0) + 1 or 0
+    local settled = others ~= "" and (calm >= self.JOIN_CALM_STEPS or type(GetChannelList) ~= "function")
+    if not settled and attempt <= self.JOIN_DEFER_MAX then
+        C_Timer.After(self.JOIN_STEP, function() self:JoinChannel(attempt + 1, others, calm) end)
         return
     end
-    -- GetChannelName returns id, name, ...: keep only the id (a second argument to
-    -- tonumber would be taken as the number base)
-    local slotOne = tonumber((ns.Utils.SafeCall(GetChannelName, 1)))
-    if (not slotOne or slotOne == 0) and attempt <= self.JOIN_DEFER_MAX then
-        C_Timer.After(2, function() self:JoinChannel(attempt + 1) end)
-        return
+    self:Seat()
+end
+
+-- 1.0.6: one of ours sits below one of the player's channels (an older version took /1 and
+-- /2, and the game saved its own channels behind them; seen in game 2026-11-07: gang /1,
+-- ours /2, General /3, LocalDefense /5). Only our own channels move: the game's own (General,
+-- Trade, LocalDefense...) are never left or joined by us, as an addon joining "General"
+-- makes a custom channel of that name, not the zone channel (seen in game 2026-11-07).
+function Transport:Misplaced()
+    local others, ours = self.HighestNumbers()
+    local lowestOurs
+    for _, channel in ipairs(self.Channels()) do
+        if self.IsOwnChannel(channel.name) and not self.IsPad(channel.name) then
+            lowestOurs = math.min(lowestOurs or channel.number, channel.number)
+        end
     end
-    self:TryJoin(0)
+    return ours > 0 and lowestOurs ~= nil and lowestOurs < others
+end
+
+-- Our sync and gang channels, left so they can join again at the end
+function Transport:LeaveOwnChannels()
+    for _, channel in ipairs(self.Channels()) do
+        if self.IsOwnChannel(channel.name) and not self.IsPad(channel.name) then
+            pcall(LeaveChannelByName, channel.name)
+        end
+    end
+    ns.Log:Add("info", "Sync channels were before the player's channels: joined again at the end")
+end
+
+-- Placeholders in the free numbers below the player's last channel, so ours take numbers
+-- after it; returns their names
+function Transport:FillHoles()
+    local others = self.HighestNumbers()
+    local taken = {}
+    for _, channel in ipairs(self.Channels()) do taken[channel.number] = true end
+    local pads = {}
+    self.padSalt = self.padSalt or string.format("%04x", math.random(0, 65535))
+    for number = 1, others do
+        if not taken[number] and #pads < self.PAD_MAX then
+            local name = self.PAD_PREFIX .. self.padSalt .. (#pads + 1)
+            pads[#pads + 1] = name
+            local join = type(JoinTemporaryChannel) == "function" and JoinTemporaryChannel or JoinChannelByName
+            local call = securecall or function(fn, ...) return fn(...) end
+            pcall(call, join, name, nil, 0)
+        end
+    end
+    return pads
+end
+
+function Transport:LeavePads(pads)
+    for _, name in ipairs(pads or {}) do pcall(LeaveChannelByName, name) end
+end
+
+-- Placeholders left by a /reload in the middle of seating (a temporary channel outlives a
+-- /reload, not a logout)
+function Transport:SweepPads()
+    local pads = {}
+    for _, channel in ipairs(self.Channels()) do
+        if self.IsPad(channel.name) then pads[#pads + 1] = channel.name end
+    end
+    self:LeavePads(pads)
+end
+
+-- The holes filled, then ours join at the end; the placeholders go PAD_HOLD seconds later
+-- (the gang channel joins after ours, Sync/GangChat.lua)
+function Transport:Seat()
+    if type(GetChannelList) ~= "function" then return self:TryJoin(0) end
+    local pads = self:FillHoles()
+    C_Timer.After(#pads > 0 and self.PAD_WAIT or 0, function()
+        self:TryJoin(0)
+        C_Timer.After(self.PAD_HOLD, function() self:LeavePads(pads) end)
+    end)
 end
 
 -- frameID 0: the channel is not added to any chat window. Not joined after the retries
@@ -686,7 +851,9 @@ function Transport:Receive(message, chatType, sender)
     -- more (HH-121, author 2026-10-02): a Deadbeat needs a verified claim, and their
     -- posters and witnesses never reach us; their Deadbeats come from the website.
     local TYPES = ns.Protocol.TYPES
-    if chatType == "WHISPER" and ns.Gossip then ns.Gossip:Heard(sender, faction) end
+    if chatType == "WHISPER" and ns.Gossip then
+        ns.Gossip:Heard(sender, faction, nil, typeCode == TYPES.PRESENCE)
+    end
     -- HH-110: any message shows its sender is online, not only a presence one
     ns.Presence:Heard(sender, faction, typeCode == TYPES.PRESENCE and records[1] or nil, self.ServerOf(sender, chatType))
     if faction ~= ns.Utils.UnitFaction("player") then

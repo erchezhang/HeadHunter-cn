@@ -56,6 +56,121 @@ return function(T, H)
         T.noErrors()
     end)
 
+    T.case("we wait for the player's channels, and for their list to stop changing; our gang channel does not count", function()
+        H.Install({ client = "forever" })
+        H.channels = { GangHHabcdefghijkl = 1 }
+        _G.GetChannelList = function()
+            local list = {}
+            for name, id in pairs(H.channels) do
+                list[#list + 1] = id
+                list[#list + 1] = name
+                list[#list + 1] = false
+            end
+            return unpack(list)
+        end
+        local ns = H.Load()
+        H.Fire("ADDON_LOADED", "HeadHunter")
+        H.Fire("PLAYER_ENTERING_WORLD", true, false)
+        T.eq(ns.Transport:ChannelID(), nil, "not joined while only our gang channel is there")
+        H.channels.General = 2
+        H.Advance(1)
+        local early = ns.Transport:ChannelID()
+        H.channels.LocalDefense = 3
+        for _ = 1, 4 do H.Advance(1) end
+        local joined = ns.Transport:ChannelID()
+        _G.GetChannelList = nil
+        T.eq(early, nil, "not right after General: the list is still changing")
+        T.eq(joined, 5, "joined once the list stayed the same for two seconds")
+        T.noErrors()
+    end)
+
+    -- The game's channel numbers: a join takes the lowest free number, a leave frees it
+    local function ChannelSim(start)
+        local byNumber = {}
+        for number, name in pairs(start) do byNumber[number] = name end
+        local names = { "GetChannelList", "GetChannelName", "JoinChannelByName", "JoinTemporaryChannel", "LeaveChannelByName" }
+        local saved = {}
+        for _, name in ipairs(names) do saved[name] = { fn = _G[name] } end
+        local function NumberOf(name)
+            for number, joined in pairs(byNumber) do
+                if joined:lower() == tostring(name):lower() then return number end
+            end
+            return nil
+        end
+        local function Join(name)
+            if NumberOf(name) then return end
+            local number = 1
+            while byNumber[number] do number = number + 1 end
+            byNumber[number] = name
+        end
+        _G.JoinChannelByName = Join
+        _G.JoinTemporaryChannel = Join
+        _G.LeaveChannelByName = function(name)
+            local number = NumberOf(name)
+            if number then byNumber[number] = nil end
+        end
+        _G.GetChannelName = function(key)
+            if type(key) == "number" then return byNumber[key] and key or 0, byNumber[key] end
+            local number = NumberOf(key)
+            return number or 0, number and key or nil
+        end
+        _G.GetChannelList = function()
+            local list = {}
+            for number = 1, 20 do
+                if byNumber[number] then
+                    list[#list + 1] = number
+                    list[#list + 1] = byNumber[number]
+                    list[#list + 1] = false
+                end
+            end
+            return unpack(list)
+        end
+        local sim = { byNumber = byNumber, NumberOf = NumberOf }
+        function sim.Restore()
+            for _, name in ipairs(names) do _G[name] = saved[name].fn end
+        end
+        return sim
+    end
+
+    local function Login(start, savedDB)
+        H.Install({ client = "forever", savedDB = savedDB })
+        local sim = ChannelSim(start)
+        local ok, ns = pcall(function()
+            local loaded = H.Load()
+            H.Fire("ADDON_LOADED", "HeadHunter")
+            H.Fire("PLAYER_LOGIN")
+            H.Fire("PLAYER_ENTERING_WORLD", true, false)
+            for _ = 1, 30 do H.Advance(1) end
+            return loaded
+        end)
+        sim.Restore()
+        assert(ok, ns)
+        return ns, sim
+    end
+
+    T.case("channels an older version left in front: ours move behind all the player's channels, theirs never move", function()
+        local ns, sim = Login({ [1] = "GangHHabcdefghijkl", [2] = "HeadHunterSync", [3] = "General - The Barrens",
+            [4] = "Trade - City", [5] = "LocalDefense - The Barrens", [7] = "LookingForGroup", [8] = "MyFriends" })
+        local sync = sim.NumberOf("HeadHunterSync")
+        local pads = 0
+        for _, name in pairs(sim.byNumber) do
+            if name:find("^HeadHunterWait") or name:find("^HHPad") then pads = pads + 1 end
+        end
+        T.eq(sim.NumberOf("General - The Barrens"), 3, "General never touched")
+        T.eq(sim.NumberOf("General"), nil, "no custom channel named General")
+        T.eq(sim.NumberOf("Trade - City"), 4, "Trade where it was")
+        T.eq(sim.NumberOf("LookingForGroup"), 7, "LookingForGroup where it was")
+        T.ok(sync ~= nil and sync > 8, "our channel after the player's last one, their own MyFriends too")
+        T.eq(pads, 0, "the placeholders are gone")
+
+        local _, again = Login({ [1] = "General - The Barrens", [2] = "Trade - City", [3] = "LocalDefense - The Barrens",
+            [4] = "HHPad0abcd1" })
+        T.eq(again.NumberOf("HHPad0abcd1"), nil, "a placeholder left by a reload is swept")
+        local sync2 = again.NumberOf("HeadHunterSync")
+        T.ok(sync2 ~= nil and sync2 > 3, "ours at the end at a clean login")
+        T.noErrors()
+    end)
+
     T.case("own death is queued, batched and sent silently on the channel", function()
         local ns = H.Boot({ client = "forever" })
         H.printed = {}

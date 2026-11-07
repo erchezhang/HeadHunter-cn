@@ -390,16 +390,16 @@ return function(T, H)
         M:Refresh()
         T.eq(OverlayStrata(), "FULLSCREEN", "one above a higher strata, but never TOOLTIP")
 
-        local overlordPin = { strata = "FULLSCREEN", frameLevel = 3 }
-        local viewport = { strata = "HIGH", frameLevel = 110, children = { overlordPin } }
-        for _, frame in ipairs({ overlordPin, viewport }) do
+        local otherPin = { strata = "FULLSCREEN", frameLevel = 3 }
+        local viewport = { strata = "HIGH", frameLevel = 110, children = { otherPin } }
+        for _, frame in ipairs({ otherPin, viewport }) do
             frame.GetFrameStrata, frame.GetFrameLevel = notes.GetFrameStrata, notes.GetFrameLevel
             function frame:GetChildren() return unpack(self.children or {}) end
         end
         map.ScrollContainer.children = { canvas, viewport }
         M:Refresh()
-        T.eq(OverlayStrata(), "FULLSCREEN_DIALOG", "above another addon's pins on the map's scroll area (Overlord)")
-        overlordPin.strata = "FULLSCREEN_DIALOG"
+        T.eq(OverlayStrata(), "FULLSCREEN_DIALOG", "above another addon's pins on the map's scroll area")
+        otherPin.strata = "FULLSCREEN_DIALOG"
         M:Refresh()
         T.eq(OverlayStrata(), "FULLSCREEN_DIALOG", "the highest it goes")
 

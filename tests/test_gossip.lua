@@ -400,6 +400,47 @@ return function(T, H)
         T.eq(#Whispers("1HE:"), 1, "the record still goes")
     end)
 
+    T.case("hello: each member gets our version once, one every two seconds", function()
+        local ns = Boot()
+        ReadRoster(ns)
+        H.sent = {}
+        H.Advance(ns.Gossip.HELLO_SPACING)
+        Wait(1)
+        T.eq(#Whispers("1HN:"), 1, "one hello at a time")
+        Wait(ns.Gossip.HELLO_SPACING * #MEMBERS)
+        local told = {}
+        for _, m in ipairs(Whispers("1HN:")) do
+            T.ok(not told[m.target], "never twice to one member")
+            told[m.target] = true
+        end
+        local count = 0
+        for _ in pairs(told) do count = count + 1 end
+        T.eq(count, #MEMBERS - 1, "every member but us")
+        T.ok(not told["Vati Guda"], "not to ourselves")
+    end)
+
+    T.case("a member whose hello reaches us runs the gossip, and gets our hello back once", function()
+        local ns = Boot()
+        ReadRoster(ns)
+        T.eq(ns.Gossip:KnownCount(), 0, "nobody known yet")
+        H.sent = {}
+        Whispered(ns, "1.0.5", "Moon Sedai", "N")
+        T.eq(ns.Gossip:KnownCount(), 1, "known once their hello came")
+        Wait(1)
+        local back = {}
+        for _, m in ipairs(Whispers("1HN:")) do
+            if m.target == "Moon Sedai" then back[#back + 1] = m end
+        end
+        T.eq(#back, 1, "our hello back")
+        Whispered(ns, "1.0.5", "Moon Sedai", "N")
+        Wait(1)
+        local again = 0
+        for _, m in ipairs(Whispers("1HN:")) do
+            if m.target == "Moon Sedai" then again = again + 1 end
+        end
+        T.eq(again, 1, "only once")
+    end)
+
     T.case("cleanup: the channel list and region stubs of these tests", function()
         _G.GetCurrentRegion, _G.GetNumDisplayChannels, _G.GetChannelDisplayInfo = nil, nil, nil
         _G.SetSelectedDisplayChannel, _G.ERR_CHAT_PLAYER_NOT_FOUND_S = nil, nil
