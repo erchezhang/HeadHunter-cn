@@ -79,7 +79,6 @@ local IT = {
     SYNC_RELAY = "Inoltro: %s · mondo %s · altri server nel gruppo %d · inoltrati %d · consegnati %d · doppi %d · saltati %d · scartati %d · rifiutati %d · in attesa %d · visti %d · collegamenti %d",
     SYNC_CHANNEL_DEAF = "rifiutato dal server: %s, condivisione tramite sussurro",
     SYNC_GOSSIP = "Diffusione: %s · membri %d · raggiungibili %d · nostra fazione %d · con la nuova diffusione %d · diffusi %d · inoltrati %d · sussurri %d · falliti %d · scartati %d · irraggiungibili %d · in attesa %d",
-    SYNC_GENERAL_REJOIN = "HeadHunter ha spostato i suoi canali nascosti dopo i tuoi. Non è riuscito a rientrare da solo in Generale: scrivi /join General.",
     HELP_REPORT = "|cffffff00/hh report|r: invia i tuoi rapporti di morte in attesa a tutti gli HeadHunter (Classic Era)",
     REPORT_PROMPT = "HeadHunter\n\nSegnalare |cffff4040%s|r (%s) a tutti gli HeadHunter?",
     REPORT_MORE = "(altri %d in attesa)",

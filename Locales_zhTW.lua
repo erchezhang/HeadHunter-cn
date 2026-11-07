@@ -493,7 +493,6 @@ local TW = {
     SYNC_RELAY = "中繼：%s · 世界 %s · 隊伍中的其他伺服器 %d · 轉發 %d · 收到 %d · 重複 %d · 跳過 %d · 丟棄 %d · 拒絕 %d · 等待 %d · 記錄 %d · 連線 %d",
     SYNC_CHANNEL_DEAF = "被伺服器拒絕：%s，改用密語分享",
     SYNC_GOSSIP = "傳播：%s · 成員 %d · 可聯繫 %d · 本陣營 %d · 新傳播 %d · 發出 %d · 轉傳 %d · 密語 %d · 失敗 %d · 丟棄 %d · 無法聯繫 %d · 等待 %d",
-    SYNC_GENERAL_REJOIN = "HeadHunter 已把隱藏頻道移到你的頻道之後。未能自動重新加入綜合頻道：請輸入 /join General。",
     HELP_REPORT = "|cffffff00/hh report|r：把等待中的死亡報告發送給所有 HeadHunter（Classic Era）",
     REPORT_SENT = "已向所有 HeadHunter 報告 %d 條死亡。",
     REPORT_FAILED = "未能接通 HeadHunter 頻道。請再試一次 /hh report。",

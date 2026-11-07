@@ -148,7 +148,7 @@ return function(T, H)
         return ns, sim
     end
 
-    T.case("channels an older version left before General: General back to /1 once, ours at the end", function()
+    T.case("channels an older version left in front: ours move behind all the player's channels, theirs never move", function()
         local ns, sim = Login({ [1] = "GangHHabcdefghijkl", [2] = "HeadHunterSync", [3] = "General - The Barrens",
             [4] = "Trade - City", [5] = "LocalDefense - The Barrens", [7] = "LookingForGroup", [8] = "MyFriends" })
         local sync = sim.NumberOf("HeadHunterSync")
@@ -156,18 +156,18 @@ return function(T, H)
         for _, name in pairs(sim.byNumber) do
             if name:find("^HHPad") then pads = pads + 1 end
         end
-        T.eq(sim.NumberOf("General"), 1, "General back at /1")
+        T.eq(sim.NumberOf("General - The Barrens"), 3, "General never touched")
+        T.eq(sim.NumberOf("General"), nil, "no custom channel named General")
         T.eq(sim.NumberOf("Trade - City"), 4, "Trade where it was")
         T.eq(sim.NumberOf("LookingForGroup"), 7, "LookingForGroup where it was")
         T.ok(sync ~= nil and sync > 8, "our channel after the player's last one, their own MyFriends too")
         T.eq(pads, 0, "the placeholders are gone")
-        T.ok(type(ns.db.channelOrderFixed) == "table" and next(ns.db.channelOrderFixed) ~= nil, "done once for this character")
 
-        local saved = _G.HeadHunter_DB
-        local _, again = Login({ [1] = "General - The Barrens", [2] = "Trade - City", [3] = "LocalDefense - The Barrens" }, saved)
-        T.eq(again.NumberOf("General - The Barrens"), 1, "General never touched again")
+        local _, again = Login({ [1] = "General - The Barrens", [2] = "Trade - City", [3] = "LocalDefense - The Barrens",
+            [4] = "HHPad0abcd1" })
+        T.eq(again.NumberOf("HHPad0abcd1"), nil, "a placeholder left by a reload is swept")
         local sync2 = again.NumberOf("HeadHunterSync")
-        T.ok(sync2 ~= nil and sync2 > 3, "ours at the end at the next login too")
+        T.ok(sync2 ~= nil and sync2 > 3, "ours at the end at a clean login")
         T.noErrors()
     end)
 

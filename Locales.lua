@@ -71,7 +71,6 @@ L.SYNC_DIAG = "Sync diag: faction %s · auto routes %s · flush blocked: %s · l
 L.SYNC_RELAY = "Relay: %s · world %s · other servers in group %d · carried %d · delivered %d · duplicates %d · skipped %d · dropped %d · refused %d · waiting %d · seen %d · links %d"
 L.SYNC_CHANNEL_DEAF = "refused by the server: %s, sharing by whisper"
 L.SYNC_GOSSIP = "Gossip: %s · members %d · reachable %d · our faction %d · on the new gossip %d · spread %d · passed on %d · whispers %d · failed %d · dropped %d · unreachable %d · waiting %d"
-L.SYNC_GENERAL_REJOIN = "HeadHunter moved its hidden channels after your own. General could not be joined again by itself: please type /join General."
 L.HELP_REPORT = "|cffffff00/hh report|r: Send your waiting death reports to all HeadHunters (Classic Era)"
 L.REPORT_PROMPT = "HeadHunter\n\nReport |cffff4040%s|r (%s) to all HeadHunters?"
 L.REPORT_MORE = "(+%d more waiting)"
