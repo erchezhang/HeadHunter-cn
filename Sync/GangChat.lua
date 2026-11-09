@@ -288,7 +288,6 @@ function GangChat:Send(text)
 end
 
 _G.SLASH_HEADHUNTERGANGCHAT1 = "/gang"
-_G.SlashCmdList = _G.SlashCmdList or {}
 _G.SlashCmdList.HEADHUNTERGANGCHAT = function(text) GangChat:Send(text) end
 
 ns.Events:Register("HH_INITIALIZED", function()

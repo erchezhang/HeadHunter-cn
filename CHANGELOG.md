@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.7
+
+- **Fixed: raid marks and other slash commands blocked.** Since 1.0.0, HeadHunter could make the game block slash commands typed in chat or run from macros, such as `/tm` (raid target icons, used by RestedXP's targeting macro), with the message "HeadHunter has been blocked from an action only available to the Blizzard UI." Thanks to the player who found the cause.
+
 ## 1.0.6
 
 - **Your chat channels keep their numbers.** HeadHunter now waits until all your channels (General, Trade, LocalDefense, LookingForGroup and your own) are back after logging in, and joins its hidden channels after them, so it never takes /1 or /2 from them.
