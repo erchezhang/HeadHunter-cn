@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.8
+
+- **Bounties for everyone.** Players with HeadHunter Sync now share the website's running bounties in game, so players without the sync app see them on the WANTED tab and can claim them too. A bounty shows once two players vouched for it, or its owner did.
+- **Fixed: a bounty on the website missing from the WANTED tab.** A copy that only one other player had passed on could hide the website's copy.
+- **Faster Bounty board** when many bounties are running.
+
 ## 1.0.7
 
 - **Fixed: raid marks and other slash commands blocked.** Since 1.0.0, HeadHunter could make the game block slash commands typed in chat or run from macros, such as `/tm` (raid target icons, used by RestedXP's targeting macro), with the message "HeadHunter has been blocked from an action only available to the Blizzard UI." Thanks to the player who found the cause.
