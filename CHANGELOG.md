@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.9
+
+- **Fixed: a PvP alert about your own fight.** When your partner kept chasing the enemy you had both fought, their updates made HeadHunter announce that fight to you a minute later. A fight with another enemy in the zone is still announced.
+
 ## 1.0.8
 
 - **Bounties for everyone.** Players with HeadHunter Sync now share the website's running bounties in game, so players without the sync app see them on the WANTED tab and can claim them too. A bounty shows once two players vouched for it, or its owner did.
