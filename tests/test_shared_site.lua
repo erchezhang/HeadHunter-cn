@@ -183,4 +183,202 @@ return function(T, H)
         T.ok(kept <= ns.SharedSite.PER_LIST, "at most " .. ns.SharedSite.PER_LIST .. " kept: " .. kept)
         T.noErrors()
     end)
+
+    -- HH-158: a players' bounty from Tallon on Gravelgrin, a target the receiver never saw;
+    -- posted an hour before the harness clock every boot starts at
+    local BOUNTY_T = 1780000000 - 3600
+    local POSTER_ID = "Tallon-Firemaw:" .. BOUNTY_T
+    local function Bounty()
+        return { t = BOUNTY_T, owner = { name = "Tallon", realm = "Firemaw", faction = "alliance" },
+            target = { name = "Gravelgrin", realm = "Firemaw", faction = "horde", class = "rogue", race = "orc", sex = 2 },
+            reason = 2, gold = 20000, ["until"] = BOUNTY_T + 3 * 86400 }
+    end
+
+    local function BountyList(generatedAt)
+        return List(generatedAt or H.serverTime - 600, {}, { bounties = { Bounty() } })
+    end
+
+    local function Board(ns)
+        ns.Wanted:ComputeNow()
+        local names = {}
+        for _, summary in ipairs(ns.Bounties:Board()) do names[#names + 1] = summary.target end
+        return table.concat(names, ",")
+    end
+
+    T.case("players' bounties: shared with the target's looks, read back as the website's", function()
+        local records = BountyList()
+        local ns = H.Boot({ client = "era" })
+        local found
+        for _, record in ipairs(records) do
+            local kind, _, key, entry = ns.SharedSite.Decode(record)
+            if kind == "P" then found = { key = key, entry = entry } end
+        end
+        T.ok(found ~= nil, "a P record")
+        T.eq(found.key, POSTER_ID, "keyed by the poster id")
+        T.eq(found.entry.poster.gold, 20000, "gold in copper")
+        T.eq(found.entry.poster.reason, 2, "reason")
+        T.eq(found.entry.poster["until"], BOUNTY_T + 3 * 86400, "until")
+        T.eq(found.entry.target.race, ns.SiteData.Race("orc"), "the target's race")
+        T.eq(found.entry.target.sex, 2, "and sex")
+        T.noErrors()
+    end)
+
+    T.case("players' bounties: one HeadHunter's word is not enough; a second makes it run", function()
+        local records = BountyList()
+        local ns = H.Boot({ client = "era" })
+        Deliver(ns, records, "Alpha-Firemaw")
+        T.eq(Board(ns), "", "one voucher")
+        Deliver(ns, records, "Bravo-Firemaw")
+        T.eq(Board(ns), "Gravelgrin-Firemaw", "two vouchers")
+        local rows = ns.MainWindow.Rows("wanted", "rank", nil, "Horde")
+        T.eq(rows[1].id, "Gravelgrin-Firemaw", "on top of the WANTED tab, though we never saw them")
+        T.ok(rows[1].rank:find("2g", 1, true) ~= nil, "with the reward")
+        T.noErrors()
+    end)
+
+    T.case("players' bounties: a voucher and a different peer's relay are two sources", function()
+        local records = BountyList()
+        local relayed = function(ns)
+            return ns.Protocol.EncodePoster({ owner = "Tallon-Firemaw", target = "Gravelgrin-Firemaw", reason = 2,
+                gold = 20000, ["until"] = BOUNTY_T + 3 * 86400, t = BOUNTY_T })
+        end
+        local same = H.Boot({ client = "era" })
+        same.Bounties:AddRelayedPoster(relayed(same), "Alpha-Firemaw")
+        Deliver(same, records, "Alpha-Firemaw")
+        T.eq(Board(same), "", "the same character relaying and vouching is one source")
+
+        local ns = H.Boot({ client = "era" })
+        ns.Bounties:AddRelayedPoster(relayed(ns), "Helper-Firemaw")
+        T.eq(Board(ns), "", "one relay")
+        Deliver(ns, records, "Alpha-Firemaw")
+        T.eq(Board(ns), "Gravelgrin-Firemaw", "a relay and a voucher")
+        T.noErrors()
+    end)
+
+    T.case("players' bounties: the owner sharing their download counts alone", function()
+        local records = BountyList()
+        local ns = H.Boot({ client = "era" })
+        Deliver(ns, records, "Tallon-Firemaw")
+        T.eq(Board(ns), "Gravelgrin-Firemaw", "the owner's word")
+        T.noErrors()
+    end)
+
+    T.case("players' bounties: withdrawn once the vouchers' newer lists lack it", function()
+        local old, newer = BountyList(H.serverTime - 600), List(H.serverTime - 60, {}, { bounties = {} })
+        local ns = H.Boot({ client = "era" })
+        Deliver(ns, old, "Alpha-Firemaw")
+        Deliver(ns, old, "Bravo-Firemaw")
+        T.eq(Board(ns), "Gravelgrin-Firemaw", "both vouch")
+        Deliver(ns, newer, "Alpha-Firemaw")
+        Deliver(ns, newer, "Bravo-Firemaw")
+        H.serverTime = H.serverTime + ns.SharedSite.GRACE + 1
+        T.eq(Board(ns), "", "claimed or ended on the website")
+        T.noErrors()
+    end)
+
+    T.case("players' bounties: a shared one is claimed by our killing blow and never passed on", function()
+        local records = BountyList()
+        local ns = H.Boot({ client = "era" })
+        Deliver(ns, records, "Alpha-Firemaw")
+        Deliver(ns, records, "Bravo-Firemaw")
+        T.eq(Board(ns), "Gravelgrin-Firemaw", "running")
+        H.FireCLEU(H.serverTime, "PARTY_KILL", false, "Player-1-00000001", "Vati",
+            H.FLAGS_FRIENDLY_PLAYER, 0, "Player-2-0000BEEF", "Gravelgrin", H.FLAGS_HOSTILE_PLAYER, 0)
+        Settle()
+        local pay = ns.Bounties:Payment(POSTER_ID)
+        T.ok(pay ~= nil and pay.status == "claimed", "claimed")
+        T.eq(ns.Bounties:Get(POSTER_ID).origin, "website", "kept as the website's")
+        T.eq(ns.Bounties:Get(POSTER_ID).vouchers, nil, "without the vouchers")
+        for _, record in ipairs(ns.Bounties:Records(0)) do
+            T.ok(record:sub(1, 1) ~= "W", "the poster is not passed on")
+        end
+        T.noErrors()
+    end)
+
+    local function Relayed(ns, owner, target)
+        return ns.Protocol.EncodePoster({ owner = owner or "Tallon-Firemaw", target = target or "Gravelgrin-Firemaw",
+            reason = 2, gold = 20000, ["until"] = BOUNTY_T + 3 * 86400, t = BOUNTY_T })
+    end
+
+    local function CountEvents(ns, event)
+        local fired = { n = 0 }
+        ns.Events:Register(event, function() fired.n = fired.n + 1 end, "Test")
+        return fired
+    end
+
+    T.case("players' bounties: claimed over a copy only one peer relayed, it becomes the website's", function()
+        local records = BountyList()
+        local ns = H.Boot({ client = "era" })
+        ns.Bounties:AddRelayedPoster(Relayed(ns), "Helper-Firemaw")
+        Deliver(ns, records, "Alpha-Firemaw")
+        T.eq(Board(ns), "Gravelgrin-Firemaw", "a relay and a voucher")
+        H.FireCLEU(H.serverTime, "PARTY_KILL", false, "Player-1-00000001", "Vati",
+            H.FLAGS_FRIENDLY_PLAYER, 0, "Player-2-0000BEEF", "Gravelgrin", H.FLAGS_HOSTILE_PLAYER, 0)
+        Settle()
+        T.eq(ns.Bounties:Payment(POSTER_ID).status, "claimed", "claimed")
+        T.eq(ns.Bounties:Get(POSTER_ID).origin, "website", "our relayed copy is now the website's")
+        T.ok(ns.Relay.Counts(ns.Bounties:Get(POSTER_ID)), "and counts")
+        for _, record in ipairs(ns.Bounties:Records(0)) do
+            T.ok(record:sub(1, 1) ~= "W", "never passed on")
+        end
+        T.noErrors()
+    end)
+
+    T.case("players' bounties: our own newer download wins over older shared lists", function()
+        local shared = BountyList(H.serverTime - 600)
+        local ns = H.Boot({ client = "era", siteData = Data(H.serverTime - 60, { bounties = {} }) })
+        Deliver(ns, shared, "Alpha-Firemaw")
+        Deliver(ns, shared, "Bravo-Firemaw")
+        T.eq(Board(ns), "", "claimed or ended on the website since: not brought back")
+        T.noErrors()
+    end)
+
+    T.case("players' bounties: the lists are told only when a bounty starts or stops counting", function()
+        local records = BountyList()
+        local newer = List(H.serverTime - 60, {}, { bounties = {} })
+        local ns = H.Boot({ client = "era" })
+        local updated = CountEvents(ns, "HH_BOUNTY_UPDATED")
+        Deliver(ns, records, "Alpha-Firemaw")
+        T.eq(updated.n, 0, "one voucher: nothing counts yet")
+        Deliver(ns, records, "Bravo-Firemaw")
+        T.eq(updated.n, 1, "the second voucher: it counts")
+        Deliver(ns, records, "Charlie-Firemaw")
+        Deliver(ns, records, "Alpha-Firemaw")
+        T.eq(updated.n, 1, "more vouches change nothing")
+
+        Deliver(ns, newer, "Alpha-Firemaw")
+        Deliver(ns, newer, "Bravo-Firemaw")
+        T.eq(updated.n, 1, "while the new lists arrive")
+        H.serverTime = H.serverTime + ns.SharedSite.GRACE + 1
+        ns.SharedSite:Prune()
+        T.eq(updated.n, 2, "only Charlie still vouches: it stops counting")
+        T.eq(Board(ns), "", "off the board")
+        ns.SharedSite:Prune()
+        T.eq(updated.n, 2, "told once")
+        T.noErrors()
+    end)
+
+    T.case("players' bounties on WoW Forever: names without realms, one relay and one voucher", function()
+        local t = BOUNTY_T
+        local function Person(name, extra)
+            local person = { name = name, faction = "horde" }
+            for k, v in pairs(extra or {}) do person[k] = v end
+            return person
+        end
+        local sender = H.Boot({ client = "forever", siteData = { format_version = 1, characters = {}, worlds = {
+            ["forever|us|pvp"] = { generated_at = H.serverTime - 600, duels = { alliance = {}, horde = {} },
+                bounties = { { t = t, owner = Person("Sven Shmoves"),
+                    target = Person("Gobeuse Devier", { faction = "alliance", class = "druid", race = "night_elf", sex = 3 }),
+                    reason = 2, gold = 20000, ["until"] = t + 3 * 86400 } } },
+        } } })
+        local records = sender.SharedSite.Records(sender.SharedSite.BROADCAST_MAX)
+        local ns = H.Boot({ client = "forever" })
+        ns.Bounties:AddRelayedPoster(Relayed(ns, "Sven Shmoves", "Gobeuse Devier"), "Mephalion Aethelnyx")
+        Deliver(ns, records, "Mephalion Aethelnyx")
+        T.eq(Board(ns), "", "the same character relaying and vouching is one source")
+        Deliver(ns, records, "Other Hunter")
+        T.eq(Board(ns), "Gobeuse Devier", "a second character")
+        T.eq(ns.MainWindow.Rows("wanted", "rank", nil, "Alliance")[1].id, "Gobeuse Devier", "an Alliance row")
+        T.noErrors()
+    end)
 end

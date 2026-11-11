@@ -251,6 +251,7 @@ function Wanted:ComputeNow(yield)
     Wanted.MergeBullies(result, ns.SharedSite:Bullies())
     Wanted.MergeBullies(result, ns.Dev.TestEntries("shame"))
     Wanted.MergeBountyTargets(result, ns.SiteData:BountyTargets())
+    Wanted.MergeBountyTargets(result, ns.SharedSite:BountyTargets())
     Wanted.FromSightings(result, function(key) return ns.EnemyCache:ByKey(key) end)
     Publish(result)
     return result

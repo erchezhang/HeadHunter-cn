@@ -23,7 +23,13 @@
 --   W gen key rank kills*10 until since lastT lastMap level class race killCount coward timesWanted timesCaught
 --   B gen key coward killCount lastT level class race
 --   D gen key unpaid blockedUntil
+--   P gen owner t target reason gold until class race sex      HH-158: a running players' bounty
 --   k gen kind key                               "still on my list", unchanged
+--
+-- HH-158 (author, 2026-11-11): players' bounties count by sources, not vouchers alone
+-- (Relay.Counts): two different characters among the vouchers and the peers who relayed
+-- the poster to us, or the owner among them. Their key is the poster id. The lists are
+-- told only when a bounty starts or stops counting, or a target comes or goes.
 --
 -- Performance (author): receiving runs in the transport inbox (3 ms a frame); one WANTED
 -- recount (debounced, budgeted) only when an entry starts or stops counting; at most
@@ -35,6 +41,8 @@ local SharedSite = ns:RegisterModule("SharedSite", {})
 
 local OWNER = "SharedSite"
 
+SharedSite.KINDS = { "W", "B", "D", "P" }
+
 SharedSite.TYPE = "C"
 SharedSite.VOUCHERS = 2
 SharedSite.GRACE = 120
@@ -45,14 +53,15 @@ SharedSite.BROADCAST_EVERY = 600
 SharedSite.BROADCAST_MAX = 100
 SharedSite.CATCHUP_MAX = 300
 SharedSite.PER_LIST = 500
-SharedSite.SENDER_LIMIT = 1000
+SharedSite.ORIGIN = "shared"
+-- A full catch-up answer and a broadcast of every kind, with their list markers
+SharedSite.SENDER_LIMIT = #SharedSite.KINDS * (SharedSite.CATCHUP_MAX + SharedSite.BROADCAST_MAX) + 2
 SharedSite.SENDER_WINDOW = 600
 SharedSite.PRUNE_EVERY = 60
-SharedSite.KINDS = { "W", "B", "D" }
 
 -- kind -> key -> { entry, gen, vouches = { [voucher] = gen } }; Deadbeats by compact name, as
--- Sync/SiteData.lua keeps them
-local store = { W = {}, B = {}, D = {} }
+-- Sync/SiteData.lua keeps them; players' bounties by poster id
+local store = { W = {}, B = {}, D = {}, P = {} }
 -- voucher -> { gen, previous, changedAt }
 local lists = {}
 -- voucher -> list of arrival times, for the rate limit
@@ -60,6 +69,8 @@ local arrivals = {}
 -- what we broadcast this session: kind .. key -> encoded payload
 local sent = {}
 local lastBroadcast = nil
+-- HH-158: SharedSite:Posters, kept for one second of server time while nothing changed
+local postersVersion, postersCache = 0, nil
 
 local function B36(n) return ns.Protocol.ToB36(math.floor(tonumber(n) or 0)) end
 local function Num(s) return s and s ~= "" and ns.Protocol.FromB36(s) or nil end
@@ -83,6 +94,13 @@ end
 
 function SharedSite.EncodeDeadbeat(gen, d)
     return table.concat({ "D", B36(gen), d.key, B36(d.unpaid), B36(d.blockedUntil) }, ";")
+end
+
+-- item: { key = poster id, poster, target = the target's entry or nil }
+function SharedSite.EncodePoster(gen, item)
+    local p, target = item.poster, item.target or {}
+    return table.concat({ "P", B36(gen), p.owner, B36(p.t), p.target, B36(p.reason), B36(p.gold), B36(p["until"]),
+        target.class or "", target.race or "", B36(target.sex) }, ";")
 end
 
 -- The payload without the list time, to tell whether an entry changed since we sent it
@@ -136,8 +154,25 @@ function SharedSite.Decode(record)
         local untilT = Num(f[5])
         if not untilT then return nil end
         return "D", gen, key, { key = key, unpaid = Num(f[4]) or 2, blockedUntil = untilT }
+    elseif kind == "P" and #f == 11 then
+        return SharedSite.DecodePoster(gen, key, f)
     end
     return nil
+end
+
+-- A players' bounty record's fields -> "P", gen, poster id, { poster, target }, or nil.
+-- The poster passes the checks of every poster (Bounties.ValidPoster); its author is the
+-- owner, for Relay.Counts.
+function SharedSite.DecodePoster(gen, ownerKey, f)
+    local poster = { owner = ownerKey, t = Num(f[4]), target = Text(f[5]), reason = Num(f[6]), gold = Num(f[7]),
+        ["until"] = Num(f[8]), origin = SharedSite.ORIGIN }
+    if not poster.t or not poster.target or not poster.reason or not poster.gold or not poster["until"] then return nil end
+    if not ns.Bounties.ValidPoster(poster) then return nil end
+    poster.author = poster.owner
+    return "P", gen, poster.id, {
+        poster = poster,
+        target = ns.SiteData.BountyTargetEntry(poster.target, Text(f[9]), Text(f[10]), Num(f[11])),
+    }
 end
 
 -------------------------------------------------
@@ -191,6 +226,31 @@ local function Size(kind)
     return n
 end
 
+-- HH-158: a bounty slot as a poster, when others shared it from a list newer than our own
+-- download and one of them still vouches: a copy with vouchers = { [compact name] = true }
+local function SharedCopy(slot, now, ownGen)
+    if ownGen and slot.gen <= ownGen then return nil end
+    local vouchers, any = {}, false
+    for voucher, gen in pairs(slot.vouches) do
+        if Holds(voucher, gen, now) then vouchers[voucher], any = true, true end
+    end
+    if not any then return nil end
+    local copy = {}
+    for k, v in pairs(slot.entry.poster) do copy[k] = v end
+    copy.vouchers = vouchers
+    return copy
+end
+
+-- Does a bounty slot count now, with the peers who relayed our copy? Stored on the slot;
+-- true when that changed
+local function NoteCounting(slot, now)
+    local copy = SharedCopy(slot, now, ns.SiteData:GeneratedAt())
+    local counts = copy ~= nil and ns.Relay.Counts(ns.Bounties:WithOurRelay(copy))
+    if counts == (slot.counting == true) then return false end
+    slot.counting = counts
+    return true
+end
+
 -- One record from a HeadHunter's own list. Returns true when the record was taken.
 function SharedSite:OnRecord(record, sender, now)
     local voucher = sender and ns.Utils.CompactName(sender)
@@ -209,10 +269,10 @@ function SharedSite:OnRecord(record, sender, now)
     if not slots then return false end
     if real == "D" then key = ns.Utils.CompactName(key) end
     if not key then return false end
-    local slot = slots[key]
+    local slot, created = slots[key], false
     if not slot then
         if not entry or Size(real) >= SharedSite.PER_LIST then return false end
-        slot = { vouches = {} }
+        slot, created = { vouches = {} }, true
         slots[key] = slot
     end
     local before = Counts(slot, now)
@@ -224,7 +284,13 @@ function SharedSite:OnRecord(record, sender, now)
         return false
     end
     slot.vouches[voucher] = math.max(slot.vouches[voucher] or 0, gen)
-    if Counts(slot, now) ~= before and real ~= "D" then ns.Wanted:RequestRecompute() end
+    if real == "P" then
+        postersVersion = postersVersion + 1
+        if created then ns.Wanted:RequestRecompute() end
+        if NoteCounting(slot, now) then ns.Events:Fire("HH_BOUNTY_UPDATED") end
+    elseif Counts(slot, now) ~= before and real ~= "D" then
+        ns.Wanted:RequestRecompute()
+    end
     return true
 end
 
@@ -268,6 +334,33 @@ function SharedSite:Deadbeats(now)
     return Counting("D", now)
 end
 
+-- HH-158: the players' bounties others shared from a list newer than our own download,
+-- with at least one voucher whose word holds; Relay.Counts decides whether each counts.
+-- poster id -> a copy with vouchers. Read often (sightings, tooltips, the board), so built
+-- once per second of server time while nothing changed; callers must not change it.
+function SharedSite:Posters(now)
+    now = now or ns.Utils.ServerTime()
+    local ownGen = ns.SiteData:GeneratedAt()
+    local cache = postersCache
+    if cache and cache.version == postersVersion and cache.now == now and cache.ownGen == ownGen then
+        return cache.result
+    end
+    local result = {}
+    for id, slot in pairs(store.P) do result[id] = SharedCopy(slot, now, ownGen) end
+    postersCache = { version = postersVersion, now = now, ownGen = ownGen, result = result }
+    return result
+end
+
+-- Their targets, for Wanted.MergeBountyTargets: id -> entry
+function SharedSite:BountyTargets(now)
+    local result = {}
+    for id in pairs(self:Posters(now)) do
+        local target = store.P[id].entry.target
+        result[target.id] = result[target.id] or target
+    end
+    return result
+end
+
 -------------------------------------------------
 -- Sending
 -------------------------------------------------
@@ -304,6 +397,11 @@ function SharedSite.Records(max, keepUnchanged)
         if (d.blockedUntil or 0) > now then deadbeats[#deadbeats + 1] = d end
     end
     Add("D", deadbeats, SharedSite.EncodeDeadbeat, function(a, b) return (a.blockedUntil or 0) > (b.blockedUntil or 0) end)
+    local posters, targets = {}, ns.SiteData:BountyTargets()
+    for id, p in pairs(ns.SiteData:Posters()) do
+        if p["until"] > now then posters[#posters + 1] = { key = id, poster = p, target = targets[p.target] } end
+    end
+    Add("P", posters, SharedSite.EncodePoster, function(a, b) return a.poster.t > b.poster.t end)
     return records
 end
 
@@ -342,14 +440,22 @@ function SharedSite:Broadcast(gen)
     return #records
 end
 
--- Expired entries go; Deadbeats and WANTED by their own end, bullies when nobody vouches
+-- When an entry of a kind ends by itself; bullies have no end
+local ENDS = {
+    W = function(entry) return entry.wantedUntil or 0 end,
+    D = function(entry) return entry.blockedUntil or 0 end,
+    P = function(entry) return entry.poster["until"] end,
+}
+
+-- Expired entries go by their own end, any entry when nobody vouches. A bounty that
+-- stops or starts counting here (a voucher's word ran out, HH-158) refreshes the lists.
 function SharedSite:Prune(now)
     now = now or ns.Utils.ServerTime()
-    for key, slot in pairs(store.W) do
-        if (slot.entry.wantedUntil or 0) <= now then store.W[key] = nil end
-    end
-    for key, slot in pairs(store.D) do
-        if (slot.entry.blockedUntil or 0) <= now then store.D[key] = nil end
+    local bountiesBefore = Size("P")
+    for kind, ends in pairs(ENDS) do
+        for key, slot in pairs(store[kind]) do
+            if ends(slot.entry) <= now then store[kind][key] = nil end
+        end
     end
     for _, kind in ipairs(self.KINDS) do
         for key, slot in pairs(store[kind]) do
@@ -358,12 +464,19 @@ function SharedSite:Prune(now)
             if not holds then store[kind][key] = nil end
         end
     end
+    postersVersion = postersVersion + 1
+    local changed = false
+    for _, slot in pairs(store.P) do changed = NoteCounting(slot, now) or changed end
+    local gone = Size("P") ~= bountiesBefore
+    if gone then ns.Wanted:RequestRecompute() end
+    if changed or gone then ns.Events:Fire("HH_BOUNTY_UPDATED") end
 end
 
 -- For tests
 function SharedSite:Reset()
-    store = { W = {}, B = {}, D = {} }
+    store = { W = {}, B = {}, D = {}, P = {} }
     lists, arrivals, sent, lastBroadcast = {}, {}, {}, nil
+    postersVersion, postersCache = 0, nil
 end
 
 local function PruneTicker()
