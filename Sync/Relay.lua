@@ -23,9 +23,22 @@ function Relay.Sources(record)
     return n
 end
 
--- Does this record count for the rules? Everything not relayed does.
+-- Does this record count for the rules? Everything not relayed does. A shared website
+-- record (HH-158, Sync/SharedSite.lua) carries `vouchers` (compact names: the HeadHunters
+-- who shared it from their download and the peers who relayed it to us) and counts once
+-- SOURCES of them are different characters, or its author is one of them.
 function Relay.Counts(record)
-    if type(record) ~= "table" or record.origin ~= "relay" then return true end
+    if type(record) ~= "table" then return true end
+    if record.vouchers then
+        local author = ns.Utils.CompactName(record.author)
+        local n = 0
+        for name in pairs(record.vouchers) do
+            if name == author then return true end
+            n = n + 1
+        end
+        return n >= Relay.SOURCES
+    end
+    if record.origin ~= "relay" then return true end
     return record.confirmed == true or Relay.Sources(record) >= Relay.SOURCES
 end
 

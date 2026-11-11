@@ -95,14 +95,43 @@ function Bounties:All()
     return pairs(Posters() or {})
 end
 
--- Ours and the website's running ones we never heard in game (SiteData): shown and
--- claimable. A claimed one is kept in ns.db with origin "website" (Bounties:OnCatch),
--- never passed on at catch-up or uploaded
-function Bounties:Listed()
+-- A shared copy (HH-158) with the peers who relayed ours added to its sources
+local function WithRelayers(shared, relayed)
+    local copy = {}
+    for k, v in pairs(shared) do copy[k] = v end
+    copy.vouchers = {}
+    for name in pairs(shared.vouchers or {}) do copy.vouchers[name] = true end
+    for name in pairs(relayed.relayers or {}) do copy.vouchers[name] = true end
+    return copy
+end
+
+-- Ours and the website's running ones we never heard in game: shown and claimable. A
+-- claimed one is kept in ns.db with origin "website" (Bounties:OnCatch), never passed on
+-- at catch-up or uploaded. Which copy wins (author, 2026-11-11): ours when it counts,
+-- then our own download, unless others shared a newer one (HH-158: SharedSite:Posters
+-- has only those), then ours relayed by one peer. One peer's word never hides the
+-- website's copy, and it adds to the sources of a shared one.
+function Bounties:Listed(now)
     local list = {}
     for id, poster in pairs(ns.SiteData:Posters()) do list[id] = poster end
-    for id, poster in pairs(Posters() or {}) do list[id] = poster end
+    for id, poster in pairs(ns.SharedSite:Posters(now)) do list[id] = poster end
+    for id, poster in pairs(Posters() or {}) do
+        local have = list[id]
+        if not have or ns.Relay.Counts(poster) then
+            list[id] = poster
+        elseif have.vouchers then
+            list[id] = WithRelayers(have, poster)
+        end
+    end
     return pairs(list)
+end
+
+-- A shared copy (HH-158) as Listed counts it: with the peers who relayed ours, when ours
+-- does not count yet
+function Bounties:WithOurRelay(shared)
+    local ours = self:Get(shared.id)
+    if ours and not ns.Relay.Counts(ours) then return WithRelayers(shared, ours) end
+    return shared
 end
 
 function Bounties:Payment(posterId)
@@ -402,22 +431,24 @@ function Bounties:RefreshVerdicts(target)
     if changed then Changed() end
 end
 
--- Running: not run out, not claimed, the owner not blocked; a relayed poster only
--- once a second source has it (HH-121)
+-- Running: not run out, not claimed, the owner not blocked; a relayed or shared poster
+-- only once a second source has it (HH-121, HH-158)
 function Bounties:IsActive(poster, now)
     now = now or ns.Utils.ServerTime()
     return poster ~= nil and now < poster["until"] and ns.Relay.Counts(poster) and not self:Payment(poster.id)
         and not self:IsBlocked(poster.owner, now)
 end
 
+local function NewestFirst(a, b) return a.t > b.t end
+
 -- The running posters on one enemy id, newest first
 function Bounties:ActiveFor(targetId, now)
     local list = {}
     if not targetId then return list end
-    for _, poster in self:Listed() do
+    for _, poster in self:Listed(now) do
         if poster.target == targetId and self:IsActive(poster, now) then list[#list + 1] = poster end
     end
-    table.sort(list, function(a, b) return a.t > b.t end)
+    table.sort(list, NewestFirst)
     return list
 end
 
@@ -426,23 +457,36 @@ function Bounties:ActiveOn(entry, now)
     return entry ~= nil and #self:ActiveFor(entry.id, now) > 0
 end
 
--- Merged per target: { target, posters, count, gold, newest } or nil
-function Bounties:Summary(targetId, now)
-    local posters = self:ActiveFor(targetId, now)
-    if #posters == 0 then return nil end
+-- One target's running posters, newest first, merged: { target, posters, count, gold, newest }
+local function Summarize(targetId, posters)
     local gold = 0
     for _, poster in ipairs(posters) do gold = gold + poster.gold end
     return { target = targetId, posters = posters, count = #posters, gold = gold, newest = posters[1] }
 end
 
--- Every target with a running poster, newest poster first
+-- Merged per target, or nil
+function Bounties:Summary(targetId, now)
+    local posters = self:ActiveFor(targetId, now)
+    if #posters == 0 then return nil end
+    return Summarize(targetId, posters)
+end
+
+-- Every target with a running poster, newest poster first; one pass over the posters
 function Bounties:Board(now)
     local byTarget, list = {}, {}
-    for _, poster in self:Listed() do
-        if not byTarget[poster.target] and self:IsActive(poster, now) then
-            byTarget[poster.target] = true
-            list[#list + 1] = self:Summary(poster.target, now)
+    for _, poster in self:Listed(now) do
+        if self:IsActive(poster, now) then
+            local posters = byTarget[poster.target]
+            if not posters then
+                posters = {}
+                byTarget[poster.target] = posters
+            end
+            posters[#posters + 1] = poster
         end
+    end
+    for targetId, posters in pairs(byTarget) do
+        table.sort(posters, NewestFirst)
+        list[#list + 1] = Summarize(targetId, posters)
     end
     table.sort(list, function(a, b) return a.newest.t > b.newest.t end)
     return list
@@ -645,7 +689,7 @@ local function UnderRateLimit(sender)
 end
 
 -- Canonical keys and the checks every poster passes, however it came
-local function ValidPoster(poster)
+function Bounties.ValidPoster(poster)
     local U = ns.Utils
     poster.owner = U.PlayerKey(poster.owner)
     if not poster.owner then return false end
@@ -665,7 +709,7 @@ end
 
 function Bounties:OnPeerPoster(record, sender)
     local poster = ns.Protocol.DecodePoster(record)
-    if not poster or not ValidPoster(poster) then return nil end
+    if not poster or not Bounties.ValidPoster(poster) then return nil end
     if not ns.Utils.SameCharacter(sender, poster.owner) then return nil end
     local have = self:Get(poster.id)
     if have then
@@ -683,7 +727,7 @@ end
 -- are, but active only once a second source has it (HH-121, Sync/Relay.lua)
 function Bounties:AddRelayedPoster(record, sender)
     local poster = ns.Protocol.DecodePoster(record)
-    if not poster or not ValidPoster(poster) then return nil end
+    if not poster or not Bounties.ValidPoster(poster) then return nil end
     local have = self:Get(poster.id)
     if have then
         if ns.Relay.Vouch(have, sender, have.owner) then Changed() end
@@ -788,7 +832,9 @@ end
 -- Claiming (the hunter)
 -------------------------------------------------
 
--- A catch was stored: our killing blow on a posted target claims its posters
+-- A catch was stored: our killing blow on a posted target claims its posters. A claimed
+-- website or shared bounty (HH-158) is kept as the website's, never passed on: a copy we
+-- only had relayed is confirmed as the website's, else a copy is stored.
 function Bounties:OnCatch(record)
     local U = ns.Utils
     local me = Me()
@@ -815,9 +861,13 @@ function Bounties:OnCatch(record)
     end
     -- A website bounty is kept once claimed: the website stops listing it, and the claim
     -- line and the paid check at the mailbox still need it
-    if not self:Get(best.id) and Posters() then
+    local ours = self:Get(best.id)
+    if ours and not ns.Relay.Counts(ours) then
+        ns.Relay.Confirm(ours, ns.SiteData.ORIGIN)
+    elseif not ours and Posters() then
         local copy = {}
         for k, v in pairs(best) do copy[k] = v end
+        copy.origin, copy.vouchers, copy.author = ns.SiteData.ORIGIN, nil, nil
         Posters()[best.id] = copy
     end
     local claimed = { best }

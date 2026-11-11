@@ -355,16 +355,21 @@ function SiteData.Poster(b)
         ["until"] = untilT, t = t, origin = SiteData.ORIGIN }
 end
 
--- A bounty's target we may never have seen: a plain entry, not WANTED
-function SiteData.BountyTarget(person)
-    local key = SiteData.Key(person)
-    if not key then return nil end
+-- A bounty's target we may never have seen: a plain entry, not WANTED; class and race
+-- as the addon keeps them (also for Sync/SharedSite.lua, HH-158)
+function SiteData.BountyTargetEntry(key, class, race, sex)
     return {
-        id = key, key = key, name = key,
-        class = SiteData.Class(person.class), race = SiteData.Race(person.race), sex = Number(person.sex),
+        id = key, key = key, name = key, class = class, race = race, sex = sex,
         wanted = false, kills = 0, timesWanted = 0, timesCaught = 0, killCount = 0, cowardKills = 0,
         badges = {}, source = SiteData.ORIGIN,
     }
+end
+
+-- The download's bounty target (the website's tokens), or nil
+function SiteData.BountyTarget(person)
+    local key = SiteData.Key(person)
+    if not key then return nil end
+    return SiteData.BountyTargetEntry(key, SiteData.Class(person.class), SiteData.Race(person.race), Number(person.sex))
 end
 
 -- The website's running players' bounties: poster id -> poster

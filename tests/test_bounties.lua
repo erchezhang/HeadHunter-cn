@@ -382,6 +382,26 @@ return function(T, H)
         T.noErrors()
     end)
 
+    T.case("the website's copy of a poster one peer relayed to us: shown, not hidden by ours", function()
+        local t = H.serverTime - 3600
+        local data = { format_version = 1, generated_at = H.serverTime - 600, characters = {}, worlds = {
+            ["era|eu|Firemaw"] = { generated_at = H.serverTime - 600, wanted = {}, duels = { alliance = {}, horde = {} },
+                bounties = { { t = t, owner = { name = "Tallon", realm = "Firemaw", faction = "alliance" },
+                    target = { name = "Gravelgrin", realm = "Firemaw", faction = "horde", class = "rogue", race = "orc" },
+                    reason = 1, gold = 20000, ["until"] = t + 86400 } } },
+        } }
+        local ns = H.Boot({ client = "era", siteData = data })
+        Settle()
+        ns.Bounties:AddRelayedPoster(ns.Protocol.EncodePoster({ owner = "Tallon-Firemaw", target = "Gravelgrin-Firemaw",
+            reason = 1, gold = 20000, ["until"] = t + 86400, t = t }), "Helper-Firemaw")
+        T.eq(ns.Bounties:Get("Tallon-Firemaw:" .. t).origin, "relay", "ours: one peer's word")
+        local summary = ns.Bounties:Summary("Gravelgrin-Firemaw")
+        T.ok(summary ~= nil and summary.count == 1, "running, as the website's copy counts")
+        T.eq(#ns.Bounties:Board(), 1, "on the board")
+        T.eq(ns.MainWindow.Rows("wanted", "rank", nil, "Horde")[1].id, "Gravelgrin-Firemaw", "on top of the WANTED tab")
+        T.noErrors()
+    end)
+
     T.case("Hall of Shame alerts: a Deadbeat of our faction we target", function()
         local ns = H.Boot({ client = "era" })
         Death(ns, "Tallon-Firemaw", "Grim-Stonespine", 5000)
