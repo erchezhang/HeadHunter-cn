@@ -248,6 +248,32 @@ return function(T, H)
         T.noErrors()
     end)
 
+    T.case("our partner still chasing the enemy we fought is our fight: no alert; a new enemy there is", function()
+        local ns = H.Boot({ client = "forever" })
+        H.inCombat = true
+        H.units.nameplate1 = { name = "Pippa", realm = "Elunite", level = 29, class = "PRIEST", race = "Undead",
+            faction = "Horde", isPlayer = true, guid = "Player-4613-00ABCDEF" }
+        H.units.nameplate1target = H.units.player
+        H.Fire("NAME_PLATE_UNIT_ADDED", "nameplate1")
+        H.Advance(5)
+        H.popups = {}
+        Ping(ns, 1429, "Vieta Theory", Ids(1, 3))
+        T.eq(ns.Hotspots:Now(1429), 2, "our own fight is seen: us and Vieta")
+        H.inCombat = false
+        H.units.nameplate1 = nil
+        H.units.nameplate1target = nil
+        for _ = 1, 3 do
+            H.serverTime = H.serverTime + 30
+            H.Advance(30)
+        end
+        H.printed = {}
+        Ping(ns, 1429, "Vieta Theory", { "00ABCDEF" }, 1)
+        T.ok(not H.Printed("Skirmish"), "our partner on the Priest we fought: still quiet")
+        Ping(ns, 1429, "Mermetel Marmo", { "00C0FFEE" }, 1)
+        T.ok(H.Printed("Skirmish"), "a fight with another enemy there is announced")
+        T.noErrors()
+    end)
+
     T.case("our own deaths put us in the fight: no alert about it", function()
         local ns = H.Boot({ client = "era" })
         local me = ns.Utils.UnitKey("player")
