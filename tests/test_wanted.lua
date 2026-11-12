@@ -60,6 +60,47 @@ return function(T, H)
         T.eq(#events.expired, 1, "HH_WANTED_EXPIRED")
     end)
 
+    T.case("HH-160: the expiry ticker recounts bullies and ends the mark without a new kill", function()
+        local ns = H.Boot({ client = "era" })
+        local events = Track(ns)
+        H.Slash("spree Grim 2 600 60 30")
+        Settle()
+        H.serverTime = H.serverTime + 10 * 86400
+        H.Slash("spree Grim 1 60 60 30")
+        Settle()
+        local entry = ns.Wanted:ByKey("Grim-Firemaw")
+        T.eq(entry.cowardKills, 3, "three bully kills")
+        H.serverTime = H.serverTime + 21 * 86400
+        local updated = events.updated
+        H.Advance(60)
+        Settle()
+        entry = ns.Wanted:ByKey("Grim-Firemaw")
+        T.eq(entry.cowardKills, 1, "the first two dropped out")
+        T.ok(events.updated > updated, "the lists heard of it")
+        T.eq(entry.badges.coward, true, "still a Bully")
+        H.serverTime = H.serverTime + 9 * 86400 + 1
+        H.Advance(60)
+        Settle()
+        entry = ns.Wanted:ByKey("Grim-Firemaw")
+        T.eq(entry.badges.coward, nil, "the mark ended by itself")
+        T.eq(entry.cowardKills, 0, "no bully kills counted")
+        T.noErrors()
+    end)
+
+    T.case("HH-160: Bullies take one place each: most bully kills, newest, then name", function()
+        local W = H.Boot({ client = "era" }).Wanted
+        local list = {
+            { id = "D", name = "D", cowardKills = 2, lastCowardKill = 100 },
+            { id = "B", name = "B", cowardKills = 2, lastCowardKill = 300 },
+            { id = "A", name = "A", cowardKills = 5, lastCowardKill = 50 },
+            { id = "C", name = "C", cowardKills = 2, lastCowardKill = 100 },
+        }
+        table.sort(list, W.BullyBefore)
+        local names = {}
+        for i, e in ipairs(list) do names[i] = e.name end
+        T.eq(table.concat(names, ","), "A,B,C,D", "most, then newest, then name")
+    end)
+
     T.case("reports from other players feed the rules", function()
         local ns = H.Boot({ client = "era" })
         for i = 1, 5 do

@@ -41,11 +41,12 @@ local function Describe(record)
     return ns.DeathReports.Describe(record)
 end
 
--- A Hall of Shame bully (killed players 10+ levels lower or grey) who is not WANTED
+-- A Hall of Shame bully (killed players 10+ levels lower or grey) who is not WANTED;
+-- HH-160: only within 30 days of the newest bully kill, also before the next recount
 function Sighting.BullyEntry(record)
     local Wanted = ns.Wanted
     local entry = (record.key and Wanted:ByKey(record.key)) or (record.guid and Wanted:Get("guid:" .. record.guid))
-    return entry and entry.badges and entry.badges.coward and entry or nil
+    return ns.RulesEngine.IsBully(entry, ns.Utils.ServerTime()) and entry or nil
 end
 
 -- Author, 2026-09-28: bullies alert too, softer and less often than WANTED

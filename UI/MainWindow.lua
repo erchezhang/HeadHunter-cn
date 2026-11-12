@@ -369,19 +369,16 @@ function MainWindow.BountyRow(entry, summary, now)
     }
 end
 
--- faction: "Alliance" | "Horde" or nil for both
+-- faction: "Alliance" | "Horde" or nil for both. HH-160: Bullies within 30 days of their
+-- newest bully kill, in Wanted.BullyBefore's order (no shared places)
 local function BullyRows(now, faction)
     local list = {}
     for _, entry in pairs(ns.Wanted:All()) do
-        if entry.badges and entry.badges.coward and (not faction or MainWindow.EntryFaction(entry) == faction) then
+        if ns.RulesEngine.IsBully(entry, now) and (not faction or MainWindow.EntryFaction(entry) == faction) then
             list[#list + 1] = entry
         end
     end
-    table.sort(list, function(a, b)
-        if (a.cowardKills or 0) ~= (b.cowardKills or 0) then return (a.cowardKills or 0) > (b.cowardKills or 0) end
-        if a.killCount ~= b.killCount then return a.killCount > b.killCount end
-        return OutlawName(a) < OutlawName(b)
-    end)
+    table.sort(list, ns.Wanted.BullyBefore)
     local rows = {}
     for _, entry in ipairs(list) do
         local status

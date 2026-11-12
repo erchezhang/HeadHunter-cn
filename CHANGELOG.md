@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.1
+
+- **Fixed: shared records lost after a busy moment.** When many records were passed on at once, some whispers that did not fit the send limit were thrown away, so some players never got those kills, duels or alerts. They now wait and go out a moment later.
+- **Bullies for 30 days.** A kill of a much lower or grey player now marks the killer as a Bully for 30 days, not for good. The Bullies tab counts only the last 30 days' bully kills, and the mark ends by itself 30 days after the newest one. Bullies with as many bully kills are listed newest bully kill first, then by name.
+
 ## 1.1.0
 
 - **Fairer duel ranks.** The ranking now counts one result per opponent per day: whoever won more of that day's duels against the same player gets one win, the other one loss, and an even day counts nothing. Fled duels no longer count for the rank. The Duels tab, tooltips and `/hh duels` show this ranked record and, next to it, your record of all duels, fled ones included.

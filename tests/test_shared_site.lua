@@ -69,6 +69,23 @@ return function(T, H)
         T.noErrors()
     end)
 
+    T.case("HH-160: a bully past the 30 days is not shared", function()
+        local records = List(H.serverTime - 600, {}, {
+            bullies = {
+                { name = "Oldgank", realm = "Firemaw", coward_kills = 6, last_coward_kill_at = H.serverTime - 31 * 86400 },
+                { name = "Freshgank", realm = "Firemaw", coward_kills = 2, last_coward_kill_at = H.serverTime - 86400 },
+            },
+        })
+        local ns = H.Boot({ client = "era" })
+        local keys = {}
+        for _, record in ipairs(records) do
+            local kind, _, key = ns.SharedSite.Decode(record)
+            if kind == "B" then keys[#keys + 1] = key end
+        end
+        T.eq(table.concat(keys, ","), "Freshgank-Firemaw", "only the fresh bully")
+        T.noErrors()
+    end)
+
     T.case("one HeadHunter's word makes nobody WANTED; a second one does", function()
         local records = List(H.serverTime - 600)
         local ns = H.Boot({ client = "era" })

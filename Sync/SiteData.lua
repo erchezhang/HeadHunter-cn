@@ -5,7 +5,8 @@
 --
 -- The file keeps the website's names (the /api/v1/sync/download answer):
 --   worlds["era|eu|Firemaw"] / ["forever|us|pvp"] = { generated_at, wanted = {...},
---     duels = { alliance = {...}, horde = {...} }, deadbeats = {...}, bullies = {...},
+--     duels = { alliance = {...}, horde = {...} }, deadbeats = {...}, bullies = {...} (HH-160:
+--       each with last_coward_kill_at, the newest bully kill, Unix seconds),
 --     tournaments = {...} (WEB-080: the Tournaments tab and the organizer stars read them),
 --     busted = { { name, realm, caught_at, map_id, hunter, killer_name, glasses } } (the catches),
 --     punished = { { name, realm, caught_at, kind, map_id, hunter, killer_name, glasses } } (bullies
@@ -156,13 +157,16 @@ function SiteData.WantedEntry(w)
         wantedSince = Number(w.wanted_since), wantedUntil = wantedUntil,
         timesWanted = Number(w.times_wanted) or 1, timesCaught = Number(w.times_caught) or 0,
         killCount = Number(w.kill_count) or math.floor(kills), cowardKills = Number(w.coward_kills) or 0,
+        lastCowardKill = Number(w.last_coward_kill_at),
         badges = badges,
         lastKill = lastKillAt and { t = lastKillAt, mapID = Number(w.last_map_id) } or nil,
         source = SiteData.ORIGIN,
     }
 end
 
--- A Hall of Shame bully from the website: an entry that is not WANTED, with the bully badge
+-- A Hall of Shame bully from the website: an entry that is not WANTED, with the bully badge.
+-- HH-160: last_coward_kill_at ends the mark 30 days later (Wanted.MergeBullies); an older
+-- download without it keeps the bully as listed.
 function SiteData.BullyEntry(b)
     local key = SiteData.Key(b)
     local cowardKills = Number(b.coward_kills)
@@ -173,6 +177,7 @@ function SiteData.BullyEntry(b)
         level = Number(b.level), class = SiteData.Class(b.class), race = SiteData.Race(b.race), sex = Number(b.sex),
         wanted = false, kills = 0, timesWanted = 0, timesCaught = 0,
         killCount = Number(b.kill_count) or cowardKills, cowardKills = cowardKills,
+        lastCowardKill = Number(b.last_coward_kill_at),
         badges = { coward = true },
         lastKill = lastKillAt and { t = lastKillAt } or nil,
         source = SiteData.ORIGIN,

@@ -391,7 +391,11 @@ function SharedSite.Records(max, keepUnchanged)
         if (e.wantedUntil or 0) > now then wanted[id] = e end
     end
     Add("W", wanted, SharedSite.EncodeWanted, function(a, b) return (a.kills or 0) > (b.kills or 0) end)
-    Add("B", ns.SiteData:Bullies(), SharedSite.EncodeBully, function(a, b) return (a.cowardKills or 0) > (b.cowardKills or 0) end)
+    local bullies = {}
+    for id, e in pairs(ns.SiteData:Bullies() or {}) do
+        if ns.RulesEngine.IsBully(e, now) then bullies[id] = e end
+    end
+    Add("B", bullies, SharedSite.EncodeBully, ns.Wanted.BullyBefore)
     local deadbeats = {}
     for _, d in pairs(ns.SiteData:Deadbeats()) do
         if (d.blockedUntil or 0) > now then deadbeats[#deadbeats + 1] = d end
