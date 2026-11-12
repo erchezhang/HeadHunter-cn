@@ -291,7 +291,9 @@ local function Order(a, b)
 end
 
 -- Whispers what the budget allows: for each target in turn, all its waiting records of one
--- type packed together
+-- type packed together. Records whose whisper the budget had no room for go back to the
+-- queue for the next flush (1.1.1: they were counted as dropped and lost, so after a busy
+-- moment some members never got them; found by a test that failed one run in three)
 function Gossip:Flush()
     if #queue == 0 then return end
     if not ns.Guards:IsActive() then return end
@@ -305,9 +307,10 @@ function Gossip:Flush()
     table.sort(queue, Order)
     while #queue > 0 and tokens >= 1 do
         local first = queue[1]
-        local records, keep = {}, {}
+        local batch, records, keep = {}, {}, {}
         for _, item in ipairs(queue) do
             if item.target == first.target and item.type == first.type then
+                batch[#batch + 1] = item
                 records[#records + 1] = item.record
             else
                 keep[#keep + 1] = item
@@ -315,10 +318,14 @@ function Gossip:Flush()
         end
         queue = keep
         local peer = peers[first.name]
-        for _, message in ipairs(ns.Protocol.Pack(faction, first.type, records)) do
+        local messages, consumed = ns.Protocol.Pack(faction, first.type, records)
+        local done = 0
+        for i, message in ipairs(messages) do
             if tokens < 1 then
-                self.stats.dropped = self.stats.dropped + 1
+                for j = done + 1, #batch do queue[#queue + 1] = batch[j] end
+                break
             else
+                done = done + consumed[i]
                 tokens = tokens - 1
                 recent[first.name] = now
                 if peer then
