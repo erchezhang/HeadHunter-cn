@@ -1,13 +1,21 @@
 -- HH-092: High Noon records and ranks (docs/addon/features.md section 10).
 --
--- Wins and losses per player from the duel set (Sync/Duels.lua); a retreat is a loss.
+-- Two records per player from the duel set (Sync/Duels.lua). All duels: every win and
+-- loss, fled duels (a retreat) too. The counted record ranks: one result per opponent per
+-- UTC day, and fled duels not at all (1.0.9, HH-159, author 2026-11-12: one result per
+-- opponent per UTC day, fled duels in the all-duels record only). Per pair of players and
+-- day, whoever won more of the day's duels gets one win, the other one loss; as many wins
+-- each (3:3) counts nothing. A series result's time is its newest duel. Order, ranks, the
+-- Greenhorn count, the Top Gun and the tie-break all come from the counted record; class,
+-- race and faction from the newest duel of all.
 -- Everyone with MIN_DUELS or more first, then the Greenhorns (author, 2026-09-27: a
 -- Greenhorn at 2-0 is not ahead of 6-5). Within each: net (wins minus losses), then
 -- fewer losses, then more wins (author, 2026-09-25: no rating, 1-0 is better than 1-4).
 -- The same record: whoever reached it first (the earlier last duel) goes first (author,
--- 2026-09-27), so every place is taken once. Listed from the first duel.
+-- 2026-09-27), so every place is taken once. Listed from the first duel, also with no
+-- counted result (a Greenhorn at 0-0), so the all-duels record shows.
 -- Ranks by net: Quickdraw, Sharpshooter (+5), Deadeye (+15), Legend (+30); under
--- MIN_DUELS a player is a Greenhorn. The #1 of each faction is the Top Gun when they
+-- MIN_DUELS counted results a player is a Greenhorn. The #1 of each faction is the Top Gun when they
 -- are no Greenhorn, have TOP_GUN_NET or more (Sharpshooter; author, 2026-09-28: 6-5 is
 -- no Top Gun) and a clear lead (two at the top with the same record: no Top Gun yet). Two lists: Alliance and Horde (duels stay inside a
 -- faction). The website ranks the same way.
@@ -96,17 +104,50 @@ local function Tick(yield, count)
     if yield and count % HighNoon.YIELD_EVERY == 0 then yield() end
 end
 
--- duels: array. Returns key -> { key, faction, wins, losses, duels, net, rank, lastT, class, race, sex }
+-- Every duel, fled ones too: the all-duels record. Players without these fields (an
+-- older website download) have only the counted record.
+function HighNoon.AllDuels(player)
+    return (player.allWins or player.wins or 0) + (player.allLosses or player.losses or 0)
+end
+
+-- The day's series of one pair: key "a\nb\nday" with a before b
+local function AddToSeries(series, winner, loser, t)
+    local a, b = winner, loser
+    if b < a then a, b = b, a end
+    local day = math.floor(t / 86400)
+    local id = a .. "\n" .. b .. "\n" .. day
+    local s = series[id]
+    if not s then
+        s = { a = a, b = b, winsA = 0, winsB = 0, t = t }
+        series[id] = s
+    end
+    if winner == a then s.winsA = s.winsA + 1 else s.winsB = s.winsB + 1 end
+    if t > s.t then s.t = t end
+end
+
+-- One counted result: the series winner +1 win, the loser +1 loss
+local function CountSeries(players, s)
+    if s.winsA == s.winsB then return end
+    local winner, loser = players[s.a], players[s.b]
+    if s.winsB > s.winsA then winner, loser = loser, winner end
+    winner.wins, loser.losses = winner.wins + 1, loser.losses + 1
+    winner.duels, loser.duels = winner.duels + 1, loser.duels + 1
+end
+
+-- duels: array. Returns key -> { key, faction, wins, losses, duels, net, rank, lastT,
+-- allWins, allLosses, class, race, sex }: wins, losses, duels, net and rank are the
+-- counted record (HH-159), allWins and allLosses every duel, lastT the newest duel of all
+-- (fled ones too; the website's last_duel_at, the Merge cutoff and the same-record order)
 -- yield: optional, see Tick
 function HighNoon.Compute(duels, yield)
     local players = {}
+    local series = {}
     local function Player(key, faction, class, race, sex, t)
         local p = players[key]
         if not p then
-            p = { key = key, wins = 0, losses = 0, duels = 0 }
+            p = { key = key, wins = 0, losses = 0, duels = 0, allWins = 0, allLosses = 0 }
             players[key] = p
         end
-        -- The newest duel tells the current class, race and faction
         if not p.lastT or t >= p.lastT then
             p.faction = faction or p.faction
             p.class = class or p.class
@@ -120,9 +161,15 @@ function HighNoon.Compute(duels, yield)
         local t = tonumber(duel.t) or 0
         local w = Player(duel.winner, duel.faction, duel.winnerClass, duel.winnerRace, duel.winnerSex, t)
         local l = Player(duel.loser, duel.faction, duel.loserClass, duel.loserRace, duel.loserSex, t)
-        w.wins, l.losses = w.wins + 1, l.losses + 1
-        w.duels, l.duels = w.duels + 1, l.duels + 1
+        w.allWins, l.allLosses = w.allWins + 1, l.allLosses + 1
+        if not duel.retreat and w ~= l then AddToSeries(series, w.key, l.key, t) end
         Tick(yield, i)
+    end
+    local count = 0
+    for _, s in pairs(series) do
+        CountSeries(players, s)
+        count = count + 1
+        Tick(yield, count)
     end
     for _, p in pairs(players) do
         p.faction = HighNoon.FactionOf(p)
@@ -157,7 +204,11 @@ end
 -- list; anyone else keeps the record from our duels. Per player, not per list: the
 -- sync app may download a list the website has not rebuilt yet after our upload, and
 -- its time would then hide our newest duels (2026-09-26: 2-4 shown instead of 6-5).
--- site: key -> { key, faction, wins, losses, duels, lastT, class, race, sex }
+-- HH-159: both records add up this way: the website's all-duels record plus our newer
+-- duels, and its counted record plus the series counted over our newer duels only. A UTC
+-- day split by the cutoff is counted on each side of it, so it is approximate until the
+-- next download, which counts the whole day.
+-- site: key -> { key, faction, wins, losses, duels, allWins, allLosses, lastT, class, race, sex }
 -- Our duels are grouped by player first (HH-137), so each website player looks only at
 -- their own: the work grows with duels plus players, not duels times players.
 -- yield: optional, see Tick
@@ -185,9 +236,11 @@ function HighNoon.Merge(site, duels, since, yield)
     for key, theirs in pairs(site) do
         local p = {}
         for k, v in pairs(theirs) do p[k] = v end
+        p.allWins, p.allLosses = theirs.allWins or theirs.wins, theirs.allLosses or theirs.losses
         local f = fresh[key]
         if f then
             p.wins, p.losses, p.duels = p.wins + f.wins, p.losses + f.losses, p.duels + f.duels
+            p.allWins, p.allLosses = p.allWins + f.allWins, p.allLosses + f.allLosses
             if not p.lastT or f.lastT > p.lastT then
                 p.lastT = f.lastT
                 p.class, p.race, p.sex = f.class or p.class, f.race or p.race, f.sex or p.sex
@@ -236,7 +289,7 @@ function HighNoon.Build(yield)
     for _, p in pairs(built) do
         p.plain = ns.Utils.DisplayName(p.key) or p.key
         p.needle = p.plain:lower()
-        if p.faction and p.duels >= 1 then
+        if p.faction and HighNoon.AllDuels(p) >= 1 then
             listed[p.faction] = listed[p.faction] or {}
             HighNoon.KeepBest(listed[p.faction], p, HighNoon.LIST_SIZE)
         end
@@ -365,7 +418,7 @@ function HighNoon:Search(text, faction)
     local found = {}
     if not needle or needle == "" then return found end
     for _, p in pairs(players) do
-        if p.needle and p.duels >= 1 and (not faction or p.faction == faction)
+        if p.needle and HighNoon.AllDuels(p) >= 1 and (not faction or p.faction == faction)
             and p.needle:find(needle, 1, true) then
             HighNoon.KeepBest(found, p, HighNoon.LIST_SIZE, ListedFirst)
         end
@@ -386,7 +439,7 @@ function HighNoon.RankName(rank)
     return "|cff" .. color .. name .. "|r"
 end
 
--- "Deadeye #3 (+16)", "Top Gun (+20)", "Greenhorn (2 duels)"
+-- "Deadeye #3 (+16)", "Top Gun (+20)", "Greenhorn (2 duels)": the counted record
 function HighNoon.Title(player)
     if not player then return nil end
     if player.topGun then return string.format(L.DUEL_TITLE_TOPGUN, HighNoon.NetText(player.net)) end
@@ -398,6 +451,11 @@ function HighNoon.Title(player)
     end
     return string.format(L.DUEL_TITLE, HighNoon.RankName(player.rank), player.position,
         HighNoon.NetText(player.net))
+end
+
+-- HH-159: "42-17 all duels", fled duels too
+function HighNoon.AllText(player)
+    return string.format(L.DUEL_ALL, player.allWins or player.wins, player.allLosses or player.losses)
 end
 
 -- Once after login for the duels restored from SavedVariables; afterwards on need
@@ -416,9 +474,11 @@ ns.SlashCommands:Register("duels", function()
     ns:Print(string.format(L.DUELS_HEADER, faction or "?", #list))
     for i = 1, math.min(10, #list) do
         local p = list[i]
-        print(string.format("  #%d  %s  %s  %s  (%d-%d)", i, U.DisplayName(p.key) or p.key,
-            HighNoon.RankName(p.rank), HighNoon.NetText(p.net), p.wins, p.losses))
+        print(string.format("  #%d  %s  %s  %s  (%d-%d; %s)", i, U.DisplayName(p.key) or p.key,
+            HighNoon.RankName(p.rank), HighNoon.NetText(p.net), p.wins, p.losses, HighNoon.AllText(p)))
     end
     local me = HighNoon:Get(U.UnitKey("player"))
-    if me then ns:Print(string.format(L.DUELS_YOU, HighNoon.Title(me), me.wins, me.losses)) end
+    if me then
+        ns:Print(string.format(L.DUELS_YOU, HighNoon.Title(me), me.wins, me.losses) .. " (" .. HighNoon.AllText(me) .. ")")
+    end
 end, L.HELP_DUELS)

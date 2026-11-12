@@ -198,6 +198,9 @@ local CN = {
     TIP_HISTORY = "|cffaaaaaa已知击杀：%d|r",
     TIP_KILLED_YOU = "%s 在 %s 击杀了你（%s）",
     TIP_DUEL = "%d 胜 %d 负 · 最近决斗 %s",
+    TIP_DUEL_ALL = "全部决斗（含逃跑）：%d 胜 %d 负。排名每个对手每天只计一个结果。",
+    DUEL_ALL = "全部决斗 %d 胜 %d 负",
+    COL_ALL_DUELS = "全部决斗",
     TIP_TOUR_START = "开始：%s",
     TIP_TOUR_VENUE = "地点：%s",
 

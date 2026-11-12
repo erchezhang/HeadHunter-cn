@@ -1,10 +1,11 @@
 -- M8 High Noon (HH-090..093): duels seen in chat, shared, rated, listed per faction.
 
 return function(T, H)
-    -- `n` duels won by `winner` over `loser`, a few minutes apart
+    -- `n` duels won by `winner` over `loser`, one a UTC day so each counts (HH-159);
+    -- `from` moves them from / 1000 days later
     local function Duels(ns, winner, loser, n, faction, from)
         for i = 1, n do
-            ns.Duels:Add({ winner = winner, loser = loser, t = H.serverTime - 86400 + (from or 0) + i * 300,
+            ns.Duels:Add({ winner = winner, loser = loser, t = H.serverTime - 86400 * (40 - (from or 0) / 1000 - i),
                 faction = faction or "Alliance", winnerLevel = 30, loserLevel = 30 }, "local")
         end
     end
@@ -539,7 +540,7 @@ return function(T, H)
         local ns = H.Boot({ client = "era" })
         Duels(ns, "Vati-Firemaw", "Bob-Firemaw", 2)
         local duels = 0
-        for _, record in ipairs(ns.CatchUp.Records(H.serverTime - 2 * 86400)) do
+        for _, record in ipairs(ns.CatchUp.Records(H.serverTime - 60 * 86400)) do
             if record:sub(1, 1) == "U" then duels = duels + 1 end
         end
         T.eq(duels, 2, "duel records")
@@ -558,8 +559,8 @@ return function(T, H)
         T.eq(players.A.rank, "greenhorn", "under 5 duels")
 
         local duels = {}
-        for i = 1, 10 do duels[#duels + 1] = { winner = "A", loser = "B", t = i, faction = "Alliance" } end
-        duels[#duels + 1] = { winner = "B", loser = "A", t = 11, faction = "Alliance" }
+        for i = 1, 10 do duels[#duels + 1] = { winner = "A", loser = "B", t = i * 86400, faction = "Alliance" } end
+        duels[#duels + 1] = { winner = "B", loser = "A", t = 11 * 86400, faction = "Alliance" }
         players = HN.Compute(duels)
         T.eq(players.A.wins .. "-" .. players.A.losses, "10-1", "record")
         T.eq(players.A.net, 9, "net")
@@ -568,6 +569,82 @@ return function(T, H)
         T.eq(HN.RankOf({ duels = 40, net = 30 }), "legend", "legend")
         T.eq(HN.RankOf({ duels = 20, net = 15 }), "deadeye", "deadeye")
         T.eq(HN.NetText(3) .. HN.NetText(0) .. HN.NetText(-2), "+30-2", "net text")
+    end)
+
+    -- HH-159: duels of one pair on day `day` (UTC), `at` seconds into it
+    local function Day(winner, loser, day, at, retreat)
+        return { winner = winner, loser = loser, t = day * 86400 + at, faction = "Alliance", retreat = retreat }
+    end
+
+    T.case("HH-159: one result per pair a day: 5:2 counts 1-0, all duels 5-2", function()
+        local HN = H.Boot({ client = "era" }).HighNoon
+        local duels = {}
+        for i = 1, 5 do duels[#duels + 1] = Day("B", "A", 100, i * 60) end
+        for i = 1, 2 do duels[#duels + 1] = Day("A", "B", 100, 1000 + i * 60) end
+        local players = HN.Compute(duels)
+        T.eq(players.B.wins .. "-" .. players.B.losses, "1-0", "B counted")
+        T.eq(players.A.wins .. "-" .. players.A.losses, "0-1", "A counted")
+        T.eq(players.B.allWins .. "-" .. players.B.allLosses, "5-2", "B all duels")
+        T.eq(players.A.allWins .. "-" .. players.A.allLosses, "2-5", "A all duels")
+        T.eq(players.B.duels, 1, "one counted duel")
+        T.eq(players.B.net, 1, "net from the counted record")
+        T.eq(players.B.lastT, 100 * 86400 + 1120, "the newest duel")
+    end)
+
+    T.case("HH-159: a tie in a day counts nothing; the next UTC day counts again", function()
+        local HN = H.Boot({ client = "era" }).HighNoon
+        local duels = {}
+        for i = 1, 3 do
+            duels[#duels + 1] = Day("A", "B", 100, i * 60)
+            duels[#duels + 1] = Day("B", "A", 100, i * 60 + 30)
+        end
+        local players = HN.Compute(duels)
+        T.eq(players.A.wins .. "-" .. players.A.losses, "0-0", "3:3 counts nothing")
+        T.eq(players.A.allWins .. "-" .. players.A.allLosses, "3-3", "all duels")
+        T.eq(players.A.lastT, 100 * 86400 + 210, "the newest duel, counted or not")
+        T.eq(players.A.rank, "greenhorn", "a Greenhorn at 0-0")
+
+        duels[#duels + 1] = Day("A", "B", 100, 86399)
+        duels[#duels + 1] = Day("A", "B", 101, 0)
+        duels[#duels + 1] = Day("B", "A", 102, 10)
+        players = HN.Compute(duels)
+        T.eq(players.A.wins .. "-" .. players.A.losses, "2-1", "4:3, then the next two days")
+        T.eq(players.B.wins .. "-" .. players.B.losses, "1-2", "the other side")
+        T.eq(players.A.allWins .. "-" .. players.A.allLosses, "5-4", "all duels")
+    end)
+
+    T.case("HH-159: fled duels count only in all duels", function()
+        local HN = H.Boot({ client = "era" }).HighNoon
+        local players = HN.Compute({
+            Day("A", "B", 100, 60, true), Day("A", "B", 100, 120, true), Day("B", "A", 100, 180),
+            { winner = "A", loser = "B", t = 101 * 86400, faction = "Alliance", retreat = true, winnerRace = "Orc" },
+        })
+        T.eq(players.B.wins .. "-" .. players.B.losses, "1-0", "the fled duels do not count against B")
+        T.eq(players.A.wins .. "-" .. players.A.losses, "0-1", "nor for A")
+        T.eq(players.A.allWins .. "-" .. players.A.allLosses, "3-1", "all duels, fled ones too")
+        T.eq(players.A.faction, "Horde", "the newest duel, fled too, tells the race")
+        T.eq(players.A.lastT, 101 * 86400, "the newest duel, fled too")
+    end)
+
+    T.case("HH-159: a player with only fled duels is listed, a Greenhorn at 0-0, with all duels", function()
+        local ns = H.Boot({ client = "era" })
+        ns.Duels:Add({ winner = "Vati-Firemaw", loser = "Bob-Firemaw", t = H.serverTime - 3600, retreat = true,
+            faction = "Alliance", winnerLevel = 30, loserLevel = 30 }, "local")
+        Settle()
+        local HN = ns.HighNoon
+        T.eq(#HN:List("Alliance"), 2, "both listed")
+        local bob = HN:Get("Bob-Firemaw")
+        T.eq(bob.wins .. "-" .. bob.losses .. " " .. bob.net, "0-0 0", "nothing counted")
+        T.eq(bob.rank, "greenhorn", "a Greenhorn")
+        local rows = ns.MainWindow.Rows("duels", nil, nil, "Alliance", "bob")
+        T.eq(rows[1].record, "0-0", "counted record")
+        T.eq(rows[1].allRecord, "0-1", "all duels")
+        T.ok(table.concat(rows[1].tooltip, "\n"):find("All duels, fled ones too: 0 wins, 1 losses", 1, true) ~= nil,
+            "the tooltip tells both")
+        H.Slash("duels")
+        T.ok(H.Printed("%(0%-0; 1%-0 all duels%)"), "/hh duels: both records")
+        T.ok(H.Printed("You: .*0 wins, 0 losses %(1%-0 all duels%)"), "/hh duels: ours")
+        T.noErrors()
     end)
 
     T.case("best first by net, then fewer losses, then more wins; Greenhorns last", function()
@@ -714,7 +791,7 @@ return function(T, H)
     -- HH-137 counting on need, as a job
     -------------------------------------------------
 
-    -- The merge before HH-137: every duel once per website player
+    -- The merge before HH-137: every duel once per website player (with HH-159's two records)
     local function OldMerge(HN, site, duels, since)
         local ours = HN.Compute(duels)
         local fresh = {}
@@ -732,9 +809,11 @@ return function(T, H)
         for key, theirs in pairs(site) do
             local p = {}
             for k, v in pairs(theirs) do p[k] = v end
+            p.allWins, p.allLosses = theirs.allWins or theirs.wins, theirs.allLosses or theirs.losses
             local f = fresh[key]
             if f then
                 p.wins, p.losses, p.duels = p.wins + f.wins, p.losses + f.losses, p.duels + f.duels
+                p.allWins, p.allLosses = p.allWins + f.allWins, p.allLosses + f.allLosses
                 if not p.lastT or f.lastT > p.lastT then
                     p.lastT = f.lastT
                     p.class, p.race, p.sex = f.class or p.class, f.race or p.race, f.sex or p.sex
@@ -760,12 +839,13 @@ return function(T, H)
             local l = "P" .. (i * 13 % playerCount + 1) .. "-Firemaw"
             if w ~= l then
                 duels[#duels + 1] = { winner = w, loser = l, t = 1000 + i * 60, faction = "Alliance",
-                    winnerRace = races[i % 4 + 1], loserClass = "MAGE" }
+                    winnerRace = races[i % 4 + 1], loserClass = "MAGE", retreat = i % 11 == 0 or nil }
             end
         end
         for i = 0, playerCount, 2 do
             site["P" .. i .. "-Firemaw"] = { key = "P" .. i .. "-Firemaw", faction = "Alliance", wins = i % 9,
-                losses = i % 5, duels = i % 9 + i % 5, lastT = i % 3 == 0 and nil or 1000 + i * 600 }
+                losses = i % 5, duels = i % 9 + i % 5, allWins = i % 9 + 2, allLosses = i % 5 + 1,
+                lastT = i % 3 == 0 and nil or 1000 + i * 600 }
         end
         return duels, site
     end
@@ -775,7 +855,8 @@ return function(T, H)
         for key, p in pairs(a) do
             local q = b[key]
             if not q then return false, key .. " missing" end
-            for _, field in ipairs({ "wins", "losses", "duels", "net", "rank", "faction", "lastT", "class", "race" }) do
+            for _, field in ipairs({ "wins", "losses", "duels", "net", "rank", "faction", "lastT", "class", "race",
+                "allWins", "allLosses" }) do
                 if p[field] ~= q[field] then return false, key .. "." .. field end
             end
             count = count + 1
@@ -907,13 +988,12 @@ return function(T, H)
         T.noErrors()
     end)
 
-    -- n Alliance duelists with different records: WinI beat LoseI i % 7 + 1 times
+    -- n Alliance duelists with different records: WinI beat LoseI i % 7 + 1 times, once a day
     local function ManyDuelists(ns, n)
-        local t = H.serverTime - 86400 * 30
+        local start = H.serverTime - 86400 * 30
         for i = 1, n do
-            for _ = 1, i % 7 + 1 do
-                t = t + 61
-                ns.Duels:Add({ winner = "Win" .. i .. "-Firemaw", loser = "Lose" .. i .. "-Firemaw", t = t,
+            for day = 1, i % 7 + 1 do
+                ns.Duels:Add({ winner = "Win" .. i .. "-Firemaw", loser = "Lose" .. i .. "-Firemaw", t = start + day * 86400 + i,
                     faction = "Alliance", winnerRace = "Human", loserRace = "Gnome", winnerLevel = 30, loserLevel = 30 },
                     "local")
             end
@@ -966,6 +1046,7 @@ return function(T, H)
         T.ok(found ~= nil, "found by name")
         T.eq(found.position, "-", "no place")
         T.eq(found.record, outside.wins .. "-" .. outside.losses, "with the record")
+        T.eq(found.allRecord, outside.allWins .. "-" .. outside.allLosses, "and all duels")
         T.eq(#MW.Rows("duels", nil, nil, "Alliance", "o"), HN.LIST_SIZE, "a wide search shows at most 300")
         local best = HN:List("Alliance")[1]
         local listed = MW.Rows("duels", nil, nil, "Alliance", best.plain)
@@ -1094,6 +1175,7 @@ return function(T, H)
         T.eq(#H.tooltipLines, 1, "one line")
         T.ok(H.tooltipLines[1]:find("Duels:", 1, true) ~= nil, "Duels line")
         T.ok(H.tooltipLines[1]:find("Top Gun", 1, true) ~= nil, "title")
+        T.ok(H.tooltipLines[1]:find("5-0 all duels", 1, true) ~= nil, "all duels")
 
         H.units.mouseover = { name = "Nobody", level = 40, class = "MAGE", race = "Gnome", faction = "Alliance",
             isPlayer = true, guid = "Player-1-0000C0C" }

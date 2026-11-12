@@ -635,6 +635,9 @@ L.COL_RECORD = "Won-Lost"
 L.COL_LAST_DUEL = "Last duel"
 L.EMPTY_DUELS = "No duelists yet. Duels between players of level 10 or higher show up here."
 L.TIP_DUEL = "%d wins, %d losses · last duel %s"
+L.TIP_DUEL_ALL = "All duels, fled ones too: %d wins, %d losses. The rank counts one result per opponent a day."
+L.DUEL_ALL = "%d-%d all duels"
+L.COL_ALL_DUELS = "All duels"
 
 -- HH-118 Player bounties
 L.BOUNTY_REASON_CAMPED = "Camped me"

@@ -209,6 +209,7 @@ local function AddMyDeaths(nemeses, now)
 end
 
 -- A duel list for one faction: stronger players (earlier in the roster) win more often
+-- The leader's extra wins go one a day back, as one result per opponent a day counts (HH-159)
 local function AddDuels(faction, me, now)
     local players = {}
     for i, who in ipairs(Demo.ROSTERS[faction]) do
@@ -251,7 +252,7 @@ local function AddDuels(faction, me, now)
         local winner, loser = byKey[list[1].key], byKey[list[#list].key]
         if not (winner and loser) then break end
         ns.Duels:Add({
-            winner = winner.key, loser = loser.key, t = now - 20 * MINUTE + extra * 120,
+            winner = winner.key, loser = loser.key, t = now - 20 * MINUTE - (extra - 1) * 24 * HOUR,
             mapID = Spot(), faction = faction,
             winnerClass = winner.class, winnerRace = winner.race, winnerSex = winner.sex, winnerLevel = winner.level,
             loserClass = loser.class, loserRace = loser.race, loserSex = loser.sex, loserLevel = loser.level,

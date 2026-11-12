@@ -327,15 +327,34 @@ return function(T, H)
             ns.Duels:Add({ winner = winner, loser = loser, t = t, faction = "Alliance", winnerLevel = 30, loserLevel = 30 }, "local")
         end
         -- The website's last duel of Ironmaple is 2 h ago (Duelist last_duel_at)
-        Duel("Ironmaple-Firemaw", "Fernwick-Firemaw", H.serverTime - 8000) -- before it: already counted there
-        Duel("Ironmaple-Firemaw", "Fernwick-Firemaw", H.serverTime - 60)   -- after: added
+        Duel("Ironmaple-Firemaw", "Fernwick-Firemaw", H.serverTime - 80000) -- before it: already counted there
+        Duel("Ironmaple-Firemaw", "Fernwick-Firemaw", H.serverTime - 60)    -- after: added
         Settle()
         local maple = ns.HighNoon:Get("Ironmaple-Firemaw")
         T.eq(maple.wins, 7, "6 from the website + 1 newer")
         T.eq(maple.losses, 1, "losses from the website")
+        T.eq(maple.allWins .. "-" .. maple.allLosses, "7-1", "an older website: all duels from wins and losses")
         T.eq(maple.source, "website", "website record")
         local fern = ns.HighNoon:Get("Fernwick-Firemaw")
-        T.eq(fern.losses, 2, "not on the website: all our duels count")
+        T.eq(fern.losses, 2, "not on the website: all our duels count, one a day")
+        T.noErrors()
+    end)
+
+    T.case("HH-159: the website's all-duels record plus our newer duels, fled ones too", function()
+        local site = EraData()
+        local maple = site.worlds["era|eu|Firemaw"].duels.alliance[1]
+        maple.all_wins, maple.all_losses = 15, 4
+        local ns = H.Boot({ client = "era", siteData = site })
+        for i = 1, 3 do
+            ns.Duels:Add({ winner = "Ironmaple-Firemaw", loser = "Fernwick-Firemaw", t = H.serverTime - 600 + i * 60,
+                faction = "Alliance", winnerLevel = 30, loserLevel = 30 }, "local")
+        end
+        ns.Duels:Add({ winner = "Ironmaple-Firemaw", loser = "Moss-Firemaw", t = H.serverTime - 60, retreat = true,
+            faction = "Alliance", winnerLevel = 30, loserLevel = 30 }, "local")
+        Settle()
+        local p = ns.HighNoon:Get("Ironmaple-Firemaw")
+        T.eq(p.wins .. "-" .. p.losses, "7-1", "counted: one more for the day's series, the fled duel not")
+        T.eq(p.allWins .. "-" .. p.allLosses, "19-4", "all duels: 15 from the website + 4 newer")
         T.noErrors()
     end)
 
