@@ -179,6 +179,8 @@ function SiteData.BullyEntry(b)
     }
 end
 
+-- A duelist from the website: wins, losses and duels are the counted record (HH-159),
+-- all_wins and all_losses every duel; an older download without them has only the first
 function SiteData.Duelist(d, faction)
     local key = SiteData.Key(d)
     local wins, losses = Number(d.wins), Number(d.losses)
@@ -187,6 +189,7 @@ function SiteData.Duelist(d, faction)
         key = key, faction = faction,
         class = SiteData.Class(d.class), race = SiteData.Race(d.race), sex = Number(d.sex),
         wins = wins, losses = losses, duels = Number(d.duels) or (wins + losses),
+        allWins = Number(d.all_wins) or wins, allLosses = Number(d.all_losses) or losses,
         lastT = Number(d.last_duel_at),
         source = SiteData.ORIGIN,
     }

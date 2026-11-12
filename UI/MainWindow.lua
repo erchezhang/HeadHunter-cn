@@ -147,11 +147,12 @@ MainWindow.COLUMNS = {
     },
     duels = {
         { key = "position", header = "COL_POSITION", width = 40 },
-        { key = "name", header = "COL_NAME", width = 235, font = "name" },
-        { key = "rank", header = "COL_DUEL_RANK", width = 145 },
-        { key = "record", header = "COL_RECORD", width = 100 },
-        { key = "net", header = "COL_NET", width = 80 },
-        { key = "lastDuel", header = "COL_LAST_DUEL", width = 190 },
+        { key = "name", header = "COL_NAME", width = 205, font = "name" },
+        { key = "rank", header = "COL_DUEL_RANK", width = 135 },
+        { key = "record", header = "COL_RECORD", width = 90 },
+        { key = "net", header = "COL_NET", width = 70 },
+        { key = "allRecord", header = "COL_ALL_DUELS", width = 105 },
+        { key = "lastDuel", header = "COL_LAST_DUEL", width = 145 },
     },
     events = {
         { key = "name", header = "COL_TOUR", width = 180 },
@@ -463,7 +464,8 @@ DuelRow.__index = function(row, field)
     local lastDuel = p.lastT and ns.Utils.Ago(math.max(0, now - p.lastT)) or "-"
     local whisper = MainWindow.CanWhisper(p.key, p.faction) and p.key or nil
     local tooltip = { name, string.format(L.DUEL_TOOLTIP, HighNoon.Title(p)),
-        string.format(L.TIP_DUEL, p.wins, p.losses, lastDuel) }
+        string.format(L.TIP_DUEL, p.wins, p.losses, lastDuel),
+        string.format(L.TIP_DUEL_ALL, p.allWins, p.allLosses) }
     if whisper then tooltip[#tooltip + 1] = L.WINDOW_ROW_WHISPER end
     rawset(row, "filled", true)
     rawset(row, "plain", plain)
@@ -471,6 +473,7 @@ DuelRow.__index = function(row, field)
     rawset(row, "rank", HighNoon.RankName(p.topGun and "topgun" or p.rank))
     rawset(row, "record", p.wins .. "-" .. p.losses)
     rawset(row, "net", HighNoon.NetText(p.net))
+    rawset(row, "allRecord", p.allWins .. "-" .. p.allLosses)
     rawset(row, "lastDuel", lastDuel)
     rawset(row, "whisper", whisper)
     rawset(row, "tooltip", tooltip)

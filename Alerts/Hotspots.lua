@@ -29,7 +29,9 @@
 -- are in ourselves, at most once per zone and level per LEVEL_THROTTLE. Kept quiet for
 -- our own fight, a zone alerts again once there is new activity there after it (1.0.5:
 -- it used to stay "announced" while the zone kept burning, so a later fight of others
--- there was never said).
+-- there was never said). A ping whose enemies all fought us is still our fight, and so
+-- is such an enemy seen again (1.0.9: our partner kept chasing the Priest we fought,
+-- and their pings alerted us about our own fight a minute later; seen in game 2026-11-11).
 -- [Help] sets a waypoint to the newest fight; [Ignore] mutes the zone for IGNORE_TIME.
 -- HH-136: fires HH_PVP_SEEN(zone, fighters, layer, t) with the players seen fighting,
 -- from our own scan and from other HeadHunters' pings, for Alerts/Wars.lua:
@@ -62,6 +64,8 @@ Hotspots.INVITE_LEVEL = 2
 local zones = {}        -- zone mapID -> { fighters = {id -> {t, x, y}}, allies = {id -> t}, enemies = {id -> t}, deaths = {id -> t} }
 local announced = {}    -- zone -> highest level announced in the current burst
 local quietSince = {}   -- zone -> when our own fight there kept it quiet (its latest moment)
+-- zone -> { short id -> t }: the enemies of our own fight there (1.0.9), kept for WINDOW
+local ownEnemies = {}
 local remembered = {}   -- zone -> the zone's last hot state, for the map (MAP_TIME)
 local ignored = {}      -- zone -> GetTime() until which it is muted
 local lastPing = 0
@@ -92,7 +96,7 @@ function Hotspots:AddFighter(mapID, who, t, x, y, enemyIds, extra)
     if not zone or not who then return nil end
     extra = extra or {}
     data.fighters[who] = { t = t, x = x, y = y, sender = extra.sender, layer = extra.layer,
-        allies = extra.allies ~= nil or nil }
+        allies = extra.allies ~= nil or nil, enemies = enemyIds }
     for _, id in ipairs(enemyIds or {}) do
         if not data.enemies[id] or data.enemies[id] < t then data.enemies[id] = t end
     end
@@ -536,19 +540,32 @@ function Hotspots:Evaluate(zone)
     ns.Events:Fire("HH_HOTSPOT", zone, level, heat)
 end
 
+-- 1.0.9: a ping that names enemies, all of them from our own fight (`ours`: short id -> t)
+local function OurFightOnly(ids, ours)
+    if not ours or not ids or #ids == 0 then return false end
+    for _, id in ipairs(ids) do
+        if not ours[id] then return false end
+    end
+    return true
+end
+
 -- 1.0.5: someone else fought, an enemy was seen fighting, or someone died in the zone at
--- `since` or later (our own fight left out)
+-- `since` or later (our own fight left out: our pings, and since 1.0.9 the pings and
+-- enemies of our own fight, only those we fought within WINDOW: an old fight's enemy
+-- seen again is new activity)
 function Hotspots:ActivitySince(zone, since, me)
     local data = zones[zone]
     if not data then return false end
+    local ours = ownEnemies[zone]
+    if ours then CountRecent(ours, ns.Utils.ServerTime() - self.WINDOW) end
     for who, fighter in pairs(data.fighters) do
-        if who ~= me and (fighter.t or 0) >= since then return true end
+        if who ~= me and (fighter.t or 0) >= since and not OurFightOnly(fighter.enemies, ours) then return true end
     end
-    for _, list in ipairs({ data.enemies, data.deaths }) do
-        for _, value in pairs(list) do
-            local t = type(value) == "table" and value.t or value
-            if (tonumber(t) or 0) >= since then return true end
-        end
+    for id, t in pairs(data.enemies) do
+        if (tonumber(t) or 0) >= since and not (ours and ours[id]) then return true end
+    end
+    for _, death in pairs(data.deaths) do
+        if (tonumber(death.t) or 0) >= since then return true end
     end
     return false
 end
@@ -736,6 +753,9 @@ function Hotspots:Tick()
     local zone = self:AddFighter(mapID, U.CompactName(U.UnitKey("player")), now, x, y, ids,
         { enemies = enemies, layer = layer, allies = allies })
     if not zone then return end
+    ownEnemies[zone] = ownEnemies[zone] or {}
+    CountRecent(ownEnemies[zone], now - self.WINDOW)
+    for _, id in ipairs(ids) do ownEnemies[zone][id] = now end
     ns.Events:Fire("HH_PVP_SEEN", zone, seen, layer, now)
     if now - lastPing >= self.PING_INTERVAL then
         lastPing = now

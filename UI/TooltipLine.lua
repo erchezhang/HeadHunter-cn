@@ -55,13 +55,16 @@ function TooltipLine.EntryForUnit(unit)
 end
 
 -- HH-093: "High Noon: Deadeye #3 (1250)" on any player (friend or foe) with duels.
+-- HH-159: then the all-duels record, "· 42-17 all duels".
 -- HH-137: out-of-date lists are counted again; until then the last counted title shows.
 function TooltipLine.DuelLine(unit)
     local U = ns.Utils
     if not unit or not U.UnitIsPlayer(unit) then return nil end
     ns.HighNoon:Ensure()
-    local title = ns.HighNoon.Title(ns.HighNoon:Get(U.UnitKey(unit)))
-    return title and { string.format(L.DUEL_TOOLTIP, title), 1, 1, 1 } or nil
+    local player = ns.HighNoon:Get(U.UnitKey(unit))
+    local title = ns.HighNoon.Title(player)
+    if not title then return nil end
+    return { string.format(L.DUEL_TOOLTIP, title) .. " · " .. ns.HighNoon.AllText(player), 1, 1, 1 }
 end
 
 -- HH-155: "Gang: Black Hand" on any player in one of the website's gangs

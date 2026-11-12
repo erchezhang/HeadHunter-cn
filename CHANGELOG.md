@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.0
+
+- **Fairer duel ranks.** The ranking now counts one result per opponent per day: whoever won more of that day's duels against the same player gets one win, the other one loss, and an even day counts nothing. Fled duels no longer count for the rank. The Duels tab, tooltips and `/hh duels` show this ranked record and, next to it, your record of all duels, fled ones included.
+
+## 1.0.9
+
+- **Fixed: a PvP alert about your own fight.** When your partner kept chasing the enemy you had both fought, their updates made HeadHunter announce that fight to you a minute later. A fight with another enemy in the zone is still announced.
+
 ## 1.0.8
 
 - **Bounties for everyone.** Players with HeadHunter Sync now share the website's running bounties in game, so players without the sync app see them on the WANTED tab and can claim them too. A bounty shows once two players vouched for it, or its owner did.

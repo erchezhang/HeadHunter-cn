@@ -3,8 +3,8 @@
 -- Detection: the game announces every duel result in chat to the players nearby
 -- (CHAT_MSG_SYSTEM, the client's DUEL_WINNER_KNOCKOUT and DUEL_WINNER_RETREAT
 -- strings, turned into patterns so it works in every language). Any HeadHunter nearby
--- records the duel, even when the duelists do not use the addon. A retreat counts as a
--- loss. Duels never touch WANTED.
+-- records the duel, even when the duelists do not use the addon. A retreat is kept as a
+-- loss, counted only in the all-duels record (HH-159). Duels never touch WANTED.
 -- WoW Forever sends no result line: there the duelists' own addons judge their duel
 -- (DUEL_REQUESTED or our StartDuel, countdown or entering combat, UNIT_HEALTH,
 -- DUEL_OUTOFBOUNDS, DUEL_FINISHED; see "Our own duels" below). Era does both; the pair
