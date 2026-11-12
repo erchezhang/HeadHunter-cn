@@ -2,12 +2,12 @@
 --
 -- Two records per player from the duel set (Sync/Duels.lua). All duels: every win and
 -- loss, fled duels (a retreat) too. The counted record ranks: one result per opponent per
--- UTC day, and fled duels not at all (1.0.9, HH-159, author 2026-11-12: one result per
+-- UTC day, and fled duels not at all (1.1.0, HH-159, author 2026-11-12: one result per
 -- opponent per UTC day, fled duels in the all-duels record only). Per pair of players and
 -- day, whoever won more of the day's duels gets one win, the other one loss; as many wins
--- each (3:3) counts nothing. A series result's time is its newest duel. Order, ranks, the
--- Greenhorn count, the Top Gun and the tie-break all come from the counted record; class,
--- race and faction from the newest duel of all.
+-- each (3:3) counts nothing. Order, ranks, the Greenhorn count and the Top Gun come from
+-- the counted record; class, race, faction and the tie-break time (lastT) from the newest
+-- duel of all. A duel a player won against themselves (corrupt data) counts in neither.
 -- Everyone with MIN_DUELS or more first, then the Greenhorns (author, 2026-09-27: a
 -- Greenhorn at 2-0 is not ahead of 6-5). Within each: net (wins minus losses), then
 -- fewer losses, then more wins (author, 2026-09-25: no rating, 1-0 is better than 1-4).
@@ -39,6 +39,8 @@ local HighNoon = ns:RegisterModule("HighNoon", {})
 local OWNER = "HighNoon"
 
 HighNoon.MIN_DUELS = 5
+-- HH-159: the counted record keeps one result per opponent per UTC day of this many seconds
+HighNoon.DAY = 86400
 HighNoon.TOP_GUN_NET = 5 -- the Top Gun needs Sharpshooter (+5); the website's DuelRatingCalculator::TOP_GUN_NET
 HighNoon.DEBOUNCE = 1
 -- HH-137: the job's time per frame, and the duels or players between two budget checks
@@ -107,22 +109,20 @@ end
 -- Every duel, fled ones too: the all-duels record. Players without these fields (an
 -- older website download) have only the counted record.
 function HighNoon.AllDuels(player)
-    return (player.allWins or player.wins or 0) + (player.allLosses or player.losses or 0)
+    return player.allWins + player.allLosses
 end
 
 -- The day's series of one pair: key "a\nb\nday" with a before b
-local function AddToSeries(series, winner, loser, t)
+local function AddToSeries(series, winner, loser, day)
     local a, b = winner, loser
     if b < a then a, b = b, a end
-    local day = math.floor(t / 86400)
     local id = a .. "\n" .. b .. "\n" .. day
     local s = series[id]
     if not s then
-        s = { a = a, b = b, winsA = 0, winsB = 0, t = t }
+        s = { a = a, b = b, winsA = 0, winsB = 0 }
         series[id] = s
     end
     if winner == a then s.winsA = s.winsA + 1 else s.winsB = s.winsB + 1 end
-    if t > s.t then s.t = t end
 end
 
 -- One counted result: the series winner +1 win, the loser +1 loss
@@ -138,8 +138,9 @@ end
 -- allWins, allLosses, class, race, sex }: wins, losses, duels, net and rank are the
 -- counted record (HH-159), allWins and allLosses every duel, lastT the newest duel of all
 -- (fled ones too; the website's last_duel_at, the Merge cutoff and the same-record order)
--- yield: optional, see Tick
-function HighNoon.Compute(duels, yield)
+-- yield: optional, see Tick. afterDay: optional, only UTC days after it are counted (the
+-- duels of that day and earlier go to the all-duels record only; see Merge)
+function HighNoon.Compute(duels, yield, afterDay)
     local players = {}
     local series = {}
     local function Player(key, faction, class, race, sex, t)
@@ -158,11 +159,14 @@ function HighNoon.Compute(duels, yield)
         return p
     end
     for i, duel in ipairs(duels) do
-        local t = tonumber(duel.t) or 0
-        local w = Player(duel.winner, duel.faction, duel.winnerClass, duel.winnerRace, duel.winnerSex, t)
-        local l = Player(duel.loser, duel.faction, duel.loserClass, duel.loserRace, duel.loserSex, t)
-        w.allWins, l.allLosses = w.allWins + 1, l.allLosses + 1
-        if not duel.retreat and w ~= l then AddToSeries(series, w.key, l.key, t) end
+        if duel.winner ~= duel.loser then
+            local t = tonumber(duel.t) or 0
+            local w = Player(duel.winner, duel.faction, duel.winnerClass, duel.winnerRace, duel.winnerSex, t)
+            local l = Player(duel.loser, duel.faction, duel.loserClass, duel.loserRace, duel.loserSex, t)
+            w.allWins, l.allLosses = w.allWins + 1, l.allLosses + 1
+            local day = math.floor(t / HighNoon.DAY)
+            if not duel.retreat and (not afterDay or day > afterDay) then AddToSeries(series, w.key, l.key, day) end
+        end
         Tick(yield, i)
     end
     local count = 0
@@ -205,9 +209,11 @@ end
 -- sync app may download a list the website has not rebuilt yet after our upload, and
 -- its time would then hide our newest duels (2026-09-26: 2-4 shown instead of 6-5).
 -- HH-159: both records add up this way: the website's all-duels record plus our newer
--- duels, and its counted record plus the series counted over our newer duels only. A UTC
--- day split by the cutoff is counted on each side of it, so it is approximate until the
--- next download, which counts the whole day.
+-- duels, and its counted record plus the series of our newer duels on later UTC days than
+-- the cutoff. Newer duels on the cutoff's own day go to the all-duels record only: the
+-- website may have counted that day already, and counting it again would give one
+-- opponent two results a day (farming an alt after each download). Those duels count at
+-- the next download, which sees the whole day.
 -- site: key -> { key, faction, wins, losses, duels, allWins, allLosses, lastT, class, race, sex }
 -- Our duels are grouped by player first (HH-137), so each website player looks only at
 -- their own: the work grows with duels plus players, not duels times players.
@@ -228,7 +234,7 @@ function HighNoon.Merge(site, duels, since, yield)
         for _, duel in ipairs(byPlayer[key] or NO_DUELS) do
             if (tonumber(duel.t) or 0) > cutoff then newer[#newer + 1] = duel end
         end
-        fresh[key] = HighNoon.Compute(newer)[key]
+        fresh[key] = HighNoon.Compute(newer, nil, theirs.lastT and math.floor(theirs.lastT / HighNoon.DAY))[key]
         count = count + 1
         Tick(yield, count)
     end
@@ -236,7 +242,6 @@ function HighNoon.Merge(site, duels, since, yield)
     for key, theirs in pairs(site) do
         local p = {}
         for k, v in pairs(theirs) do p[k] = v end
-        p.allWins, p.allLosses = theirs.allWins or theirs.wins, theirs.allLosses or theirs.losses
         local f = fresh[key]
         if f then
             p.wins, p.losses, p.duels = p.wins + f.wins, p.losses + f.losses, p.duels + f.duels
@@ -455,7 +460,7 @@ end
 
 -- HH-159: "42-17 all duels", fled duels too
 function HighNoon.AllText(player)
-    return string.format(L.DUEL_ALL, player.allWins or player.wins, player.allLosses or player.losses)
+    return string.format(L.DUEL_ALL, player.allWins, player.allLosses)
 end
 
 -- Once after login for the duels restored from SavedVariables; afterwards on need

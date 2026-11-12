@@ -30,7 +30,7 @@
 -- our own fight, a zone alerts again once there is new activity there after it (1.0.5:
 -- it used to stay "announced" while the zone kept burning, so a later fight of others
 -- there was never said). A ping whose enemies all fought us is still our fight, and so
--- is such an enemy seen again (1.0.8: our partner kept chasing the Priest we fought,
+-- is such an enemy seen again (1.0.9: our partner kept chasing the Priest we fought,
 -- and their pings alerted us about our own fight a minute later; seen in game 2026-11-11).
 -- [Help] sets a waypoint to the newest fight; [Ignore] mutes the zone for IGNORE_TIME.
 -- HH-136: fires HH_PVP_SEEN(zone, fighters, layer, t) with the players seen fighting,
@@ -64,7 +64,7 @@ Hotspots.INVITE_LEVEL = 2
 local zones = {}        -- zone mapID -> { fighters = {id -> {t, x, y}}, allies = {id -> t}, enemies = {id -> t}, deaths = {id -> t} }
 local announced = {}    -- zone -> highest level announced in the current burst
 local quietSince = {}   -- zone -> when our own fight there kept it quiet (its latest moment)
--- zone -> { short id -> t }: the enemies of our own fight there (1.0.8), kept for WINDOW
+-- zone -> { short id -> t }: the enemies of our own fight there (1.0.9), kept for WINDOW
 local ownEnemies = {}
 local remembered = {}   -- zone -> the zone's last hot state, for the map (MAP_TIME)
 local ignored = {}      -- zone -> GetTime() until which it is muted
@@ -540,7 +540,7 @@ function Hotspots:Evaluate(zone)
     ns.Events:Fire("HH_HOTSPOT", zone, level, heat)
 end
 
--- 1.0.8: a ping that names enemies, all of them from our own fight (`ours`: short id -> t)
+-- 1.0.9: a ping that names enemies, all of them from our own fight (`ours`: short id -> t)
 local function OurFightOnly(ids, ours)
     if not ours or not ids or #ids == 0 then return false end
     for _, id in ipairs(ids) do
@@ -550,12 +550,14 @@ local function OurFightOnly(ids, ours)
 end
 
 -- 1.0.5: someone else fought, an enemy was seen fighting, or someone died in the zone at
--- `since` or later (our own fight left out: our pings, and since 1.0.8 the pings and
--- enemies of our own fight)
+-- `since` or later (our own fight left out: our pings, and since 1.0.9 the pings and
+-- enemies of our own fight, only those we fought within WINDOW: an old fight's enemy
+-- seen again is new activity)
 function Hotspots:ActivitySince(zone, since, me)
     local data = zones[zone]
     if not data then return false end
     local ours = ownEnemies[zone]
+    if ours then CountRecent(ours, ns.Utils.ServerTime() - self.WINDOW) end
     for who, fighter in pairs(data.fighters) do
         if who ~= me and (fighter.t or 0) >= since and not OurFightOnly(fighter.enemies, ours) then return true end
     end

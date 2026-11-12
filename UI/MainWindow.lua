@@ -458,12 +458,11 @@ DuelRow.__index = function(row, field)
     local HighNoon = ns.HighNoon
     local plain = p.plain or ns.Utils.DisplayName(p.key) or p.key
     local name = Named(plain, p)
-    local newest = p.lastT
-    local lastDuel = newest and ns.Utils.Ago(math.max(0, now - newest)) or "-"
+    local lastDuel = p.lastT and ns.Utils.Ago(math.max(0, now - p.lastT)) or "-"
     local whisper = MainWindow.CanWhisper(p.key, p.faction) and p.key or nil
     local tooltip = { name, string.format(L.DUEL_TOOLTIP, HighNoon.Title(p)),
         string.format(L.TIP_DUEL, p.wins, p.losses, lastDuel),
-        string.format(L.TIP_DUEL_ALL, p.allWins or p.wins, p.allLosses or p.losses) }
+        string.format(L.TIP_DUEL_ALL, p.allWins, p.allLosses) }
     if whisper then tooltip[#tooltip + 1] = L.WINDOW_ROW_WHISPER end
     rawset(row, "filled", true)
     rawset(row, "plain", plain)
@@ -471,7 +470,7 @@ DuelRow.__index = function(row, field)
     rawset(row, "rank", HighNoon.RankName(p.topGun and "topgun" or p.rank))
     rawset(row, "record", p.wins .. "-" .. p.losses)
     rawset(row, "net", HighNoon.NetText(p.net))
-    rawset(row, "allRecord", (p.allWins or p.wins) .. "-" .. (p.allLosses or p.losses))
+    rawset(row, "allRecord", p.allWins .. "-" .. p.allLosses)
     rawset(row, "lastDuel", lastDuel)
     rawset(row, "whisper", whisper)
     rawset(row, "tooltip", tooltip)

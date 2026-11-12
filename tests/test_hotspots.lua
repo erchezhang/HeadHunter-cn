@@ -248,6 +248,28 @@ return function(T, H)
         T.noErrors()
     end)
 
+    T.case("an enemy of our fight more than WINDOW ago, seen fighting again, is new activity: alerted", function()
+        local ns = H.Boot({ client = "forever" })
+        H.inCombat = true
+        H.units.nameplate1 = { name = "Pippa", realm = "Elunite", level = 29, class = "PRIEST", race = "Undead",
+            faction = "Horde", isPlayer = true, guid = "Player-4613-00ABCDEF" }
+        H.units.nameplate1target = H.units.player
+        H.Fire("NAME_PLATE_UNIT_ADDED", "nameplate1")
+        H.Advance(5)
+        Ping(ns, 1429, "Vieta Theory", Ids(1, 3))
+        T.eq(ns.Hotspots:Now(1429), 2, "our own fight is seen")
+        H.inCombat = false
+        H.units.nameplate1 = nil
+        H.units.nameplate1target = nil
+        H.serverTime = H.serverTime + ns.Hotspots.WINDOW + 100
+        H.printed = {}
+        local record = ns.Protocol.EncodeHotspot(1429, H.serverTime - 1, 0.4, 0.6, { "00ABCDEF" }, nil, nil,
+            { "A0000001", "A0000002", "A0000003" })
+        H.Deliver(ns.Protocol.Pack("A", "P", { record }), "Vieta Theory")
+        T.ok(H.Printed("Skirmish"), "the Priest fighting again long after our fight is announced")
+        T.noErrors()
+    end)
+
     T.case("our partner still chasing the enemy we fought is our fight: no alert; a new enemy there is", function()
         local ns = H.Boot({ client = "forever" })
         H.inCombat = true

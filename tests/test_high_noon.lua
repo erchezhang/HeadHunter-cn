@@ -626,6 +626,27 @@ return function(T, H)
         T.eq(players.A.lastT, 101 * 86400, "the newest duel, fled too")
     end)
 
+    T.case("HH-159: a duel against oneself counts in neither record", function()
+        local HN = H.Boot({ client = "era" }).HighNoon
+        local players = HN.Compute({ Day("A", "A", 100, 60), Day("A", "B", 100, 120) })
+        T.eq(players.A.wins .. "-" .. players.A.losses, "1-0", "counted")
+        T.eq(players.A.allWins .. "-" .. players.A.allLosses, "1-0", "all duels")
+    end)
+
+    T.case("HH-159: Merge counts our newer duels on the website's last day in all duels only", function()
+        local HN = H.Boot({ client = "era" }).HighNoon
+        local site = {
+            A = { key = "A", faction = "Alliance", wins = 1, losses = 0, duels = 1, allWins = 3, allLosses = 0,
+                lastT = 100 * 86400 + 600 },
+        }
+        local players = HN.Merge(site, { Day("A", "B", 100, 700), Day("A", "B", 100, 800) }, 0)
+        T.eq(players.A.wins .. "-" .. players.A.losses, "1-0", "the website's day is not counted twice")
+        T.eq(players.A.allWins .. "-" .. players.A.allLosses, "5-0", "all duels")
+        players = HN.Merge(site, { Day("A", "B", 100, 700), Day("A", "B", 101, 60) }, 0)
+        T.eq(players.A.wins .. "-" .. players.A.losses, "2-0", "the next day counts")
+        T.eq(players.A.lastT, 101 * 86400 + 60, "the newest duel")
+    end)
+
     T.case("HH-159: a player with only fled duels is listed, a Greenhorn at 0-0, with all duels", function()
         local ns = H.Boot({ client = "era" })
         ns.Duels:Add({ winner = "Vati-Firemaw", loser = "Bob-Firemaw", t = H.serverTime - 3600, retreat = true,
@@ -803,13 +824,12 @@ return function(T, H)
                     newer[#newer + 1] = duel
                 end
             end
-            fresh[key] = HN.Compute(newer)[key]
+            fresh[key] = HN.Compute(newer, nil, theirs.lastT and math.floor(theirs.lastT / HN.DAY))[key]
         end
         local players = {}
         for key, theirs in pairs(site) do
             local p = {}
             for k, v in pairs(theirs) do p[k] = v end
-            p.allWins, p.allLosses = theirs.allWins or theirs.wins, theirs.allLosses or theirs.losses
             local f = fresh[key]
             if f then
                 p.wins, p.losses, p.duels = p.wins + f.wins, p.losses + f.losses, p.duels + f.duels
