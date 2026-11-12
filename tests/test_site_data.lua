@@ -174,6 +174,30 @@ return function(T, H)
         T.noErrors()
     end)
 
+    T.case("HH-160: a website bully whose newest bully kill is over 30 days old is no Bully", function()
+        local data = EraData()
+        data.worlds["era|eu|Firemaw"].wanted = {}
+        data.worlds["era|eu|Firemaw"].bullies = {
+            { name = "Oldgank", realm = "Firemaw", coward_kills = 6, last_coward_kill_at = H.serverTime - 31 * 86400 },
+            { name = "Freshgank", realm = "Firemaw", coward_kills = 2, last_coward_kill_at = H.serverTime - 29 * 86400 },
+            { name = "Undated", realm = "Firemaw", coward_kills = 1 },
+        }
+        local ns = H.Boot({ client = "era", siteData = data })
+        Settle()
+        T.eq(ns.Wanted:ByKey("Oldgank-Firemaw"), nil, "31 days: left out")
+        local fresh = ns.Wanted:ByKey("Freshgank-Firemaw")
+        T.ok(fresh ~= nil and fresh.badges.coward, "29 days: a Bully")
+        T.eq(fresh.lastCowardKill, H.serverTime - 29 * 86400, "the website's time read")
+        T.ok(ns.Wanted:ByKey("Undated-Firemaw").badges.coward, "an older download without the time: kept")
+
+        H.serverTime = H.serverTime + 2 * 86400
+        H.Advance(60)
+        Settle()
+        T.eq(ns.Wanted:ByKey("Freshgank-Firemaw"), nil, "the mark ends as the days pass")
+        T.ok(ns.Wanted:ByKey("Undated-Firemaw").badges.coward, "the undated one stays")
+        T.noErrors()
+    end)
+
     T.case("a realm name with spaces matches our normalized realm", function()
         H.Install({ client = "era" })
         local data = EraData()

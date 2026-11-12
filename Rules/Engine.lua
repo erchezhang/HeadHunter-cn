@@ -24,7 +24,9 @@
 --               needs a fresh 5 kills in 20 min (kills before a catch never count)
 --   Rank        Ganker 5-9, Outlaw 10-19, Desperado 20-29, Most Wanted 30-49,
 --               Dead or Alive 50+
---   Badges      Coward: any coward kill (skull or grey victim), with help or not
+--   Badges      Coward (the Bully mark, the Hall of Shame): a coward kill (skull or
+--                 grey victim), with help or not, within the last BULLY_WINDOW (30
+--                 days, HH-160 in 1.1.1); it ends by itself 30 days after the newest one
 --               Gang: any kill with 3+ attackers on one victim; Duo: with exactly 2
 --                 (author 2026-09-23; group size is judged next to the levels)
 --               Serial Killer: 5+ distinct victims in separate engagements
@@ -52,6 +54,9 @@ Engine.DEFAULT_SERIAL_WINDOW = 15 * MINUTE
 Engine.GUNSLINGER_MIN_KILLS = 3
 Engine.GIANT_SLAYER_KILLS = 2
 Engine.WANTED_IDLE = 7 * DAY   -- WANTED ends after this long without a kill
+-- HH-160 (1.1.1, author 2026-11-12): a bully kill counts for this long; the website's
+-- WantedEvaluator::BULLY_WINDOW has the same
+Engine.BULLY_WINDOW = 30 * DAY
 Engine.WEIGHT = { exact = 1, inferred = 0.5, sim = 1 }
 
 -- How often Compute calls `yield` (reports, then enemies)
@@ -87,6 +92,18 @@ function Engine.EnemyId(enemy)
     if enemy.key then return enemy.key end
     if enemy.guid then return "guid:" .. enemy.guid end
     return nil
+end
+
+-- A bully kill at time t still counts at `now` (HH-160: within BULLY_WINDOW)
+function Engine.BullyKillCounts(t, now)
+    return now - t <= Engine.BULLY_WINDOW
+end
+
+-- The entry is a Bully at `now`: the coward badge, and its newest bully kill (when known)
+-- within BULLY_WINDOW; an entry without that time (an older website download) keeps its badge
+function Engine.IsBully(entry, now)
+    if not (entry and entry.badges and entry.badges.coward) then return false end
+    return entry.lastCowardKill == nil or Engine.BullyKillCounts(entry.lastCowardKill, now)
 end
 
 -------------------------------------------------
@@ -204,6 +221,8 @@ end
 -------------------------------------------------
 
 -- opts.wantedKills overrides WANTED_KILLS (testing only: /hh debug wanted <n>).
+-- HH-160: cowardKills counts the bully kills within BULLY_WINDOW of `now`;
+-- lastCowardKill is the newest of them, bullyRecountAt when the oldest drops out.
 -- catches: times this enemy was killed by a HeadHunter or their group (any order).
 function Engine.Evaluate(kills, now, opts, catches)
     opts = opts or {}
@@ -249,6 +268,7 @@ function Engine.Evaluate(kills, now, opts, catches)
     local windowStart, windowSum = 1, 0
     local total, coward, fair, giant, gang, duo = 0, 0, 0, 0, 0, 0
     local exact, partial = 0, 0
+    local firstCoward, lastCoward = nil, nil
     local nextCatch, timesCaught, lastCaught = 1, 0, nil
     local ranOut = false -- the last WANTED ended by 7 days without a kill
     -- At large (author, 2026-09-26): the last WANTED ran out without a catch; a catch
@@ -281,7 +301,11 @@ function Engine.Evaluate(kills, now, opts, catches)
         end
         total = total + kill.weight
         if kill.weight >= 1 then exact = exact + 1 else partial = partial + 1 end
-        if ns.Classify.IsCoward(kill.class) then coward = coward + 1 end
+        if ns.Classify.IsCoward(kill.class) and Engine.BullyKillCounts(kill.t, now) then
+            coward = coward + 1
+            firstCoward = firstCoward or kill.t
+            lastCoward = kill.t
+        end
         if kill.group == "gang" then gang = gang + 1 end
         if kill.group == "duo" then duo = duo + 1 end
         if ns.Classify.IsFair(kill.class, kill.group) then fair = fair + 1 end
@@ -346,6 +370,8 @@ function Engine.Evaluate(kills, now, opts, catches)
         exactKills = exact,     -- weight 1 (exact, sim)
         guessedKills = partial, -- weight 0.5 (inferred)
         cowardKills = coward,   -- Hall of Shame
+        lastCowardKill = lastCoward,
+        bullyRecountAt = firstCoward and firstCoward + Engine.BULLY_WINDOW,
         gangKills = gang,       -- 3+ attackers on one victim
         duoKills = duo,         -- 2 attackers on one victim
         badges = {

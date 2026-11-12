@@ -321,6 +321,31 @@ return function(T, H)
         T.eq(e.badges.giantslayer, true, "giant slayer")
     end)
 
+    T.case("HH-160: bully kills count for 30 days, the mark ends with no new kill", function()
+        local function Skull(minutes, victim)
+            return Report(minutes, victim, { killer = { key = "Gank-Stonespine", level = -1 } })
+        end
+        local DAYMIN = DAY / MIN
+        local e = Compute({ Skull(0, "A") }, 31 * DAYMIN)
+        T.eq(e.badges.coward, nil, "31 days ago: no Bully")
+        T.eq(e.cowardKills, 0, "31 days ago: not counted")
+        T.eq(e.killCount, 1, "still a kill")
+
+        e = Compute({ Skull(0, "A") }, 29 * DAYMIN)
+        T.eq(e.badges.coward, true, "29 days ago: a Bully")
+        T.eq(e.lastCowardKill, T0, "the newest bully kill")
+
+        e = Compute({ Skull(0, "A"), Skull(10 * DAYMIN, "B"), Skull(20 * DAYMIN, "C") }, 35 * DAYMIN)
+        T.eq(e.cowardKills, 2, "only the kills within 30 days")
+        T.eq(e.lastCowardKill, T0 + 20 * DAY, "newest")
+        T.eq(e.bullyRecountAt, T0 + 40 * DAY, "the count drops when the oldest counted one does")
+
+        local E = Engine()
+        T.eq(E.IsBully(e, T0 + 50 * DAY), true, "on day 50")
+        T.eq(E.IsBully(e, T0 + 50 * DAY + 1), false, "ends by itself 30 days after the newest")
+        T.eq(E.IsBully({ badges = { coward = true } }, T0 + 400 * DAY), true, "no time known: kept")
+    end)
+
     T.case("serial killer needs 5 victims in separate engagements inside the window", function()
         local E = Engine()
         local function Kills(spec)

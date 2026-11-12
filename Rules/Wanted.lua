@@ -13,6 +13,10 @@
 --
 --   Wanted:Get(id), Wanted:ByKey(key), Wanted:List() (WANTED only, sorted),
 --   Wanted:All() (every enemy with kills)
+--
+-- HH-160 (1.1.1): a Bully mark lasts 30 days after the newest bully kill
+-- (RulesEngine.BULLY_WINDOW). Each recompute counts against the clock; the expiry
+-- ticker recomputes once a bully kill drops out, so a mark ends without a new kill.
 
 local addonName, ns = ...
 local L = ns.L
@@ -68,6 +72,18 @@ function Wanted.CurrentRank(entry)
     return entry and (entry.rank or (entry.atLarge and entry.lastRank)) or nil
 end
 
+-- HH-160: the Bullies' order, every place taken once: most bully kills, then the
+-- newest bully kill, then the name (and the id, for two entries of one name)
+function Wanted.BullyBefore(a, b)
+    local ca, cb = a.cowardKills or 0, b.cowardKills or 0
+    if ca ~= cb then return ca > cb end
+    local ta, tb = a.lastCowardKill or 0, b.lastCowardKill or 0
+    if ta ~= tb then return ta > tb end
+    local na, nb = a.name or a.id or "", b.name or b.id or ""
+    if na ~= nb then return na < nb end
+    return tostring(a.id or "") < tostring(b.id or "")
+end
+
 -- Currently WANTED, highest rank first, then most kills, then most recent
 function Wanted:List()
     local list = {}
@@ -115,7 +131,8 @@ local function Publish(newEntries)
             ns.Events:Fire("HH_WANTED_CAUGHT", entry, before)
         elseif not before or (entry.wanted and entry.kills ~= before.kills)
                 or (entry.atLarge or false) ~= (before.atLarge or false)
-                or (entry.badges and entry.badges.coward or false) ~= (before.badges and before.badges.coward or false) then
+                or (entry.badges and entry.badges.coward or false) ~= (before.badges and before.badges.coward or false)
+                or (entry.cowardKills or 0) ~= (before.cowardKills or 0) then
             changed = true
         end
     end
@@ -163,6 +180,11 @@ local function LastKillAt(entry)
     return entry.lastKill and entry.lastKill.t or 0
 end
 
+local function Newest(a, b)
+    if a and b then return math.max(a, b) end
+    return a or b
+end
+
 -- HH-082: the website's WANTED entries (Sync/SiteData.lua) next to ours. Theirs count
 -- while their time runs, unless a catch we know of came after their last kill; when we
 -- both have the outlaw WANTED, the one with the newer kill wins.
@@ -182,6 +204,8 @@ function Wanted.MergeSite(entries, site, catches, now)
                     merged.guid = ours.guid
                     merged.killCount = math.max(merged.killCount or 0, ours.killCount or 0)
                     merged.cowardKills = math.max(merged.cowardKills or 0, ours.cowardKills or 0)
+                    merged.lastCowardKill = Newest(merged.lastCowardKill, ours.lastCowardKill)
+                    merged.bullyRecountAt = ours.bullyRecountAt
                 end
                 entries[id] = merged
             end
@@ -193,23 +217,44 @@ end
 -- The website's Hall of Shame bullies next to ours (author, 2026-09-28): a player we
 -- know gets the bully badge and the higher bully count; one we never saw is added, not
 -- WANTED. Their alerts and the +3 bounty then work as for our own bullies.
+-- HH-160: one whose newest bully kill is older than 30 days is no Bully and left out.
 -- entries: id -> entry (changed in place); site: id -> entry (Sync/SiteData.lua)
-function Wanted.MergeBullies(entries, site)
+function Wanted.MergeBullies(entries, site, now)
+    now = now or ns.Utils.ServerTime()
+    local Engine = ns.RulesEngine
     for id, theirs in pairs(site or {}) do
         local ours = entries[id]
-        if ours then
+        local counts = theirs.lastCowardKill == nil or Engine.BullyKillCounts(theirs.lastCowardKill, now)
+        if counts and ours then
             -- A copy: a merged website or test entry shares its badges table with the source
             local badges = {}
             for k, v in pairs(ours.badges or {}) do badges[k] = v end
             badges.coward = true
             ours.badges = badges
             ours.cowardKills = math.max(ours.cowardKills or 0, theirs.cowardKills or 0)
+            ours.lastCowardKill = Newest(ours.lastCowardKill, theirs.lastCowardKill)
             ours.level = ours.level or theirs.level
-        else
+        elseif counts then
             local copy = {}
             for k, v in pairs(theirs) do copy[k] = v end
             copy.badges = { coward = true }
             entries[id] = copy
+        end
+    end
+    return entries
+end
+
+-- HH-160: the website's WANTED entries keep the badges it sent; one whose newest bully
+-- kill fell out of the 30 days since the download is no Bully any more.
+-- entries: id -> entry (changed in place)
+function Wanted.EndBullies(entries, now)
+    for _, entry in pairs(entries) do
+        if entry.badges and entry.badges.coward and not ns.RulesEngine.IsBully(entry, now) then
+            local badges = {}
+            for k, v in pairs(entry.badges) do badges[k] = v end
+            badges.coward = nil
+            entry.badges = badges
+            entry.cowardKills = 0
         end
     end
     return entries
@@ -246,10 +291,11 @@ function Wanted:ComputeNow(yield)
     Wanted.MergeSite(result, ns.SiteData:Wanted(), catches, now)
     -- Test entries from /hh dev (Core/Dev.lua), this client only
     Wanted.MergeSite(result, ns.Dev.TestEntries("wanted"), catches, now)
-    Wanted.MergeBullies(result, ns.SiteData:Bullies())
+    Wanted.MergeBullies(result, ns.SiteData:Bullies(), now)
     Wanted.MergeSite(result, ns.SharedSite:Wanted(), catches, now)
-    Wanted.MergeBullies(result, ns.SharedSite:Bullies())
-    Wanted.MergeBullies(result, ns.Dev.TestEntries("shame"))
+    Wanted.MergeBullies(result, ns.SharedSite:Bullies(), now)
+    Wanted.MergeBullies(result, ns.Dev.TestEntries("shame"), now)
+    Wanted.EndBullies(result, now)
     Wanted.MergeBountyTargets(result, ns.SiteData:BountyTargets())
     Wanted.MergeBountyTargets(result, ns.SharedSite:BountyTargets())
     Wanted.FromSightings(result, function(key) return ns.EnemyCache:ByKey(key) end)
@@ -315,11 +361,14 @@ function Wanted:RequestRecompute()
     end)
 end
 
--- Timers run out without any new report: re-check against the clock
+-- Timers run out without any new report: re-check against the clock. HH-160: also once
+-- a bully kill falls out of the 30 days (a Bully count drops or the mark ends).
 function Wanted:CheckExpiry()
     local now = ns.Utils.ServerTime()
     for _, entry in pairs(entries) do
-        if entry.wanted and entry.wantedUntil and now > entry.wantedUntil then
+        if (entry.wanted and entry.wantedUntil and now > entry.wantedUntil)
+                or (entry.bullyRecountAt and now > entry.bullyRecountAt)
+                or (entry.badges and entry.badges.coward and not ns.RulesEngine.IsBully(entry, now)) then
             self:RequestRecompute()
             return
         end
