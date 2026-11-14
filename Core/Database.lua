@@ -89,6 +89,8 @@ local DEFAULTS = {
         gangChatSlash = true,
     },
     zones = {}, -- zone mapID -> { name, continent, locale }: names for the website (Alerts/Zones.lua)
+    -- HH-161: buckle find uid -> true, revealed or quiet (Sync/Buckles.lua)
+    bucklesShown = {},
     homes = {}, -- home key -> HOME_DEFAULTS
 }
 

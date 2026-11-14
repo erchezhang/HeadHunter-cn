@@ -80,6 +80,7 @@ Sync\GangChat.lua
 Sync\CatchUp.lua
 Sync\Duels.lua
 Sync\SiteData.lua
+Sync\Buckles.lua
 Sync\SharedSite.lua
 Sync\Presence.lua
 Sync\Bounties.lua
@@ -125,6 +126,7 @@ UI\MainWindow.lua
 UI\Poster.lua
 UI\BountyDialog.lua
 UI\ResultDialog.lua
+UI\BuckleDialog.lua
 UI\MinimapButton.lua
 UI\Nameplates.lua
 UI\TooltipLine.lua

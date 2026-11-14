@@ -137,6 +137,13 @@ Type `/hh online` to see how many HeadHunters are online right now, how many are
 
 ![Duels: every duelist with their rank and record](https://headhunterwow.com/images/screenshots/duels.webp)
 
+### Buckles
+- **Rare trophies from the website.** A confirmed kill of a HeadHunter, a punished Bully, a duel won against a higher rank or a glass raised can drop a buckle on [headhunterwow.com](https://headhunterwow.com), at most one a week. Tournament winners, finalists and early players are awarded one.
+- **Uncommon, Rare, Epic and Legendary**, in WoW's item colours. Legendary buckles are very rare.
+- **You found a buckle:** the next time you log in after HeadHunter Sync brought it, a window shows it with the character who found it and where it came from. Never in combat or a dungeon, and each buckle only once; close it early and the rest come at your next login.
+- **Your buckle case:** `/hh buckles` shows your characters' buckles, how many of each, where they came from (hover one) and the ones still to find.
+- **Wear one:** choose it on the website. Other HeadHunters with the Sync app see it in your tooltip.
+
 ## Website and the HeadHunter Sync app
 
 **[headhunterwow.com](https://headhunterwow.com)** is the bounty board of every HeadHunter player: WANTED posters, the best duelists, the top hunters, the bullies, the Deadbeats, the busted outlaws and the Barflies, for each game and realm. Sign in with Battle.net, Discord, Google or email to see your own characters.
@@ -174,6 +181,7 @@ Good to know about the app:
 | `/hh wars` | The PvP wars you were in (last 30 days) |
 | `/hh duels` | Duels: the best duelists and your rank |
 | `/hh duelspots` | Places where players duel now, their layer and who to ask for an invite |
+| `/hh buckles` | Your characters' buckles from the website |
 | `/hh sim duels` | Test duel spots in your zone, only on your screen (`/hh sim duels clear` removes them) |
 | `/hh map on/off` | PvP areas, duel spots and skulls on the world map |
 | `/hh tooltip on/off` | WANTED line on enemy tooltips |
