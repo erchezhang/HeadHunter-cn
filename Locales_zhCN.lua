@@ -395,6 +395,7 @@ local CN = {
     -- Settings page (Esc > Options > AddOns > HeadHunter)
     SET_HINT = "改动立即生效。同样的设置也可以用 /hh 命令（/hh help）。",
     SET_UNAVAILABLE = "此客户端不支持选项页；请用 /hh help 查看命令。",
+    SET_COMBAT = "战斗中不可用：请在战斗结束后打开选项。",
     SET_SECTION_ALERTS = "提醒",
     SET_SECTION_DISPLAY = "显示",
     SET_SECTION_RULES = "规则",

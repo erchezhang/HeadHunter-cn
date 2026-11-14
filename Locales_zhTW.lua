@@ -396,6 +396,7 @@ local TW = {
     -- Settings page (Esc > Options > AddOns > HeadHunter)
     SET_HINT = "改動立即生效。同樣的設定也可以用 /hh 命令（/hh help）。",
     SET_UNAVAILABLE = "此客戶端不支援選項頁；請用 /hh help 檢視命令。",
+    SET_COMBAT = "戰鬥中不可用：請在戰鬥結束後開啟選項。",
     SET_SECTION_ALERTS = "提醒",
     SET_SECTION_DISPLAY = "顯示",
     SET_SECTION_RULES = "規則",

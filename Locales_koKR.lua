@@ -379,6 +379,7 @@ local KR = {
     OPTIONS_BUTTON = "설정",
     HELP_OPTIONS = "|cffffff00/hh options|r: HeadHunter 설정 페이지 열기",
     SET_UNAVAILABLE = "이 클라이언트에서는 설정 페이지를 쓸 수 없습니다. /hh help 로 명령어를 보세요.",
+    SET_COMBAT = "전투 중에는 안 됩니다: 전투가 끝나면 설정을 여세요.",
     SET_HINT = "변경 사항은 바로 적용됩니다. 같은 설정을 /hh 명령어로도 바꿀 수 있습니다 (/hh help).",
     SET_SECTION_ALERTS = "알림",
     SET_SECTION_DISPLAY = "표시",

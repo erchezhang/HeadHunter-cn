@@ -65,6 +65,14 @@ return function(T, H)
         H.Slash("options")
         T.ok(H.optionsOpened ~= nil, "opened")
 
+        ns = H.Boot({ client = "forever", options = "settings" })
+        H.optionsOpened = nil
+        _G.InCombatLockdown = function() return true end
+        H.Slash("options")
+        _G.InCombatLockdown = nil
+        T.eq(H.optionsOpened, nil, "not opened in combat, which the game refuses")
+        T.ok(H.Printed("after the fight"), "said to open it after the fight")
+
         ns = H.Boot({ client = "era" })
         T.eq(ns.SettingsPanel.registered, nil, "neither")
         H.Slash("options")

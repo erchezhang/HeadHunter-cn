@@ -379,6 +379,7 @@ local RU = {
     OPTIONS_BUTTON = "Настройки",
     HELP_OPTIONS = "|cffffff00/hh options|r: открыть страницу настроек HeadHunter",
     SET_UNAVAILABLE = "Страница настроек недоступна в этом клиенте; команды: /hh help.",
+    SET_COMBAT = "Не в бою: откройте настройки после боя.",
     SET_HINT = "Изменения действуют сразу. Те же настройки есть и в командах /hh (/hh help).",
     SET_SECTION_ALERTS = "Оповещения",
     SET_SECTION_DISPLAY = "Отображение",

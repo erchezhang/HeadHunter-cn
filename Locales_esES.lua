@@ -380,6 +380,7 @@ local ES = {
     OPTIONS_BUTTON = "Opciones",
     HELP_OPTIONS = "|cffffff00/hh options|r: abre la página de opciones de HeadHunter",
     SET_UNAVAILABLE = "La página de opciones no está disponible en este cliente; usa /hh help para ver los comandos.",
+    SET_COMBAT = "En combate no: abre las opciones después de la pelea.",
     SET_HINT = "Los cambios se aplican al momento. Los mismos ajustes también son comandos /hh (/hh help).",
     SET_SECTION_ALERTS = "Alertas",
     SET_SECTION_DISPLAY = "Visualización",

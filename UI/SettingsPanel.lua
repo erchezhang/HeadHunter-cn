@@ -320,7 +320,13 @@ function SettingsPanel:Register()
     return nil
 end
 
+-- Opens the page; in combat the game refuses to open it (ADDON_ACTION_BLOCKED, which pcall
+-- does not catch), so it says to try after the fight instead.
 function SettingsPanel:Open()
+    if self.registered and InCombatLockdown and InCombatLockdown() then
+        ns:Print(L.SET_COMBAT)
+        return true
+    end
     if self.registered == "settings" and Settings.OpenToCategory then
         local id = self.category.GetID and self.category:GetID() or self.category.ID
         pcall(Settings.OpenToCategory, id)
