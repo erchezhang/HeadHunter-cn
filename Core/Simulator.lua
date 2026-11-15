@@ -6,6 +6,8 @@
 --   /hh sim send ...       simulated deaths shared with other characters (debug)
 --   /hh sim clear          remove every simulated death and test catch
 --   /hh sim duels [clear]  test duel spots in our zone, only on our screen (HH-134)
+--   /hh sim buckles [clear] made-up buckle finds of our character, the reveal at once and
+--                          the worn one on our tooltip; this session only (HH-161)
 --   /hh sim gang [me|clear] the Wild Bunch for screenshots: Butch Cassidy leads (me, or a
 --                          character named Butch Cassidy: we do),
 --                          with the outlaws of the 1890s; this session only (HH-155)
@@ -304,6 +306,43 @@ function Simulator:Gang(mode)
     ns:Print(L.SIM_GANG_DONE)
 end
 
+-- /hh sim buckles: what our character could find, one of each quality and an award, oldest
+-- first: buckle, quality, source, the other player or tournament, hours ago
+Simulator.TEST_BUCKLES = {
+    { "tin_star", "uncommon", "hunter_kill", "Moo Mello", 30 },
+    { "upset_at_high_noon", "rare", "duel_upset", "Grim Tusk", 20 },
+    { "saloon_royalty", "epic", "glass", "Gank Master", 12 },
+    { "champion", "awarded", "award", "Gate Brawl", 6 },
+    { "dead_mans_hand", "legendary", "hunter_kill", "Iron Maple", 2 },
+}
+
+-- /hh sim buckles [clear] (HH-161): made-up finds of our character for this session (ids
+-- below 0, never the website's), wearing the Legendary; the reveal opens at once, and again
+-- each time, as their shown marks are removed first. Never saved in the download or sent.
+function Simulator:Buckles(mode)
+    local shown = ns.db and ns.db.bucklesShown or {}
+    for _, find in ipairs(ns.SiteData:ClearTestBuckles()) do shown[tostring(find.uid)] = nil end
+    if mode == "clear" then
+        ns:Print(L.SIM_BUCKLES_CLEARED)
+        return
+    end
+    local U = ns.Utils
+    local me = U.UnitKey("player")
+    if not me then return end
+    local now = U.ServerTime()
+    local finds = {}
+    for i, b in ipairs(self.TEST_BUCKLES) do
+        local award = b[3] == "award"
+        table.insert(finds, 1, { uid = -i, buckle = b[1], quality = b[2], source = b[3], owner = me,
+            foundAt = now - b[5] * 3600, eventAt = now - b[5] * 3600, mapID = not award and 1434 or nil,
+            other = not award and b[4] or nil, tournament = award and b[4] or nil, quiet = false })
+    end
+    ns.SiteData:SetTestBuckles(me, finds, "dead_mans_hand")
+    for _, find in ipairs(finds) do shown[tostring(find.uid)] = nil end
+    ns:Print(L.SIM_BUCKLES_DONE)
+    ns.Buckles:Reveal()
+end
+
 -- /hh sim duels [clear] (HH-134): test duel spots in our zone, to see the map mark, the
 -- chat line and the invite clicks before a release. Only on our screen: never sent, and
 -- the made-up HeadHunters get no whisper (Alerts/DuelSpots.lua).
@@ -350,6 +389,10 @@ ns.SlashCommands:Register("sim", function(args)
         Simulator:Duels(args[1] and args[1]:lower())
         return
     end
+    if kind == "buckles" then
+        Simulator:Buckles(args[1] and args[1]:lower())
+        return
+    end
     if kind ~= "death" and kind ~= "sighting" then
         print(L.SIM_USAGE_DEATH)
         print(L.SIM_USAGE_SIGHTING)
@@ -357,6 +400,7 @@ ns.SlashCommands:Register("sim", function(args)
         print(L.SIM_USAGE_CLEAR)
         print(L.SIM_USAGE_DUELS)
         print(L.SIM_USAGE_GANG)
+        print(L.SIM_USAGE_BUCKLES)
         if ns.Dev.Present() then print(L.SIM_USAGE_EVENT) end
         return
     end

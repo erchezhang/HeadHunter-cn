@@ -237,4 +237,27 @@ return function(T, H)
         T.eq(ns.SiteData:WornBuckle("Grim Tusk").buckle, "last_call", "a worn buckle by name")
         T.noErrors()
     end)
+
+    T.case("/hh sim buckles: made-up finds of our character, the reveal at once, again each time, and clear", function()
+        local ns = Boot(Data({ Character("Vati", { Find(1, "tin_star", { quality = "uncommon" }) }) }))
+        Reveal(ns)
+        ns.BuckleDialog:Next()
+        H.Slash("sim buckles")
+        T.ok(ns.BuckleDialog:IsRevealShown(), "the reveal opens at once")
+        T.eq(#ns.BuckleDialog.queue, #ns.Simulator.TEST_BUCKLES, "every made-up find")
+        T.eq(ns.SiteData:WornBuckle("Vati-Firemaw").buckle, "dead_mans_hand", "we wear the Legendary")
+        local owned = ns.Buckles:Cases()[1].case.owned
+        T.eq(#owned, #ns.Simulator.TEST_BUCKLES, "one of each made-up buckle in the case")
+        T.eq(#owned[#owned].finds, 2, "the real Tin Star counted with the made-up one")
+        while ns.BuckleDialog:Next() do end
+        H.Slash("sim buckles")
+        T.ok(ns.BuckleDialog:IsRevealShown(), "shown again the next time")
+        while ns.BuckleDialog:Next() do end
+        H.Slash("sim buckles clear")
+        T.eq(#ns.SiteData:BuckleFinds(), 1, "only the real find left")
+        T.eq(ns.SiteData:WornBuckle("Vati-Firemaw"), nil, "nothing worn")
+        T.ok(ns.Buckles:IsShown(1), "the real find's mark kept")
+        T.ok(not ns.Buckles:IsShown(-1), "the made-up marks gone")
+        T.noErrors()
+    end)
 end

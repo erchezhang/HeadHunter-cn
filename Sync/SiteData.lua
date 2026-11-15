@@ -567,19 +567,42 @@ function SiteData.ReadBuckles(data)
     return finds, worn
 end
 
+-- /hh sim buckles: made-up finds of our character and the buckle it wears, in memory only
+local testBuckles = { finds = {}, worn = nil, owner = nil }
+
 function SiteData:BuckleFinds()
-    return buckleFinds or {}
+    if #testBuckles.finds == 0 then return buckleFinds or {} end
+    local list = {}
+    for _, find in ipairs(testBuckles.finds) do list[#list + 1] = find end
+    for _, find in ipairs(buckleFinds or {}) do list[#list + 1] = find end
+    return list
 end
 
 -- The buckle our character wears, by its key
 function SiteData:OwnWornBuckle(owner)
+    if testBuckles.worn and ns.Utils.SameCharacter(owner, testBuckles.owner) then return testBuckles.worn end
     return wornByOwner and wornByOwner[owner] or nil
 end
 
 -- HH-161: the buckle a player of our world wears: { buckle, name, quality } or nil
 function SiteData:WornBuckle(key)
+    if testBuckles.worn and key and ns.Utils.SameCharacter(key, testBuckles.owner) then
+        return { buckle = testBuckles.worn, quality = ns.Buckles.Quality(testBuckles.worn) }
+    end
     local id = key and ns.Utils.CompactName(key)
     return id and wornBuckles and wornBuckles[id] or nil
+end
+
+-- /hh sim buckles: finds (newest first) of `owner`, who wears `worn`; replaces the last ones
+function SiteData:SetTestBuckles(owner, finds, worn)
+    testBuckles = { finds = finds or {}, worn = worn, owner = owner }
+end
+
+-- Returns the made-up finds removed
+function SiteData:ClearTestBuckles()
+    local finds = testBuckles.finds
+    testBuckles = { finds = {}, worn = nil, owner = nil }
+    return finds
 end
 
 -- A website page from the download's links ("tournaments", "create_tournament"), or nil

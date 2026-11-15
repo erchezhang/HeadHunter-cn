@@ -182,6 +182,7 @@ Good to know about the app:
 | `/hh duels` | Duels: the best duelists and your rank |
 | `/hh duelspots` | Places where players duel now, their layer and who to ask for an invite |
 | `/hh buckles` | Your characters' buckles from the website |
+| `/hh sim buckles` | Made-up buckles to see the reveal, the case and your tooltip, only on your screen (`/hh sim buckles clear` removes them) |
 | `/hh sim duels` | Test duel spots in your zone, only on your screen (`/hh sim duels clear` removes them) |
 | `/hh map on/off` | PvP areas, duel spots and skulls on the world map |
 | `/hh tooltip on/off` | WANTED line on enemy tooltips |
