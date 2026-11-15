@@ -388,9 +388,15 @@ function H.Install(opts)
             local r = H.mapRects[child .. ":" .. parent]
             if r then return r[1], r[2], r[3], r[4] end
         end,
+        GetMapInfoAtPosition = function(map, x, y)
+            local at = H.mapAt and H.mapAt(map, x, y)
+            return at and H.maps[at]
+        end,
     }
     -- "child:parent" -> { minX, maxX, minY, maxY }: where a map sits on a map above it
     H.mapRects = {}
+    -- H.mapAt(map, x, y) -> the mapID the game names at that point, or nil
+    H.mapAt = nil
 
     -- hooksecurefunc(table, "method", hook) and hooksecurefunc("global", hook)
     _G.hooksecurefunc = function(target, method, hook)

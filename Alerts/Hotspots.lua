@@ -185,11 +185,12 @@ function Hotspots:FighterNames(area, now, links)
     return table.concat(parts, ", ")
 end
 
+-- Reports keep the map the victim stood on (maybe a cave or a dungeon entrance); hotspots
+-- use the zone
 function Hotspots:AddDeath(report)
-    local zone, data = Zone(report.mapID)
+    local place, x, y = ns.Zones.ToZone(report.mapID, report.x, report.y)
+    local zone, data = Zone(place)
     if not zone or not report.id then return nil end
-    -- Reports keep the map the victim stood on (maybe a cave); hotspots use the zone
-    local _, x, y = ns.Zones.ToZone(report.mapID, report.x, report.y)
     local U = ns.Utils
     local t = report.t or U.ServerTime()
     data.deaths[report.id] = { t = t, killer = ns.RulesEngine.EnemyId(report.killer), x = x, y = y }
@@ -1116,10 +1117,10 @@ function Hotspots:Tick()
     end
     -- Pings carry the zone, so the position must be on the zone map too (not a cave's)
     local mapID = U.PlayerMapID()
-    local _, x, y = ns.Zones.ToZone(mapID, U.PlayerPosition(mapID))
+    local place, x, y = ns.Zones.ToZone(mapID, U.PlayerPosition(mapID))
     local now = U.ServerTime()
     local layer = ns.Layer:Current()
-    local zone = self:AddFighter(mapID, U.CompactName(U.UnitKey("player")), now, x, y, ids,
+    local zone = self:AddFighter(place, U.CompactName(U.UnitKey("player")), now, x, y, ids,
         { enemies = enemies, layer = layer, allies = allies })
     if not zone then return end
     ownEnemies[zone] = ownEnemies[zone] or {}
@@ -1140,7 +1141,9 @@ function Hotspots:OnPeerPing(record, sender)
     if not mapID then return end
     local now = ns.Utils.ServerTime()
     if t > now + self.MAX_SKEW or now - t > self.WINDOW then return end
-    local zone = self:AddFighter(mapID, ns.Utils.CompactName(sender), t, x, y, ids,
+    local place
+    place, x, y = ns.Zones.ToZone(mapID, x, y)
+    local zone = self:AddFighter(place, ns.Utils.CompactName(sender), t, x, y, ids,
         { sender = sender, layer = layer, enemies = enemies, allies = allies })
     if not zone then return end
     local U = ns.Utils
