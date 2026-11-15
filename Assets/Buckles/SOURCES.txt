@@ -1,0 +1,10 @@
+Buckles (HH-161), made by us: the website's buckle design (head-hunter-web
+docs/website/buckles.html, drawn in code as SVG) rendered without the name ribbon, 256x128,
+32-bit TGA with alpha, the plate at x 40..216 (Sync/Buckles.lua CROP).
+
+<id>.tga             one picture per buckle, the website's Buckle enum (17)
+plate_<quality>.tga  the plate and gem of a quality without an emblem (uncommon, rare,
+                     epic, legendary, awarded), for a buckle this version does not know
+
+The emblems are icons from Lucide (https://lucide.dev, ISC licence), raised and lit in
+the design.

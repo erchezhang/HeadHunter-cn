@@ -12,9 +12,12 @@
 --     punished = { { name, realm, caught_at, kind, map_id, hunter, killer_name, glasses } } (bullies
 --       and Deadbeats brought down while not WANTED, author 2026-10-20),
 --     barflies = { { name, realm, glasses, last_glass_at, title, position } } (the most glasses raised),
---     bounties = { { t, owner, target, reason, gold, until } } (HH-118: the running players' bounties) }
+--     bounties = { { t, owner, target, reason, gold, until } } (HH-118: the running players' bounties),
+--     buckles = { { name, realm, buckle, buckle_name, quality } } (HH-161: the buckles players wear and still own) }
 --   forever_servers = { ["4620"] = "pve", ... }: WoW Forever server numbers and their realm type
---   characters = { { world, name, deaths, duels, catches, bounty = { total, events } } }
+--   characters = { { world, name, deaths, duels, catches, bounty = { total, events },
+--     buckles = { { uid, buckle, name, quality, source, found_at, event_at, map_id, quiet, other, tournament } },
+--     worn_buckle } } (HH-161: the character's buckle finds, newest first)
 -- This module picks our world, maps names to the addon's (player keys, "ROGUE",
 -- "Scourge", "mostwanted") and:
 --   * gives Wanted and HighNoon the website's lists to merge with what we saw
@@ -46,6 +49,7 @@ local RACES = {
 local FACTIONS = { alliance = "Alliance", horde = "Horde" }
 
 local world, wanted, duelists, deadbeats, bullies, tournaments, busted, glasses, posters, bountyTargets, punished, gangs
+local wornBuckles, buckleFinds, wornByOwner
 
 -------------------------------------------------
 -- Names
@@ -133,6 +137,31 @@ local function Data()
     local data = _G.HeadHunter_SiteData
     if type(data) ~= "table" or data.format_version ~= SiteData.FORMAT_VERSION then return nil end
     return data
+end
+
+-- Our characters in the download's list for our world: { { entry, key } }; on Era the
+-- key carries the world's realm
+local function OurCharacters(data)
+    local list = {}
+    if not (data and type(data.characters) == "table") then return list end
+    local realmType = ForeverRealmType(data)
+    for _, c in ipairs(data.characters) do
+        if type(c) == "table" and IsOurWorld(c.world, realmType) then
+            local _, _, place = Split(c.world)
+            local key = ns.Utils.PlayerKey(Text(c.name), not ns.Features.RealmlessNames and place or nil)
+            if key then list[#list + 1] = { entry = c, key = key } end
+        end
+    end
+    return list
+end
+
+-- One of our characters in the download, or nil
+local function OurCharacter(data, me)
+    if not me then return nil end
+    for _, c in ipairs(OurCharacters(data)) do
+        if ns.Utils.SameCharacter(c.key, me) then return c end
+    end
+    return nil
 end
 
 -------------------------------------------------
@@ -282,7 +311,8 @@ end
 
 function SiteData:Load()
     world, wanted, duelists, deadbeats, bullies, tournaments, busted, glasses = nil, nil, nil, nil, nil, nil, nil, nil
-    posters, bountyTargets, punished, gangs = nil, nil, nil, nil
+    posters, bountyTargets, punished, gangs, wornBuckles = nil, nil, nil, nil, nil
+    buckleFinds, wornByOwner = nil, nil
     local data = Data()
     world = data and FindWorld(data)
     if not world then return false end
@@ -336,6 +366,13 @@ function SiteData:Load()
             glasses[record.outlaw .. ":" .. record.t] = record.glasses
         end
     end
+    wornBuckles = {}
+    for _, b in ipairs(type(world.buckles) == "table" and world.buckles or {}) do
+        local key = type(b) == "table" and SiteData.Key(b)
+        local buckle = key and Text(b.buckle)
+        if buckle then wornBuckles[ns.Utils.CompactName(key)] = { buckle = buckle, name = Text(b.buckle_name), quality = Text(b.quality) } end
+    end
+    buckleFinds, wornByOwner = SiteData.ReadBuckles(data)
     gangs = {}
     for _, g in ipairs(type(world.gangs) == "table" and world.gangs or {}) do
         local gang = type(g) == "table" and SiteData.Gang(g)
@@ -483,38 +520,89 @@ end
 -- Our character's gang chat channel and password (HH-155): { channel, password, at (when the
 -- website applied it) } or nil
 function SiteData:GangChat(me)
-    local data = Data()
-    if not (data and me and type(data.characters) == "table") then return nil end
-    local realmType = ForeverRealmType(data)
-    for _, c in ipairs(data.characters) do
-        if type(c) == "table" and IsOurWorld(c.world, realmType) and ns.Utils.SameCharacter(ns.Utils.PlayerKey(Text(c.name)), me)
-                and type(c.gang_chat) == "table" then
-            local channel, password = Text(c.gang_chat.channel), Text(c.gang_chat.password)
-            if channel and password then return { channel = channel, password = password, at = Number(c.gang_chat.at) } end
-        end
-    end
-    return nil
+    local c = OurCharacter(Data(), me)
+    if not (c and type(c.entry.gang_chat) == "table") then return nil end
+    local channel, password = Text(c.entry.gang_chat.channel), Text(c.entry.gang_chat.password)
+    if not (channel and password) then return nil end
+    return { channel = channel, password = password, at = Number(c.entry.gang_chat.at) }
 end
 
 -- What came of our character's gang actions (HH-155): uid -> { kind, status, reason, gang,
 -- requested (a create's name that was taken, so the gang got a number) }
 function SiteData:GangResults(me)
-    local data = Data()
     local results = {}
-    if not (data and me and type(data.characters) == "table") then return results end
-    local realmType = ForeverRealmType(data)
-    for _, c in ipairs(data.characters) do
-        if type(c) == "table" and IsOurWorld(c.world, realmType) and ns.Utils.SameCharacter(ns.Utils.PlayerKey(Text(c.name)), me) then
-            for _, r in ipairs(type(c.gang_results) == "table" and c.gang_results or {}) do
-                local uid = type(r) == "table" and Text(r.uid)
-                if uid then
-                    results[uid] = { kind = Text(r.kind), status = Text(r.status), reason = Text(r.reason), gang = Text(r.gang),
-                        requested = Text(r.requested) }
-                end
-            end
+    local c = OurCharacter(Data(), me)
+    for _, r in ipairs(c and type(c.entry.gang_results) == "table" and c.entry.gang_results or {}) do
+        local uid = type(r) == "table" and Text(r.uid)
+        if uid then
+            results[uid] = { kind = Text(r.kind), status = Text(r.status), reason = Text(r.reason), gang = Text(r.gang),
+                requested = Text(r.requested) }
         end
     end
     return results
+end
+
+-- HH-161: one buckle find of the download as the addon keeps it, or nil: { uid, buckle,
+-- name (English, for a buckle this version does not know), quality, source, foundAt,
+-- eventAt, mapID, quiet, other (key), tournament, owner (the character's key) }
+function SiteData.BuckleFind(b, owner)
+    local uid, buckle = Number(b.uid), Text(b.buckle)
+    if not (uid and buckle) then return nil end
+    return { uid = uid, buckle = buckle, name = Text(b.name), quality = Text(b.quality), source = Text(b.source),
+        foundAt = Number(b.found_at), eventAt = Number(b.event_at), mapID = Number(b.map_id), quiet = b.quiet == true,
+        other = type(b.other) == "table" and SiteData.Key(b.other) or nil, tournament = Text(b.tournament), owner = owner }
+end
+
+-- HH-161: every find of our characters in this world, newest first, and the buckle each wears
+function SiteData.ReadBuckles(data)
+    local finds, worn = {}, {}
+    for _, c in ipairs(OurCharacters(data)) do
+        for _, b in ipairs(type(c.entry.buckles) == "table" and c.entry.buckles or {}) do
+            local find = type(b) == "table" and SiteData.BuckleFind(b, c.key)
+            if find then finds[#finds + 1] = find end
+        end
+        worn[c.key] = Text(c.entry.worn_buckle)
+    end
+    table.sort(finds, function(a, b) return (a.foundAt or 0) > (b.foundAt or 0) end)
+    return finds, worn
+end
+
+-- /hh sim buckles: made-up finds of our character and the buckle it wears, in memory only
+local testBuckles = { finds = {}, worn = nil, owner = nil }
+
+function SiteData:BuckleFinds()
+    if #testBuckles.finds == 0 then return buckleFinds or {} end
+    local list = {}
+    for _, find in ipairs(testBuckles.finds) do list[#list + 1] = find end
+    for _, find in ipairs(buckleFinds or {}) do list[#list + 1] = find end
+    return list
+end
+
+-- The buckle our character wears, by its key
+function SiteData:OwnWornBuckle(owner)
+    if testBuckles.worn and ns.Utils.SameCharacter(owner, testBuckles.owner) then return testBuckles.worn end
+    return wornByOwner and wornByOwner[owner] or nil
+end
+
+-- HH-161: the buckle a player of our world wears: { buckle, name, quality } or nil
+function SiteData:WornBuckle(key)
+    if testBuckles.worn and key and ns.Utils.SameCharacter(key, testBuckles.owner) then
+        return { buckle = testBuckles.worn, quality = ns.Buckles.Quality(testBuckles.worn) }
+    end
+    local id = key and ns.Utils.CompactName(key)
+    return id and wornBuckles and wornBuckles[id] or nil
+end
+
+-- /hh sim buckles: finds (newest first) of `owner`, who wears `worn`; replaces the last ones
+function SiteData:SetTestBuckles(owner, finds, worn)
+    testBuckles = { finds = finds or {}, worn = worn, owner = owner }
+end
+
+-- Returns the made-up finds removed
+function SiteData:ClearTestBuckles()
+    local finds = testBuckles.finds
+    testBuckles = { finds = {}, worn = nil, owner = nil }
+    return finds
 end
 
 -- A website page from the download's links ("tournaments", "create_tournament"), or nil
@@ -693,16 +781,11 @@ end
 -- Returns how many records were added
 function SiteData:Restore()
     local data = Data()
-    if not (data and ns.db and type(data.characters) == "table") then return 0 end
-    local realmType = ForeverRealmType(data)
+    if not (data and ns.db) then return 0 end
     local added = 0
-    for _, c in ipairs(data.characters) do
-        local me
-        if type(c) == "table" and IsOurWorld(c.world, realmType) then
-            local _, _, place = Split(c.world)
-            me = ns.Utils.PlayerKey(Text(c.name), not ns.Features.RealmlessNames and place or nil)
-        end
-        if me then
+    for _, our in ipairs(OurCharacters(data)) do
+        local c, me = our.entry, our.key
+        do
             added = added + RestoreDeaths(type(c.deaths) == "table" and c.deaths or {}, me)
             for _, d in ipairs(type(c.duels) == "table" and c.duels or {}) do
                 local duel = type(d) == "table" and SiteData.DuelRecord(d)

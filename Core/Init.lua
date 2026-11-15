@@ -2,9 +2,11 @@ local addonName, ns = ...
 
 ns.addonName = addonName
 
--- Read version from TOC file (C_AddOns on Forever, the global on Era)
+-- Read version from TOC file (C_AddOns on Forever, the global on Era). The packager writes
+-- @project-version@ in from the git tag; an unpackaged checkout still holds the raw token.
 local GetAddOnMetadata = C_AddOns and C_AddOns.GetAddOnMetadata or GetAddOnMetadata
-ns.version = (GetAddOnMetadata and GetAddOnMetadata(addonName, "Version")) or "0.0.0"
+local tocVersion = GetAddOnMetadata and GetAddOnMetadata(addonName, "Version")
+ns.version = (tocVersion and not tocVersion:find("@", 1, true)) and tocVersion or "dev"
 
 ns.Modules = {}
 
