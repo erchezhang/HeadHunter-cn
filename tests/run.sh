@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # HeadHunter offline tests. Needs Lua 5.1 (apt install lua5.1).
-# From Windows: wsl -d Ubuntu-22.04 -- bash "/mnt/g/Games/Battle.net/World of Warcraft/_classic_beta_/Interface/AddOns/HeadHunter/tests/run.sh"
+# From Windows: wsl -d Ubuntu-22.04 -- bash "/mnt/g/Games/Battle.net/World of Warcraft/_forever_/Interface/AddOns/HeadHunter/tests/run.sh"
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 failures=0
