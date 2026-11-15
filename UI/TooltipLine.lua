@@ -13,6 +13,10 @@
 -- tooltip's OnTooltipSetUnit script. Either may run more than once for one tooltip,
 -- so the line is added once until the tooltip is cleared. /hh tooltip turns it off.
 --
+-- Tooltip addons that redraw the player tooltip (author, 2026-11-15: TacoTip on WoW
+-- Forever drops every row under the name, guild and level and writes its own) end with
+-- the tooltip's Show(); a hook there adds back any of our lines that went missing.
+--
 -- TooltipLine.Lines(entry) is the pure part (tested offline).
 
 local addonName, ns = ...
@@ -114,14 +118,67 @@ function TooltipLine:Fill(tooltip)
     if organizer then table.insert(lines, 1, organizer) end
     if #lines == 0 then return end
     tooltip.hhLineAdded = true
+    tooltip.hhLines = lines
     for _, line in ipairs(lines) do
         tooltip:AddLine(line[1], line[2], line[3], line[4])
     end
 end
 
+-- Most times our lines are put back for one tooltip, so two addons that each redraw
+-- after the other can never loop
+TooltipLine.MAX_RESTORES = 2
+
+-- The texts of the tooltip's shown left rows, as a set
+local function ShownTexts(tooltip)
+    local U = ns.Utils
+    local shown = {}
+    local name = U.SafeCall(tooltip.GetName, tooltip)
+    local count = tonumber(U.SafeCall(tooltip.NumLines, tooltip)) or 0
+    for i = 1, count do
+        local row = name and _G[name .. "TextLeft" .. i]
+        local text = row and U.AccessibleString(U.SafeCall(row.GetText, row))
+        if text and U.SafeCall(row.IsShown, row) ~= false then shown[text] = true end
+    end
+    return shown
+end
+
+-- Our lines another addon took off the tooltip since we added them: array of { text, r, g, b }
+function TooltipLine.Missing(tooltip)
+    local lines = tooltip and tooltip.hhLines
+    if not lines then return {} end
+    local shown = ShownTexts(tooltip)
+    local missing = {}
+    for _, line in ipairs(lines) do
+        if not shown[line[1]] then missing[#missing + 1] = line end
+    end
+    return missing
+end
+
+-- After the tooltip's Show(): our lines again at the bottom, if another addon took them off
+function TooltipLine:Restore(tooltip)
+    if not tooltip or tooltip.hhRestoring or (tooltip.hhRestores or 0) >= self.MAX_RESTORES then return end
+    local missing = self.Missing(tooltip)
+    if #missing == 0 then return end
+    tooltip.hhRestores = (tooltip.hhRestores or 0) + 1
+    tooltip.hhRestoring = true
+    for _, line in ipairs(missing) do
+        tooltip:AddLine(line[1], line[2], line[3], line[4])
+    end
+    pcall(tooltip.Show, tooltip)
+    tooltip.hhRestoring = nil
+end
+
 local function HookCleared(tooltip)
     if tooltip and tooltip.HookScript then
-        pcall(tooltip.HookScript, tooltip, "OnTooltipCleared", function(self) self.hhLineAdded = nil end)
+        pcall(tooltip.HookScript, tooltip, "OnTooltipCleared", function(self)
+            self.hhLineAdded, self.hhLines, self.hhRestores = nil, nil, nil
+        end)
+    end
+    if tooltip and hooksecurefunc and type(tooltip.Show) == "function" then
+        pcall(hooksecurefunc, tooltip, "Show", function(self)
+            local ok, err = pcall(TooltipLine.Restore, TooltipLine, self)
+            if not ok then ns:Error(err) end
+        end)
     end
 end
 

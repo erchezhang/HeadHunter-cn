@@ -6,6 +6,7 @@
 - **PvP areas leave the map sooner.** A PvP area now goes 5 minutes after the last fight in it (it was 10), so the map shows the fights going on now. Choose 3 to 10 minutes in Options > Display.
 - **Raise a glass in the middle of the screen.** The card that asks you to raise a glass to another HeadHunter's catch now shows in the middle of the screen, a little above your character, instead of under the minimap, where it was easy to miss.
 - **Fixed: fights at dungeon entrances missing from the zone map.** A fight near a dungeon entrance, like Gnomeregan in Dun Morogh or Razorfen Downs in the Barrens, showed a mark on the continent map but not on the zone map. It now shows on the zone map too.
+- **Works with TacoTip.** TacoTip redraws player tooltips and removed HeadHunter's lines: WANTED, bounty, gang, duels and the worn buckle. HeadHunter now adds them back under TacoTip's lines.
 
 ## 1.1.1
 
