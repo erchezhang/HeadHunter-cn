@@ -494,6 +494,78 @@ return function(T, H)
         T.noErrors()
     end)
 
+    -- Minutes pass with the map open: it looks at the zone every 30 s
+    local function QuietMinutes(ns, minutes)
+        for _ = 1, minutes * 2 do
+            H.serverTime = H.serverTime + 30
+            ns.Hotspots:Active()
+        end
+    end
+
+    T.case("HH-164: a fight that regroups within 10 min is the same fight, with the map open meanwhile", function()
+        local ns = H.Boot({ client = "era" })
+        PingAt(ns, 1436, "Alpha-Firemaw", Ids(1, 12), 0.2, 0.2)
+        T.eq(Popups(), 1, "Battle")
+        QuietMinutes(ns, 7)
+        H.clock = H.clock + ns.Alerts.POPUP_GAP
+        PingAt(ns, 1436, "Alpha-Firemaw", Ids(1, 12), 0.2, 0.2, 1)
+        T.eq(Popups(), 1, "the same fight again: no second popup")
+        ns.Database:SetSetting("hotspotMapMinutes", 10)
+        T.eq(#ZoneSpots(ns, 1436), 1, "one mark, not the old one and a new one")
+        T.noErrors()
+    end)
+
+    T.case("HH-164: other players fighting at the same place within 10 min are the same fight", function()
+        local ns = H.Boot({ client = "era" })
+        PingAt(ns, 1436, "Alpha-Firemaw", Ids(1, 12), 0.2, 0.2)
+        local first = ns.Hotspots:Areas(1436)[1].id
+        QuietMinutes(ns, 7)
+        H.clock = H.clock + ns.Alerts.POPUP_GAP
+        PingAt(ns, 1436, "Bravo-Firemaw", Ids(50, 61), 0.22, 0.2, 1)
+        T.eq(ns.Hotspots:Areas(1436)[1].id, first, "the same area")
+        T.eq(Popups(), 1, "no second popup")
+        T.noErrors()
+    end)
+
+    T.case("HH-164: after 10 quiet minutes a fight there is news again", function()
+        local ns = H.Boot({ client = "era" })
+        PingAt(ns, 1436, "Alpha-Firemaw", Ids(1, 12), 0.2, 0.2)
+        QuietMinutes(ns, 11)
+        H.clock = H.clock + ns.Alerts.POPUP_GAP
+        PingAt(ns, 1436, "Alpha-Firemaw", Ids(1, 12), 0.2, 0.2, 1)
+        T.eq(Popups(), 2, "a new Battle popup")
+        T.noErrors()
+    end)
+
+    T.case("HH-164: how long marks stay on the map never changes who is alerted", function()
+        local ns = H.Boot({ client = "era" })
+        ns.Database:SetSetting("hotspotsPerZone", 1)
+        ns.Database:SetSetting("hotspotMapMinutes", 3)
+        PingAt(ns, 1436, "Alpha-Firemaw", Ids(1, 12), 0.2, 0.2)
+        T.eq(Popups(), 1, "the first Battle")
+        H.serverTime = H.serverTime + 210
+        H.clock = H.clock + ns.Alerts.POPUP_GAP
+        PingAt(ns, 1436, "Bravo-Firemaw", Ids(20, 30), 0.8, 0.8, 1)
+        T.eq(Popups(), 1, "the smaller Battle is not the zone's hottest within 10 min: no popup, as with 10 min on the map")
+        local spots = ZoneSpots(ns, 1436)
+        T.eq(#spots, 1, "the map shows one area")
+        T.eq(spots[1].x, 0.8, "the first one is off the map after 3 min, so the map shows the new one")
+        T.noErrors()
+    end)
+
+    T.case("HH-164: a mark's minutes count from the newest activity in it", function()
+        local ns = H.Boot({ client = "era" })
+        PingAt(ns, 1436, "Alpha-Firemaw", Ids(1, 12), 0.2, 0.2)
+        H.serverTime = H.serverTime + 330
+        PingAt(ns, 1436, "Charlie-Firemaw", Ids(70, 70), 0.2, 0.2, 1)
+        H.serverTime = H.serverTime + 180
+        local spots = ZoneSpots(ns, 1436)
+        T.eq(#spots, 1, "8.5 min after the Battle, but 3 min after the last ping there: still shown")
+        T.ok(spots[1].remembered, "as it last burned")
+        T.eq(spots[1].level, 2, "a Battle")
+        T.noErrors()
+    end)
+
     T.case("activity with no position joins the newest area", function()
         local ns = H.Boot({ client = "era" })
         PingAt(ns, 1429, "Alpha-Firemaw", Ids(1, 5), 0.1, 0.1, 30)

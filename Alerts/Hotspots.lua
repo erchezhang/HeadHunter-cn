@@ -52,8 +52,9 @@ local OWNER = "Hotspots"
 
 Hotspots.WINDOW = 300
 Hotspots.NOW_WINDOW = 120
--- HH-164: an area remembers it is the same fight (alert level, [Ignore]) this long after
--- its newest activity, like a war (Wars.END_AFTER): a regroup or a corpse run is no news
+-- HH-164: an area remembers it is the same fight (its players, place, alert level and
+-- [Ignore]) this long after its newest activity, like a war (Wars.END_AFTER): a regroup or
+-- a corpse run is no news. Never shorter than MAP_MINUTES_MAX, or a mark would go early.
 Hotspots.AREA_MEMORY = 600
 -- HH-164: a PvP area's mark stays on the map this many minutes after the newest activity
 -- in it, the setting hotspotMapMinutes (author, 2026-11-15: 10 was long; it was 20 until
@@ -351,6 +352,25 @@ local function NewestFirst(p, q)
     return p.key < q.key
 end
 
+-- Areas hottest first, then the newest
+local function HottestArea(p, q)
+    if p.heat ~= q.heat then return p.heat > q.heat end
+    return p.t > q.t
+end
+
+-- A zone's spots hottest first, then the oldest area
+local function HottestSpot(p, q)
+    if p.heat ~= q.heat then return p.heat > q.heat end
+    return p.id < q.id
+end
+
+-- Every zone's shown spots hottest first, in a fixed order
+local function HottestOnMap(p, q)
+    if p.heat ~= q.heat then return p.heat > q.heat end
+    if p.zone ~= q.zone then return p.zone < q.zone end
+    return p.id < q.id
+end
+
 local function AddItem(area, item)
     area[item.list][item.id] = item.value
     area.keys[#area.keys + 1] = item.key
@@ -363,7 +383,7 @@ end
 -- came together are one. Activity with no position joins the newest area (or makes one
 -- with no place). Each area lists its activity's keys ("enemies:E0000001"), which tell
 -- which area seen before it is.
-function Hotspots.Split(data, now)
+local function Split(data, now)
     local since = now - Hotspots.WINDOW
     for _, list in ipairs(ZONE_LISTS) do CountRecent(data[list], since) end
     local items = {}
@@ -430,30 +450,58 @@ local function MostVoted(state, votes, taken)
     return best
 end
 
+-- The nearest area seen before within AREA_RADIUS of the area's middle, not taken yet
+local function NearestEntry(state, area, taken)
+    if not area.x then return nil end
+    local best, bestDistance
+    for id, entry in pairs(state.entries) do
+        if not taken[id] and entry.x then
+            local distance = Distance(area.x, area.y, entry.x, entry.y)
+            if distance <= Hotspots.AREA_RADIUS and (not bestDistance or distance < bestDistance) then
+                best, bestDistance = entry, distance
+            end
+        end
+    end
+    return best
+end
+
+local function Take(area, entry, taken)
+    taken[entry.id] = true
+    area.id, area.entry = entry.id, entry
+end
+
 -- An area keeps the id of the area seen before that held most of its activity, so it stays
--- the same fight while it moves, grows or loses players. The hottest area chooses first.
+-- the same fight while it moves, grows or loses players (within AREA_MEMORY, also after a
+-- quiet spell). The hottest area chooses first. An area with none of an earlier area's
+-- players is the earlier area at about its place, if there is one (a regroup of others).
 -- An area seen before whose activity went mostly into another area merged into it: the
 -- area keeps the highest alert level and the longest [Ignore], and its own level counts
 -- as said, so a merge never alerts. A new area split off from one seen before starts with
 -- that one's alert level and [Ignore], so a split never alerts either.
 local function Match(state, areas)
-    local taken, bestOf = {}, {}
+    local taken, bestOf, waiting = {}, {}, {}
     for _, area in ipairs(areas) do
         local votes = Votes(state, area)
         for id, count in pairs(votes) do
             if not bestOf[id] or count > bestOf[id].count then bestOf[id] = { area = area, count = count } end
         end
         local id = MostVoted(state, votes, taken)
-        local entry = id and state.entries[id]
+        if id then
+            Take(area, state.entries[id], taken)
+        else
+            waiting[#waiting + 1] = { area = area, votes = votes }
+        end
+    end
+    for _, wait in ipairs(waiting) do
+        local entry = NearestEntry(state, wait.area, taken)
         if not entry then
             areaSerial = areaSerial + 1
             entry = { id = areaSerial }
-            local parent = state.entries[MostVoted(state, votes, {}) or 0]
+            local parent = state.entries[MostVoted(state, wait.votes, {}) or 0]
             if parent then entry.announced, entry.ignoredUntil = parent.announced, parent.ignoredUntil end
             state.entries[entry.id] = entry
         end
-        taken[entry.id] = true
-        area.id, area.entry = entry.id, entry
+        Take(wait.area, entry, taken)
     end
     for id, entry in pairs(state.entries) do
         local best = bestOf[id]
@@ -470,7 +518,8 @@ end
 
 -- A zone's areas now, hottest first: each with heat, level, a, e, d (the window), id and
 -- entry (what it keeps between looks). Worked out once per zone change and second, so the
--- map, the alerts and Help share one result. Areas quiet for AREA_MEMORY are forgotten.
+-- map, the alerts and Help share one result. Areas quiet for AREA_MEMORY are forgotten;
+-- until then they keep their players, so a regroup is still the same fight.
 function Hotspots:Areas(zone, now)
     now = now or ns.Utils.ServerTime()
     local data = zones[zone]
@@ -478,14 +527,11 @@ function Hotspots:Areas(zone, now)
     local state = areaState[zone]
     local cache = state and state.cache
     if cache and cache.now == now and cache.version == version then return cache.areas end
-    local areas = data and self.Split(data, now) or {}
+    local areas = data and Split(data, now) or {}
     for _, area in ipairs(areas) do
         area.heat, area.level, area.a, area.e, area.d = HeatOf(area, now)
     end
-    table.sort(areas, function(p, q)
-        if p.heat ~= q.heat then return p.heat > q.heat end
-        return p.t > q.t
-    end)
+    table.sort(areas, HottestArea)
     state = state or { entries = {}, owner = {}, aliases = {} }
     areaState[zone] = state
     Match(state, areas)
@@ -495,13 +541,15 @@ function Hotspots:Areas(zone, now)
         local entry = area.entry
         entry.x, entry.y = area.x or entry.x, area.y or entry.y
         entry.t = math.max(entry.t or 0, area.t or 0)
-        entry.heat = area.heat
         for _, key in ipairs(area.keys) do owner[key] = area.id end
     end
-    state.owner = owner
     for id, entry in pairs(state.entries) do
         if not current[id] and now - (entry.t or 0) > self.AREA_MEMORY then state.entries[id] = nil end
     end
+    for key, id in pairs(state.owner) do
+        if not owner[key] and not current[id] and state.entries[id] then owner[key] = id end
+    end
+    state.owner = owner
     for old, id in pairs(state.aliases) do
         if not Resolve(state, id) then state.aliases[old] = nil end
     end
@@ -538,18 +586,22 @@ function Hotspots:IgnoreArea(zone, id)
     if entry then entry.ignoredUntil = ns.Utils.Now() + self.IGNORE_TIME end
 end
 
+-- A whole-number setting kept within min..max, `default` when unset
+local function SettingNumber(key, min, max, default)
+    local value = tonumber(ns.db and ns.db.settings[key]) or default
+    return math.max(min, math.min(max, math.floor(value)))
+end
+
 -- HH-164: how long a PvP area's mark stays after its newest activity, in seconds: the
 -- setting, MAP_MINUTES_MIN to MAP_MINUTES_MAX minutes
 function Hotspots.MapTime()
-    local minutes = tonumber(ns.db and ns.db.settings.hotspotMapMinutes) or Hotspots.MAP_MINUTES_DEFAULT
-    minutes = math.max(Hotspots.MAP_MINUTES_MIN, math.min(Hotspots.MAP_MINUTES_MAX, math.floor(minutes)))
-    return minutes * 60
+    return 60 * SettingNumber("hotspotMapMinutes", Hotspots.MAP_MINUTES_MIN, Hotspots.MAP_MINUTES_MAX,
+        Hotspots.MAP_MINUTES_DEFAULT)
 end
 
 -- How many of a zone's areas the map shows and alerts: the setting, 1 to MAX_AREAS
 function Hotspots.PerZone()
-    local value = tonumber(ns.db and ns.db.settings.hotspotsPerZone) or Hotspots.MAX_AREAS
-    return math.max(1, math.min(Hotspots.MAX_AREAS, math.floor(value)))
+    return SettingNumber("hotspotsPerZone", 1, Hotspots.MAX_AREAS, Hotspots.MAX_AREAS)
 end
 
 -- Only a lone WANTED ganker's kills: the skull marks it, so no PvP area and no popup
@@ -570,39 +622,34 @@ local function Burning(zone, area, now)
 end
 
 -- A zone's PvP areas, hottest first, all of them: burning areas as they are now, and
--- areas that burned as they last were (remembered = true); an area shows until MapTime()
--- after its newest activity, also while it still burns (HH-164). The map and
--- the alerts take the first PerZone() of this one list.
-function Hotspots:Spots(zone, now)
-    now = now or ns.Utils.ServerTime()
+-- areas that burned as they last were (remembered = true), each while its newest activity
+-- is at most `keep` seconds old
+local function ZoneSpots(zone, now, keep)
     local list, seen = {}, {}
-    local mapTime = self.MapTime()
-    for _, area in ipairs(self:Areas(zone, now)) do
+    for _, area in ipairs(Hotspots:Areas(zone, now)) do
         local spot = Burning(zone, area, now)
         if spot then
             seen[area.id] = true
-            if now - spot.t <= mapTime then list[#list + 1] = spot end
+            if now - spot.t <= keep then list[#list + 1] = spot end
         end
     end
     local state = areaState[zone]
     for id, entry in pairs(state and state.entries or {}) do
-        local spot = entry.spot
-        if not seen[id] and spot then
-            if now - spot.t > self.AREA_MEMORY then
-                entry.spot = nil
-            elseif now - spot.t <= mapTime then
-                local copy = {}
-                for k, v in pairs(spot) do copy[k] = v end
-                copy.remembered = true
-                list[#list + 1] = copy
-            end
+        if not seen[id] and entry.spot and now - entry.t <= keep then
+            local copy = {}
+            for k, v in pairs(entry.spot) do copy[k] = v end
+            copy.remembered, copy.t = true, entry.t
+            list[#list + 1] = copy
         end
     end
-    table.sort(list, function(p, q)
-        if p.heat ~= q.heat then return p.heat > q.heat end
-        return p.id < q.id
-    end)
+    table.sort(list, HottestSpot)
     return list
+end
+
+-- A zone's PvP areas for the map, hottest first: each until MapTime() after its newest
+-- activity, also while it still burns (HH-164)
+function Hotspots:Spots(zone, now)
+    return ZoneSpots(zone, now or ns.Utils.ServerTime(), self.MapTime())
 end
 
 -- PvP areas for the map (HH-046), hottest first: each zone's hottest PerZone() areas
@@ -626,11 +673,7 @@ function Hotspots:Active(now)
             list[#list + 1] = spot
         end
     end
-    table.sort(list, function(p, q)
-        if p.heat ~= q.heat then return p.heat > q.heat end
-        if p.zone ~= q.zone then return p.zone < q.zone end
-        return p.id < q.id
-    end)
+    table.sort(list, HottestOnMap)
     return list
 end
 
@@ -786,43 +829,19 @@ function Hotspots:OnHelp(record, sender)
     ns.Events:Fire("HH_HELP_COMING", zone, sender)
 end
 
--- The zone's data changed: the map redraws (HH_HOTSPOT_CHANGED), every burning area is
--- kept for the map (even if the map is not open now), and each of the zone's
--- hottest PerZone() areas alerts on its own (HH-163). HH_HOTSPOT is only for alerts.
--- The same ranking as the map: an area alerts when it is one of the zone's first PerZone()
--- spots (burning or remembered). A lone WANTED ganker's area is no spot and takes no
--- place, but still gets its chat line.
-function Hotspots:Evaluate(zone)
-    ns.Events:Fire("HH_HOTSPOT_CHANGED", zone)
-    local now = ns.Utils.ServerTime()
-    local me = ns.Utils.CompactName(ns.Utils.UnitKey("player"))
-    local shown = {}
-    for rank, spot in ipairs(self:Spots(zone, now)) do
-        if rank > self.PerZone() then break end
-        shown[spot.id] = true
-    end
-    for _, area in ipairs(self:Areas(zone, now)) do
-        if area.level == 0 then
-            area.entry.announced, area.entry.quietSince = nil, nil
-        elseif shown[area.id] or IsLone(zone, area) then
-            self:AlertArea(zone, area, now, me)
-        end
-    end
-end
-
 -- One area's alert, when it climbs a level: never for our own fight there, nor while
 -- [Ignore] mutes it or the zone is out of the alert range
-function Hotspots:AlertArea(zone, area, now, me)
+local function AlertArea(zone, area, now, me)
     local entry, level, lone = area.entry, area.level, IsLone(zone, area)
     if (entry.announced or 0) >= level then return end
     local mine = me and area.fighters[me]
-    if mine and now - mine.t <= self.FIGHT_RECENT * 4 then
+    if mine and now - mine.t <= Hotspots.FIGHT_RECENT * 4 then
         entry.quietSince = mine.t
         ns:Debug("Hotspot: quiet, our own fight in", zone, "area", area.id, "level", level)
         return
     end
     if entry.quietSince then
-        if not self:ActivitySince(zone, entry.quietSince + self.FIGHT_RECENT * 4, me, area) then return end
+        if not Hotspots:ActivitySince(zone, entry.quietSince + Hotspots.FIGHT_RECENT * 4, me, area) then return end
         entry.quietSince = nil
     end
     if entry.ignoredUntil and ns.Utils.Now() < entry.ignoredUntil then return end
@@ -833,17 +852,17 @@ function Hotspots:AlertArea(zone, area, now, me)
     local title = L["HOTSPOT_LEVEL_" .. level]
     local nowA, nowE = NowOf(area, now)
     local line = string.format(L.HOTSPOT_LINE, Fire(level), title, zoneName, Hotspots.Describe(nowA, nowE, area.d))
-    local names = self:EnemyNames(area, now)
+    local names = Hotspots:EnemyNames(area, now)
     if names then line = line .. string.format(L.HOTSPOT_NAMES, names) end
     local chat = line
-    local fighters = self:FighterNames(area, now)
+    local fighters = Hotspots:FighterNames(area, now)
     if fighters then
         line = line .. string.format(L.HOTSPOT_FIGHTING, fighters)
-        chat = chat .. string.format(L.HOTSPOT_FIGHTING, self:FighterNames(area, now, true))
+        chat = chat .. string.format(L.HOTSPOT_FIGHTING, Hotspots:FighterNames(area, now, true))
     end
     local alert = {
         key = "hot:" .. zone .. ":" .. area.id .. ":" .. level,
-        throttle = self.LEVEL_THROTTLE,
+        throttle = Hotspots.LEVEL_THROTTLE,
         chat = chat,
     }
     local areaId = area.id
@@ -863,6 +882,32 @@ function Hotspots:AlertArea(zone, area, now, me)
     end
     ns.Alerts:Show(alert)
     ns.Events:Fire("HH_HOTSPOT", zone, level, area.heat)
+end
+
+-- The zone's data changed: the map redraws (HH_HOTSPOT_CHANGED), every burning area is
+-- kept for the map (even if the map is not open now), and each of the zone's hottest
+-- PerZone() areas alerts on its own (HH-163). HH_HOTSPOT is only for alerts. The ranking is
+-- the map's, but over every area burning or remembered within AREA_MEMORY, so how long
+-- marks stay on the map never changes who is alerted (HH-164). A lone WANTED ganker's area
+-- is no spot and takes no place, but still gets its chat line. An area keeps the level it
+-- was announced at while it is remembered, so a regroup at that level is no news.
+function Hotspots:Evaluate(zone)
+    ns.Events:Fire("HH_HOTSPOT_CHANGED", zone)
+    local now = ns.Utils.ServerTime()
+    local me = ns.Utils.CompactName(ns.Utils.UnitKey("player"))
+    local limit = self.PerZone()
+    local ranked = {}
+    for rank, spot in ipairs(ZoneSpots(zone, now, self.AREA_MEMORY)) do
+        if rank > limit then break end
+        ranked[spot.id] = true
+    end
+    for _, area in ipairs(self:Areas(zone, now)) do
+        if area.level == 0 then
+            area.entry.quietSince = nil
+        elseif ranked[area.id] or IsLone(zone, area) then
+            AlertArea(zone, area, now, me)
+        end
+    end
 end
 
 -- 1.0.9: a ping that names enemies, all of them from our own fight (`ours`: short id -> t)
