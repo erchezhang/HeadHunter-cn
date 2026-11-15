@@ -3,6 +3,7 @@
 ## Unreleased
 
 - **Up to 3 PvP areas per zone.** Busy zones like Stranglethorn Vale often have several fights at once. Each fight now gets its own red area on the zone map, with its own alert, Help and Ignore, instead of one area for the whole zone. On the continent map each zone has one mark: hover it to see its fights, click to open the zone. Choose 1 to 3 areas per zone in Options > Display.
+- **PvP areas leave the map sooner.** A PvP area now goes 5 minutes after the last fight in it (it was 10), so the map shows the fights going on now. Choose 3 to 10 minutes in Options > Display.
 
 ## 1.1.1
 

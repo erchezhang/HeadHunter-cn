@@ -685,7 +685,7 @@ ns.Events:Register("HH_INITIALIZED", function()
         end
     end, OWNER)
     ns.Events:Register("HH_SETTING_CHANGED", function(_, path)
-        if path == "mapPins" or path == "hotspotsPerZone" then request() end
+        if path == "mapPins" or path == "hotspotsPerZone" or path == "hotspotMapMinutes" then request() end
     end, OWNER)
 end, OWNER)
 

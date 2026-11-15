@@ -467,6 +467,7 @@ return function(T, H)
 
     T.case("activity with no position never wipes the areas the map remembers", function()
         local ns = H.Boot({ client = "era" })
+        ns.Database:SetSetting("hotspotMapMinutes", 10)
         PingAt(ns, 1429, "Alpha-Firemaw", Ids(1, 12), 0.1, 0.1)
         PingAt(ns, 1429, "Bravo-Firemaw", Ids(20, 31), 0.9, 0.9)
         T.eq(#ZoneSpots(ns, 1429), 2, "two Battles")

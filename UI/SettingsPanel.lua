@@ -52,6 +52,9 @@ SettingsPanel.OPTIONS = {
     -- HH-163: the map and the alerts take a zone's hottest 1 to 3 PvP areas
     { key = "hotspotsPerZone", kind = "number", path = "hotspotsPerZone", min = 1, max = ns.Hotspots.MAX_AREAS, step = 1,
         format = "SET_AREAS_VALUE", label = "SET_AREAS", tip = "SET_AREAS_TIP" },
+    -- HH-164: how long a PvP area stays on the map after the last fight in it
+    { key = "hotspotMapMinutes", kind = "number", path = "hotspotMapMinutes", min = ns.Hotspots.MAP_MINUTES_MIN,
+        max = ns.Hotspots.MAP_MINUTES_MAX, step = 1, format = "SET_MINUTES", label = "SET_AREA_TIME", tip = "SET_AREA_TIME_TIP" },
     { key = "tooltip", kind = "toggle", path = "tooltip", label = "SET_TOOLTIP", tip = "SET_TOOLTIP_TIP" },
     { key = "organizerMarks", kind = "toggle", path = "organizerMarks", label = "SET_ORGANIZER_MARKS",
         tip = "SET_ORGANIZER_MARKS_TIP" },

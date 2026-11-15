@@ -52,10 +52,15 @@ local OWNER = "Hotspots"
 
 Hotspots.WINDOW = 300
 Hotspots.NOW_WINDOW = 120
--- The map keeps a PvP area MAP_TIME after the zone's last hot moment; new activity
--- restarts it (author, 2026-09-23). 10 min, was 20 (author, 2026-10-08): a fight quiet
--- that long is over, and the same time ends a war (HH-136)
-Hotspots.MAP_TIME = 600
+-- HH-164: an area remembers it is the same fight (alert level, [Ignore]) this long after
+-- its newest activity, like a war (Wars.END_AFTER): a regroup or a corpse run is no news
+Hotspots.AREA_MEMORY = 600
+-- HH-164: a PvP area's mark stays on the map this many minutes after the newest activity
+-- in it, the setting hotspotMapMinutes (author, 2026-11-15: 10 was long; it was 20 until
+-- 2026-10-08)
+Hotspots.MAP_MINUTES_MIN = 3
+Hotspots.MAP_MINUTES_DEFAULT = 5
+Hotspots.MAP_MINUTES_MAX = 10
 Hotspots.TICK = 5
 Hotspots.FIGHT_RECENT = 15
 Hotspots.PING_INTERVAL = 30
@@ -79,7 +84,7 @@ local zones = {}
 local ownEnemies = {}
 -- HH-163: zone -> { area id -> what an area keeps between looks: x, y, t (newest activity),
 -- heat, announced (highest level said in this burst), quietSince (our own fight's latest
--- moment), ignoredUntil (GetTime()), spot (its last hot state, for the map: MAP_TIME) }
+-- moment), ignoredUntil (GetTime()), spot (its last hot state, for the map: MapTime) }
 local areaState = {}
 local areaSerial = 0
 local lastPing = 0
@@ -465,7 +470,7 @@ end
 
 -- A zone's areas now, hottest first: each with heat, level, a, e, d (the window), id and
 -- entry (what it keeps between looks). Worked out once per zone change and second, so the
--- map, the alerts and Help share one result. Areas gone quiet for MAP_TIME are forgotten.
+-- map, the alerts and Help share one result. Areas quiet for AREA_MEMORY are forgotten.
 function Hotspots:Areas(zone, now)
     now = now or ns.Utils.ServerTime()
     local data = zones[zone]
@@ -495,7 +500,7 @@ function Hotspots:Areas(zone, now)
     end
     state.owner = owner
     for id, entry in pairs(state.entries) do
-        if not current[id] and now - (entry.t or 0) > self.MAP_TIME then state.entries[id] = nil end
+        if not current[id] and now - (entry.t or 0) > self.AREA_MEMORY then state.entries[id] = nil end
     end
     for old, id in pairs(state.aliases) do
         if not Resolve(state, id) then state.aliases[old] = nil end
@@ -533,6 +538,14 @@ function Hotspots:IgnoreArea(zone, id)
     if entry then entry.ignoredUntil = ns.Utils.Now() + self.IGNORE_TIME end
 end
 
+-- HH-164: how long a PvP area's mark stays after its newest activity, in seconds: the
+-- setting, MAP_MINUTES_MIN to MAP_MINUTES_MAX minutes
+function Hotspots.MapTime()
+    local minutes = tonumber(ns.db and ns.db.settings.hotspotMapMinutes) or Hotspots.MAP_MINUTES_DEFAULT
+    minutes = math.max(Hotspots.MAP_MINUTES_MIN, math.min(Hotspots.MAP_MINUTES_MAX, math.floor(minutes)))
+    return minutes * 60
+end
+
 -- How many of a zone's areas the map shows and alerts: the setting, 1 to MAX_AREAS
 function Hotspots.PerZone()
     local value = tonumber(ns.db and ns.db.settings.hotspotsPerZone) or Hotspots.MAX_AREAS
@@ -557,25 +570,27 @@ local function Burning(zone, area, now)
 end
 
 -- A zone's PvP areas, hottest first, all of them: burning areas as they are now, and
--- areas that burned within MAP_TIME as they last were (remembered = true). The map and
+-- areas that burned as they last were (remembered = true); an area shows until MapTime()
+-- after its newest activity, also while it still burns (HH-164). The map and
 -- the alerts take the first PerZone() of this one list.
 function Hotspots:Spots(zone, now)
     now = now or ns.Utils.ServerTime()
     local list, seen = {}, {}
+    local mapTime = self.MapTime()
     for _, area in ipairs(self:Areas(zone, now)) do
         local spot = Burning(zone, area, now)
         if spot then
-            list[#list + 1] = spot
             seen[area.id] = true
+            if now - spot.t <= mapTime then list[#list + 1] = spot end
         end
     end
     local state = areaState[zone]
     for id, entry in pairs(state and state.entries or {}) do
         local spot = entry.spot
         if not seen[id] and spot then
-            if now - spot.t > self.MAP_TIME then
+            if now - spot.t > self.AREA_MEMORY then
                 entry.spot = nil
-            else
+            elseif now - spot.t <= mapTime then
                 local copy = {}
                 for k, v in pairs(spot) do copy[k] = v end
                 copy.remembered = true
@@ -772,7 +787,7 @@ function Hotspots:OnHelp(record, sender)
 end
 
 -- The zone's data changed: the map redraws (HH_HOTSPOT_CHANGED), every burning area is
--- kept for the map for MAP_TIME (even if the map is not open now), and each of the zone's
+-- kept for the map (even if the map is not open now), and each of the zone's
 -- hottest PerZone() areas alerts on its own (HH-163). HH_HOTSPOT is only for alerts.
 -- The same ranking as the map: an area alerts when it is one of the zone's first PerZone()
 -- spots (burning or remembered). A lone WANTED ganker's area is no spot and takes no

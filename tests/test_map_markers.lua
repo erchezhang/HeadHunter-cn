@@ -233,25 +233,43 @@ return function(T, H)
         T.noErrors()
     end)
 
-    T.case("a PvP area stays 10 min after the last activity; new activity restarts it", function()
+    T.case("HH-164: a PvP area stays 5 min after the last activity by default; new activity restarts it", function()
         local ns = H.Boot({ client = "era" })
         Battle(ns, 1417) -- pings 5 s ago
         T.eq(#ns.MapMarkers:PinsFor(1417), 1, "burning")
         T.eq(ns.Hotspots:Heat(1417), 14, "heat now")
-        H.serverTime = H.serverTime + 301
-        T.eq(ns.Hotspots:Heat(1417), 0, "the alerts' 5 min window has passed")
+        H.serverTime = H.serverTime + 4 * 60
         local pins = ns.MapMarkers:PinsFor(1417)
-        T.eq(#pins, 1, "still on the map")
-        T.eq(pins[1].level, 2, "as it last was: Battle")
-        T.ok(Find("5 min ago", pins[1].lines), "says when")
+        T.eq(#pins, 1, "4 min: still on the map")
+        T.ok(Find("4 min ago", pins[1].lines), "says when")
+        H.serverTime = H.serverTime + 60
+        T.eq(#ns.MapMarkers:PinsFor(1417), 0, "gone 5 min after the last activity")
+        Battle(ns, 1417)
+        H.serverTime = H.serverTime + 4 * 60
+        T.eq(#ns.MapMarkers:PinsFor(1417), 1, "fighting again: back, and 4 min later still there")
+    end)
 
-        H.serverTime = H.serverTime + 4 * 60 -- 9 min 6 s after the pings
-        T.eq(#ns.MapMarkers:PinsFor(1417), 1, "9 min: still there")
-        Battle(ns, 1417)                      -- fighting again
-        H.serverTime = H.serverTime + 9 * 60
-        T.eq(#ns.MapMarkers:PinsFor(1417), 1, "restarted: 9 min after the new fight")
+    T.case("HH-164: the setting keeps a PvP area 3 to 10 min; raising it shows a quiet area again as it last was", function()
+        local ns = H.Boot({ client = "era" })
+        ns.SettingsPanel.Set(ns.SettingsPanel.Option("hotspotMapMinutes"), 3)
+        Battle(ns, 1417)
         H.serverTime = H.serverTime + 2 * 60
-        T.eq(#ns.MapMarkers:PinsFor(1417), 0, "gone 10 min after the last activity")
+        T.eq(#ns.MapMarkers:PinsFor(1417), 1, "3 min: shown at 2 min")
+        H.serverTime = H.serverTime + 60 + 5
+        T.eq(ns.Hotspots:Level(1417), 2, "the heat window still counts it")
+        T.eq(#ns.MapMarkers:PinsFor(1417), 0, "but the mark is gone 3 min after the last fight")
+        ns.SettingsPanel.Set(ns.SettingsPanel.Option("hotspotMapMinutes"), 10)
+        H.serverTime = H.serverTime + 5 * 60
+        local pins = ns.MapMarkers:PinsFor(1417)
+        T.eq(#pins, 1, "10 min: shown again, as it last was")
+        T.eq(pins[1].level, 2, "as a Battle")
+        H.serverTime = H.serverTime + 2 * 60
+        T.eq(#ns.MapMarkers:PinsFor(1417), 0, "gone after 10 min")
+        ns.SettingsPanel.Set(ns.SettingsPanel.Option("hotspotMapMinutes"), 1)
+        T.eq(ns.db.settings.hotspotMapMinutes, 3, "never under 3")
+        ns.SettingsPanel.Set(ns.SettingsPanel.Option("hotspotMapMinutes"), 20)
+        T.eq(ns.db.settings.hotspotMapMinutes, 10, "never over 10")
+        T.noErrors()
     end)
 
     T.case("WANTED outlaw: skull pin at the last kill, no fire pin for a lone ganker", function()
