@@ -1,4 +1,5 @@
--- A HeadHunter notice under the minimap (author, 2026-10-04): a small parchment poster
+-- A HeadHunter notice in the middle of the screen (author, 2026-11-15: it is rare; it was
+-- under the minimap from 2026-10-04): a small parchment poster
 -- like the WANTED poster (UI/Poster.lua) with a red stamp over it, and a gold button
 -- with an icon below. One at a time: a new one replaces the one on show. It closes
 -- itself after `seconds` (30 by default), on the button, or with its x.
@@ -18,18 +19,14 @@ Toast.WIDTH = 220
 Toast.PAPER_HEIGHT = 262
 Toast.BUTTON_HEIGHT = 30
 Toast.SECONDS = 30
-Toast.GAP = 12 -- below the minimap
+-- How far above the middle of the screen the card's middle sits, so it stays off the character
+Toast.ABOVE_MIDDLE = 60
 
 local frame, current, closesAt
 
 local function Anchor(f)
     f:ClearAllPoints()
-    local minimap = _G.MinimapCluster or _G.Minimap
-    if minimap then
-        f:SetPoint("TOPRIGHT", minimap, "BOTTOMRIGHT", -8, -Toast.GAP)
-    else
-        f:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", -20, -220)
-    end
+    f:SetPoint("CENTER", UIParent, "CENTER", 0, Toast.ABOVE_MIDDLE)
 end
 
 -- A frame of `size` px lines in `color` around `f`

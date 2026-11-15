@@ -11,7 +11,7 @@
 --           war); the war begins at the oldest activity still in the zone's window
 --   end     the zone has been cold for END_AFTER; the war ends at its last hot moment.
 --           Fighting again before that is the same war (a regroup, a corpse run). The
---           map keeps a PvP area just as long (Hotspots.MAP_TIME)
+--           areas remember they are the same fight just as long (Hotspots.AREA_MEMORY)
 -- A war still going at logout or /reload stays open in the saved data and goes on after
 -- the reload, or is closed at the next login; HeadHunter Sync sends only closed wars.
 --
