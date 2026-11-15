@@ -28,6 +28,19 @@ return function(T, H)
         T.ok(ns.MinimapButton:IsShown(), "shown again")
     end)
 
+    T.case("HH-163: PvP areas per zone on the Display page, 3 by default, 1 to 3", function()
+        local ns = H.Boot({ client = "era" })
+        local S = ns.SettingsPanel
+        local option = S.Option("hotspotsPerZone")
+        T.eq(S.PageOf("hotspotsPerZone"), "display", "Display page")
+        T.eq(S.Get(option), 3, "3 by default")
+        S.Set(option, 0)
+        T.eq(ns.db.settings.hotspotsPerZone, 1, "at least 1")
+        S.Set(option, 4)
+        T.eq(ns.db.settings.hotspotsPerZone, 3, "at most 3")
+        T.eq(string.format(ns.L[option.format], 2), "2", "shown as a number")
+    end)
+
     T.case("range cycles; unknown choices are refused", function()
         local ns = H.Boot({ client = "era" })
         local S = ns.SettingsPanel

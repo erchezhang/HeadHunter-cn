@@ -8,6 +8,9 @@
 -- one per zone; the tooltip has a row per layer with duels (author, 2026-10-06). That
 -- mark is the one with clicks: left asks a HeadHunter on the top duel layer for an
 -- invite, right opens a menu to choose the layer (author, 2026-10-06).
+-- HH-163: a zone's map shows each of its hottest PvP areas (the setting, 1 to 3) at its
+-- fight; a continent or the world map shows one PvP mark per zone at its hottest area,
+-- with a tooltip row per area and no click of its own, so a click opens the zone.
 --
 -- Drawn on our own layer over the map canvas, not through the map's data-provider
 -- system: on the 12.x engine (Forever) reading WorldMapFrame.mapID taints the addon
@@ -83,6 +86,8 @@ local function OutlawName(entry)
     return entry.key and ns.Utils.DisplayName(entry.key) or entry.name
 end
 
+-- One PvP area on its own zone's map (HH-163: a zone shows up to N of them), with its
+-- Shift-click Help from 2 fires
 local function HotspotPin(spot, mapID, now)
     local x, y, zoneWidth = MapMarkers.Project(spot.zone, spot.x, spot.y, mapID)
     if not x then return nil end
@@ -94,20 +99,70 @@ local function HotspotPin(spot, mapID, now)
         ns.Utils.Ago(math.max(0, now - spot.t)),
     }
     if clickable then
-        local state = ns.Hotspots:InviteState(spot.zone, now, true)
+        local state = ns.Hotspots:InviteState(spot.zone, now, true, spot.id)
         lines[#lines + 1] = state == "ok" and L.HOTSPOT_MAP_CLICK or L.HOTSPOT_MAP_CLICK_WAY
     end
     return {
         kind = "hotspot",
-        id = "hot:" .. spot.zone,
+        id = "hot:" .. spot.zone .. ":" .. tostring(spot.id),
         x = x, y = y,
-        size = MapMarkers.AREA_WIDTH * zoneWidth, -- diameter as a share of the map's width
+        size = MapMarkers.AREA_WIDTH * zoneWidth,
         alpha = MapMarkers.AREA_ALPHA[spot.level] or MapMarkers.AREA_ALPHA[1],
         level = spot.level,
         zone = spot.zone,
+        area = spot.id,
         clickable = clickable,
         lines = lines,
     }
+end
+
+-- HH-163: on a continent or the world map, one PvP mark per zone at its hottest area,
+-- shaded by that area's level; the tooltip has a row per area (hottest first) and says a
+-- click shows where. No click of its own: a click goes through and the map opens the zone.
+-- spots: the zone's shown areas, hottest first.
+local function ZoneHotspotPin(spots, mapID, now)
+    local hottest = spots[1]
+    local x, y, zoneWidth = MapMarkers.Project(hottest.zone, hottest.x, hottest.y, mapID)
+    if not x then return nil end
+    local lines = { string.format(L.MAP_HOTSPOT_ZONE_TITLE, ns.Utils.MapName(hottest.zone) or L.UNKNOWN_ZONE) }
+    for _, spot in ipairs(spots) do
+        lines[#lines + 1] = { L["HOTSPOT_LEVEL_" .. spot.level],
+            string.format(L.MAP_HOTSPOT_ROW, ns.Hotspots.Describe(spot.a, spot.e, spot.d), ns.Utils.Ago(math.max(0, now - spot.t))) }
+    end
+    lines[#lines + 1] = L.MAP_HOTSPOT_OPEN
+    return {
+        kind = "hotspot",
+        id = "hot:" .. hottest.zone,
+        x = x, y = y,
+        size = MapMarkers.AREA_WIDTH * zoneWidth,
+        alpha = MapMarkers.AREA_ALPHA[hottest.level] or MapMarkers.AREA_ALPHA[1],
+        level = hottest.level,
+        zone = hottest.zone,
+        clickable = false,
+        lines = lines,
+    }
+end
+
+-- The PvP marks for mapID, hottest first: each area on its own zone's map, one mark per
+-- zone elsewhere; at most MAX_PER_KIND
+local function HotspotPins(mapID, now)
+    local pins, byZone, order = {}, {}, {}
+    for _, spot in ipairs(ns.Hotspots:Active(now)) do
+        if spot.zone == mapID then
+            if #pins < MapMarkers.MAX_PER_KIND then pins[#pins + 1] = HotspotPin(spot, mapID, now) end
+        else
+            if not byZone[spot.zone] then
+                byZone[spot.zone] = {}
+                order[#order + 1] = spot.zone
+            end
+            table.insert(byZone[spot.zone], spot)
+        end
+    end
+    for _, zone in ipairs(order) do
+        if #pins >= MapMarkers.MAX_PER_KIND then break end
+        pins[#pins + 1] = ZoneHotspotPin(byZone[zone], mapID, now)
+    end
+    return pins
 end
 
 -- One mark per zone with duel spots (author, 2026-10-06): every layer with its duels, the
@@ -235,18 +290,8 @@ function MapMarkers:PinsFor(mapID, now)
     mapID = tonumber(mapID)
     if not mapID then return {} end
     now = now or ns.Utils.ServerTime()
-    local pins = {}
+    local pins = HotspotPins(mapID, now)
     local shown = 0
-    -- Active() is hottest first
-    for _, spot in ipairs(ns.Hotspots:Active(now)) do
-        if shown >= MapMarkers.MAX_PER_KIND then break end
-        local pin = HotspotPin(spot, mapID, now)
-        if pin then
-            pins[#pins + 1] = pin
-            shown = shown + 1
-        end
-    end
-    shown = 0
     for _, group in ipairs(ns.DuelSpots:ByZone(now)) do
         if shown >= MapMarkers.MAX_PER_KIND then break end
         local pin = DuelPin(group, mapID, now)
@@ -443,7 +488,7 @@ end
 local function HotspotClick(label)
     local data = label.data
     if not data or data.kind ~= "hotspot" or not data.clickable or not ShiftDown() then return end
-    ns.Hotspots:Help(data.zone, L["HOTSPOT_LEVEL_" .. data.level], true)
+    ns.Hotspots:Help(data.zone, L["HOTSPOT_LEVEL_" .. data.level], true, data.area)
     Retooltip(label)
 end
 
@@ -639,7 +684,7 @@ ns.Events:Register("HH_INITIALIZED", function()
         end
     end, OWNER)
     ns.Events:Register("HH_SETTING_CHANGED", function(_, path)
-        if path == "mapPins" then request() end
+        if path == "mapPins" or path == "hotspotsPerZone" then request() end
     end, OWNER)
 end, OWNER)
 

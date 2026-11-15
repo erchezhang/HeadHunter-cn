@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Up to 3 PvP areas per zone.** Busy zones like Stranglethorn Vale often have several fights at once. Each fight now gets its own red area on the zone map, with its own alert, Help and Ignore, instead of one area for the whole zone. On the continent map each zone has one mark: hover it to see its fights, click to open the zone. Choose 1 to 3 areas per zone in Options > Display.
+
 ## 1.1.1
 
 - **Fixed: shared records lost after a busy moment.** When many records were passed on at once, some whispers that did not fit the send limit were thrown away, so some players never got those kills, duels or alerts. They now wait and go out a moment later.

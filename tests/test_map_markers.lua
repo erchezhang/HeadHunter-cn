@@ -47,7 +47,10 @@ return function(T, H)
 
     local function Find(text, lines)
         for _, line in ipairs(lines) do
-            if line:find(text, 1, true) then return true end
+            local parts = type(line) == "table" and line or { line }
+            for _, part in ipairs(parts) do
+                if part:find(text, 1, true) then return true end
+            end
         end
         return false
     end
@@ -139,6 +142,66 @@ return function(T, H)
         near(pins[1].size, 0.02, "area shrinks with the zone on the continent")
         T.eq(#ns.MapMarkers:PinsFor(1429), 0, "not on another zone")
         T.eq(#ns.MapMarkers:PinsFor(1414), 0, "not on the other continent")
+    end)
+
+    T.case("HH-163: the zone map shows each area at its fight; the continent one mark per zone with a row per area", function()
+        local ns = H.Boot({ client = "era" })
+        Ping(ns, 1417, "Alpha-Firemaw", Ids(1, 12), nil, 0.2, 0.2)
+        Ping(ns, 1417, "Bravo-Firemaw", Ids(20, 23), nil, 0.8, 0.8)
+        local pins = ns.MapMarkers:PinsFor(1417)
+        T.eq(#pins, 2, "two areas on Arathi")
+        near(pins[1].x, 0.2, "the Battle at its fight")
+        T.eq(pins[1].level, 2, "Battle")
+        T.ok(pins[1].clickable, "Shift-click Help on the zone map")
+        near(pins[2].x, 0.8, "the Skirmish at its fight")
+        T.ok(pins[1].id ~= pins[2].id, "each its own mark")
+        T.eq(ns.Hotspots:Help(1417, "Skirmish", true, pins[2].area), "waypoint", "Help from a mark")
+        near(H.waypoints[#H.waypoints].x, 0.8, "the way to that area's fight")
+
+        H.mapRects["1417:1415"] = { 0.5, 0.7, 0.3, 0.5 }
+        pins = ns.MapMarkers:PinsFor(1415)
+        T.eq(#pins, 1, "one mark for the zone on Eastern Kingdoms")
+        local pin = pins[1]
+        near(pin.x, 0.54, "at the hottest area")
+        near(pin.y, 0.34, "at the hottest area")
+        T.eq(pin.level, 2, "shaded as the hottest area")
+        T.ok(not pin.clickable, "no click of its own: the map opens the zone")
+        T.ok(Find("Arathi Highlands", pin.lines), "the zone's name")
+        local rows = {}
+        for _, line in ipairs(pin.lines) do
+            if type(line) == "table" then rows[#rows + 1] = line end
+        end
+        T.eq(#rows, 2, "a row per area")
+        T.eq(rows[1][1], "Battle", "hottest first")
+        T.ok(rows[1][2]:find("≈12 Horde fighting 1 Alliance", 1, true) ~= nil, "its counts: " .. rows[1][2])
+        T.eq(rows[2][1], "Skirmish", "then the other")
+        T.ok(Find("Click to see where the fights are", pin.lines), "says what a click does")
+
+        ns.Database:SetSetting("hotspotsPerZone", 1)
+        T.eq(#ns.MapMarkers:PinsFor(1417), 1, "the setting: one area on the zone map")
+        local continentRows = 0
+        for _, line in ipairs(ns.MapMarkers:PinsFor(1415)[1].lines) do
+            if type(line) == "table" then continentRows = continentRows + 1 end
+        end
+        T.eq(continentRows, 1, "and one row on the continent")
+        T.noErrors()
+    end)
+
+    T.case("HH-163: at most 10 zones with PvP marks on a continent map, the hottest", function()
+        local ns = H.Boot({ client = "era" })
+        for i = 1, 12 do
+            local zone = 5000 + i
+            H.maps[zone] = { mapID = zone, name = "Zone " .. i, mapType = 3, parentMapID = 1415 }
+            H.mapRects[zone .. ":1415"] = { 0.1, 0.2, 0.1, 0.2 }
+            Ping(ns, zone, "Hunter" .. i .. "-Firemaw", Ids(1, 3 + i), nil, 0.5, 0.5)
+            Ping(ns, zone, "Other" .. i .. "-Firemaw", Ids(1, 3 + i), nil, 0.1, 0.1)
+        end
+        local pins = ns.MapMarkers:PinsFor(1415)
+        T.eq(#pins, 10, "10 marks")
+        local zones = {}
+        for _, pin in ipairs(pins) do zones[pin.zone] = true end
+        T.ok(zones[5012] and not zones[5001] and not zones[5002], "the hottest zones")
+        T.noErrors()
     end)
 
     T.case("hotspot alerts say PvP and count both sides", function()

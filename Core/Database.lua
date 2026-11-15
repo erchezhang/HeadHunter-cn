@@ -66,6 +66,8 @@ local DEFAULTS = {
         },
         serialKillerWindowMin = 15, -- 5..15
         mapPins = true, -- HH-046: hotspot and WANTED pins on the world map
+        -- HH-163: how many of a zone's hottest PvP areas the map shows and alerts, 1..3
+        hotspotsPerZone = 3,
         tooltip = true, -- HH-062: WANTED line on enemy player tooltips
         organizerMarks = true, -- HH-128: the star on tournament hosts and co-organizers
         wantedMarks = true, -- the HeadHunter crosshair above WANTED players (UI/Nameplates.lua)

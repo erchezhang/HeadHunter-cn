@@ -49,6 +49,9 @@ SettingsPanel.OPTIONS = {
         label = "SET_SERIAL", tip = "SET_SERIAL_TIP" },
     { section = "SET_SECTION_DISPLAY", page = "display" },
     { key = "mapPins", kind = "toggle", path = "mapPins", label = "SET_MAP", tip = "SET_MAP_TIP" },
+    -- HH-163: the map and the alerts take a zone's hottest 1 to 3 PvP areas
+    { key = "hotspotsPerZone", kind = "number", path = "hotspotsPerZone", min = 1, max = 3, step = 1,
+        format = "SET_AREAS_VALUE", label = "SET_AREAS", tip = "SET_AREAS_TIP" },
     { key = "tooltip", kind = "toggle", path = "tooltip", label = "SET_TOOLTIP", tip = "SET_TOOLTIP_TIP" },
     { key = "organizerMarks", kind = "toggle", path = "organizerMarks", label = "SET_ORGANIZER_MARKS",
         tip = "SET_ORGANIZER_MARKS_TIP" },

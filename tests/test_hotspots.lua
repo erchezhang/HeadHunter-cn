@@ -6,6 +6,11 @@ return function(T, H)
         H.Deliver(ns.Protocol.Pack("A", "P", { record }), sender)
     end
 
+    local function PingAt(ns, mapID, sender, enemyIds, x, y, ago)
+        local record = ns.Protocol.EncodeHotspot(mapID, H.serverTime - (ago or 5), x, y, enemyIds)
+        H.Deliver(ns.Protocol.Pack("A", "P", { record }), sender)
+    end
+
     local function Ids(from, to)
         local ids = {}
         for i = from, to do ids[#ids + 1] = string.format("E%07d", i) end
@@ -335,13 +340,127 @@ return function(T, H)
         T.eq(D(5, 4, 4), "≈4 Horde fighting 5 Alliance, 4 death(s) in 5 min", "everything")
     end)
 
-    T.case("/hh hotspots lists active zones", function()
+    T.case("/hh hotspots lists every area with its place, whatever the setting", function()
         local ns = H.Boot({ client = "era" })
         H.Slash("hotspots")
         T.ok(H.Printed("No PvP activity"), "empty")
         Ping(ns, 1436, "Alpha-Firemaw", Ids(1, 3))
         H.Slash("hotspots")
-        T.ok(H.Printed("Westfall: heat 4 %(HeadHunters 1, enemies 3, deaths 0%)"), "listed")
+        T.ok(H.Printed("Westfall 40, 60: heat 4 %(HeadHunters 1, enemies 3, deaths 0%)"), "listed with its place")
+        ns.Database:SetSetting("hotspotsPerZone", 1)
+        PingAt(ns, 1436, "Bravo-Firemaw", Ids(10, 12), 0.9, 0.1)
+        H.Slash("hotspots")
+        T.ok(H.Printed("Westfall 90, 10: heat 4"), "the second area too")
+    end)
+
+    -------------------------------------------------
+    -- HH-163: areas inside a zone
+    -------------------------------------------------
+
+    local function ZoneSpots(ns, zone)
+        local list = {}
+        for _, spot in ipairs(ns.Hotspots:Active()) do
+            if spot.zone == zone then list[#list + 1] = spot end
+        end
+        return list
+    end
+
+    T.case("fights more than 15% of the zone apart are areas of their own, each with its own heat", function()
+        local ns = H.Boot({ client = "era" })
+        PingAt(ns, 1436, "Alpha-Firemaw", Ids(1, 12), 0.2, 0.2)
+        PingAt(ns, 1436, "Bravo-Firemaw", Ids(20, 23), 0.7, 0.7)
+        PingAt(ns, 1436, "Charlie-Firemaw", Ids(30, 31), 0.25, 0.25)
+        local areas = ns.Hotspots:Areas(1436)
+        T.eq(#areas, 2, "two areas")
+        T.eq(areas[1].heat, 16, "Alpha and Charlie close together: 2 + 14")
+        T.eq(areas[1].level, 2, "a Battle")
+        T.eq(areas[2].heat, 5, "Bravo's fight alone")
+        T.eq(areas[2].level, 1, "a Skirmish")
+        T.eq(areas[2].x, 0.7, "at its own place")
+        T.eq(ns.Hotspots:Heat(1436), 21, "the zone's heat stays the sum (wars)")
+        T.noErrors()
+    end)
+
+    T.case("the map shows a zone's 3 hottest areas by default, down to 1 with the setting", function()
+        local ns = H.Boot({ client = "era" })
+        PingAt(ns, 1436, "Alpha-Firemaw", Ids(1, 12), 0.1, 0.1)
+        PingAt(ns, 1436, "Bravo-Firemaw", Ids(20, 28), 0.9, 0.1)
+        PingAt(ns, 1436, "Charlie-Firemaw", Ids(30, 35), 0.1, 0.9)
+        PingAt(ns, 1436, "Delta-Firemaw", Ids(40, 43), 0.9, 0.9)
+        T.eq(#ns.Hotspots:Areas(1436), 4, "every area is tracked")
+        local spots = ZoneSpots(ns, 1436)
+        T.eq(#spots, 3, "3 by default")
+        T.eq(spots[1].heat, 13, "hottest first")
+        T.eq(spots[3].heat, 7, "the coolest one left out")
+        ns.SettingsPanel.Set(ns.SettingsPanel.Option("hotspotsPerZone"), 1)
+        spots = ZoneSpots(ns, 1436)
+        T.eq(#spots, 1, "1 with the setting")
+        T.eq(spots[1].x, 0.1, "the hottest")
+        ns.SettingsPanel.Set(ns.SettingsPanel.Option("hotspotsPerZone"), 7)
+        T.eq(ns.db.settings.hotspotsPerZone, 3, "never more than 3")
+        T.noErrors()
+    end)
+
+    T.case("each area alerts on its own; Ignore mutes only that area", function()
+        local ns = H.Boot({ client = "era" })
+        PingAt(ns, 1436, "Alpha-Firemaw", Ids(1, 12), 0.2, 0.2)
+        T.eq(Popups(), 1, "Battle at the first fight")
+        _G.StaticPopupDialogs.HEADHUNTER_HOTSPOT.OnCancel()
+        H.clock = H.clock + ns.Alerts.POPUP_GAP
+        PingAt(ns, 1436, "Bravo-Firemaw", Ids(20, 31), 0.8, 0.8)
+        T.eq(Popups(), 2, "a Battle at the other fight in the same zone")
+        _G.StaticPopupDialogs.HEADHUNTER_HOTSPOT.OnAccept()
+        T.eq(H.waypoints[#H.waypoints].x, 0.8, "Help: the way to that fight")
+        H.clock = H.clock + ns.Alerts.POPUP_GAP
+        PingAt(ns, 1436, "Charlie-Firemaw", Ids(40, 49), 0.2, 0.2)
+        T.eq(#H.centerTexts, 0, "the ignored area grows to a Warzone: muted")
+        PingAt(ns, 1436, "Delta-Firemaw", Ids(50, 59), 0.8, 0.8)
+        T.ok(H.centerTexts[1] and H.centerTexts[1]:find("Warzone", 1, true) ~= nil, "the other area's Warzone is said")
+        T.noErrors()
+    end)
+
+    T.case("only the zone's hottest N areas alert", function()
+        local ns = H.Boot({ client = "era" })
+        ns.Database:SetSetting("hotspotsPerZone", 1)
+        PingAt(ns, 1436, "Alpha-Firemaw", Ids(1, 14), 0.2, 0.2)
+        T.eq(Popups(), 1, "the hottest area")
+        H.clock = H.clock + ns.Alerts.POPUP_GAP
+        H.printed = {}
+        PingAt(ns, 1436, "Bravo-Firemaw", Ids(20, 30), 0.8, 0.8)
+        T.eq(Popups(), 1, "a smaller Battle elsewhere in the zone: not shown, not said")
+        T.ok(not H.Printed("Battle"), "no chat line either")
+        ns.Database:SetSetting("hotspotsPerZone", 2)
+        PingAt(ns, 1436, "Echo-Firemaw", Ids(20, 30), 0.8, 0.8)
+        T.eq(Popups(), 2, "with 2 areas per zone it is said")
+        T.noErrors()
+    end)
+
+    T.case("two areas whose fights come together merge without an alert", function()
+        local ns = H.Boot({ client = "era" })
+        PingAt(ns, 1436, "Alpha-Firemaw", Ids(1, 12), 0.22, 0.2, 20)
+        PingAt(ns, 1436, "Bravo-Firemaw", Ids(20, 23), 0.48, 0.2, 15)
+        T.eq(#ns.Hotspots:Areas(1436), 2, "two areas")
+        T.ok(H.Printed("Skirmish"), "the smaller one was said as a Skirmish")
+        H.clock = H.clock + ns.Alerts.POPUP_GAP
+        PingAt(ns, 1436, "Charlie-Firemaw", Ids(30, 32), 0.35, 0.2, 1)
+        local areas = ns.Hotspots:Areas(1436)
+        T.eq(#areas, 1, "one area now")
+        T.eq(areas[1].level, 3, "big enough for a Warzone")
+        T.eq(#H.centerTexts, 0, "but merging is no news: no Warzone alert")
+        T.eq(Popups(), 1, "only the first Battle popup")
+        T.noErrors()
+    end)
+
+    T.case("activity with no position joins the newest area", function()
+        local ns = H.Boot({ client = "era" })
+        PingAt(ns, 1429, "Alpha-Firemaw", Ids(1, 5), 0.1, 0.1, 30)
+        PingAt(ns, 1429, "Bravo-Firemaw", Ids(6, 10), 0.9, 0.9, 5)
+        Death(ns, 9001, 2)
+        local areas = ns.Hotspots:Areas(1429)
+        T.eq(#areas, 2, "still two areas")
+        local newest = areas[1].x == 0.9 and areas[1] or areas[2]
+        T.eq(newest.d, 1, "the death in a cave without a known place counts in the newest area")
+        T.noErrors()
     end)
 
     T.case("ping: our side rides along as +ids, older clients see only the enemies", function()

@@ -36,6 +36,12 @@
 -- HH-136: fires HH_PVP_SEEN(zone, fighters, layer, t) with the players seen fighting,
 -- from our own scan and from other HeadHunters' pings, for Alerts/Wars.lua:
 --   fighters = { { key, side = "ally" | "enemy", class?, race?, level?, guild?, faction? } }
+-- HH-163: a zone holds several PvP areas (author, 2026-11-15: Stranglethorn Vale has
+-- fights at the Arena and at Booty Bay at once). Activity more than AREA_RADIUS of the
+-- zone's width from an area starts another one; activity with no position joins the
+-- newest area. Each area has its own heat, level, alert, [Help] and [Ignore]; areas that
+-- come together merge without an alert. The map and the alerts take a zone's hottest
+-- `hotspotsPerZone` areas (1 to MAX_AREAS). Heat, Level and Oldest stay per zone (wars).
 
 local addonName, ns = ...
 local L = ns.L
@@ -60,14 +66,22 @@ Hotspots.LEVELS = { { heat = 20, id = 3 }, { heat = 10, id = 2 }, { heat = 4, id
 -- From this level (Battle) a click on the map's PvP mark is Help (author, 2026-10-08):
 -- never for a Skirmish
 Hotspots.INVITE_LEVEL = 2
+-- HH-163: activity further than this from an area, as a share of the zone's width,
+-- starts another area in the same zone (author, 2026-11-15)
+Hotspots.AREA_RADIUS = 0.15
+-- HH-163: the most areas per zone the map shows and alerts (the setting goes 1 to this)
+Hotspots.MAX_AREAS = 3
 
-local zones = {}        -- zone mapID -> { fighters = {id -> {t, x, y}}, allies = {id -> t}, enemies = {id -> t}, deaths = {id -> t} }
-local announced = {}    -- zone -> highest level announced in the current burst
-local quietSince = {}   -- zone -> when our own fight there kept it quiet (its latest moment)
+-- zone mapID -> { fighters = {id -> {t, x, y}}, allies = {id -> {t, x, y}},
+-- enemies = {id -> {t, x, y}}, deaths = {id -> {t, x, y}}, names = {name -> {t, x, y}} }
+local zones = {}
 -- zone -> { short id -> t }: the enemies of our own fight there (1.0.9), kept for WINDOW
 local ownEnemies = {}
-local remembered = {}   -- zone -> the zone's last hot state, for the map (MAP_TIME)
-local ignored = {}      -- zone -> GetTime() until which it is muted
+-- HH-163: zone -> { area id -> what an area keeps between looks: x, y, t (newest activity),
+-- heat, announced (highest level said in this burst), quietSince (our own fight's latest
+-- moment), ignoredUntil (GetTime()), spot (its last hot state, for the map: MAP_TIME) }
+local areaState = {}
+local areaSerial = 0
 local lastPing = 0
 
 local function Zone(mapID)
@@ -87,34 +101,43 @@ end
 -- Inputs
 -------------------------------------------------
 
+-- The time of a list entry: a table with t, or a plain time
+local function Stamp(value)
+    if type(value) == "table" then return value.t end
+    return value
+end
+
+-- Keeps the newest sighting of `id` in `list`, with the place of the ping that saw it
+local function Seen(list, id, t, x, y)
+    local known = list[id]
+    if not known or (Stamp(known) or 0) < t then list[id] = { t = t, x = x, y = y } end
+end
+
 -- who: compact name (the key); extra: { sender = name to whisper, layer, enemies =
 -- { { name, class, level } } } from 0.1.8 pings (HH-111); allies = short ids of our
 -- side in combat, the fighter among them (0.4.0+; nil from older pings: the fighter
--- counts alone)
+-- counts alone). HH-163: enemies, allies and names keep the ping's place, for the areas.
 function Hotspots:AddFighter(mapID, who, t, x, y, enemyIds, extra)
     local zone, data = Zone(mapID)
     if not zone or not who then return nil end
     extra = extra or {}
     data.fighters[who] = { t = t, x = x, y = y, sender = extra.sender, layer = extra.layer,
         allies = extra.allies ~= nil or nil, enemies = enemyIds }
-    for _, id in ipairs(enemyIds or {}) do
-        if not data.enemies[id] or data.enemies[id] < t then data.enemies[id] = t end
-    end
-    for _, id in ipairs(extra.allies or {}) do
-        if not data.allies[id] or data.allies[id] < t then data.allies[id] = t end
-    end
+    for _, id in ipairs(enemyIds or {}) do Seen(data.enemies, id, t, x, y) end
+    for _, id in ipairs(extra.allies or {}) do Seen(data.allies, id, t, x, y) end
     for _, enemy in ipairs(extra.enemies or {}) do
         if enemy.name then
-            data.names[enemy.name] = { t = t, name = enemy.name, class = enemy.class, level = enemy.level }
+            data.names[enemy.name] = { t = t, name = enemy.name, class = enemy.class, level = enemy.level, x = x, y = y }
         end
     end
     return zone
 end
 
 -- "Grimtusk (34 Rogue), Dusk (?? Mage)": up to MAX_PING_NAMES enemies seen fighting
--- in the zone within the window, newest first; nil when no names are known
-function Hotspots:EnemyNames(zone, now)
-    local data = zones[zone]
+-- in the zone (or, HH-163, in one area: `data` is then that area) within the window,
+-- newest first; nil when no names are known
+function Hotspots:EnemyNames(zone, now, data)
+    data = data or zones[zone]
     if not data then return nil end
     local since = (now or ns.Utils.ServerTime()) - self.WINDOW
     local list = {}
@@ -136,9 +159,10 @@ function Hotspots:EnemyNames(zone, now)
 end
 
 -- HeadHunters of our faction fighting in the zone, newest first (not us): "Brakka, Zulgar"
--- links: the names as chat links, to whisper them with a click (our faction only)
-function Hotspots:FighterNames(zone, now, links)
-    local data = zones[zone]
+-- links: the names as chat links, to whisper them with a click (our faction only);
+-- data: one area of the zone (HH-163), else the whole zone
+function Hotspots:FighterNames(zone, now, links, data)
+    data = data or zones[zone]
     if not data then return nil end
     local U = ns.Utils
     local since = (now or U.ServerTime()) - self.WINDOW
@@ -191,8 +215,8 @@ end
 -- Our side: the allies the pings named, and the fighters whose pings named none
 local function OurSide(data, since)
     local n = 0
-    for _, t in pairs(data.allies) do
-        if t >= since then n = n + 1 end
+    for _, ally in pairs(data.allies) do
+        if (Stamp(ally) or 0) >= since then n = n + 1 end
     end
     for _, fighter in pairs(data.fighters) do
         if fighter.t >= since and not fighter.allies then n = n + 1 end
@@ -200,33 +224,42 @@ local function OurSide(data, since)
     return n
 end
 
--- heat, level (0-3), A, E, D for a zone
-function Hotspots:Heat(zone, now)
-    local data = zones[zone]
+-- heat, level (0-3), A, E, D for a zone's activity or one of its areas
+local function HeatOf(data, now)
     if not data then return 0, 0, 0, 0, 0 end
-    local since = (now or ns.Utils.ServerTime()) - self.WINDOW
+    local since = now - Hotspots.WINDOW
     CountRecent(data.fighters, since)
     CountRecent(data.allies, since)
     local a = OurSide(data, since)
     local e = CountRecent(data.enemies, since)
     local d = CountRecent(data.deaths, since)
     local heat = a + e + 2 * d
-    for _, level in ipairs(self.LEVELS) do
+    for _, level in ipairs(Hotspots.LEVELS) do
         if heat >= level.heat then return heat, level.id, a, e, d end
     end
     return heat, 0, a, e, d
 end
 
--- A and E as the fight is now (the last NOW_WINDOW seconds), for the map and alerts
-function Hotspots:Now(zone, now)
-    local data = zones[zone]
+-- heat, level (0-3), A, E, D for a whole zone (wars and `/hh` tools; the map and the
+-- alerts use its areas, HH-163)
+function Hotspots:Heat(zone, now)
+    return HeatOf(zones[zone], now or ns.Utils.ServerTime())
+end
+
+-- A and E of a zone's activity or one of its areas in the last NOW_WINDOW seconds
+local function NowOf(data, now)
     if not data then return 0, 0 end
-    local since = (now or ns.Utils.ServerTime()) - self.NOW_WINDOW
+    local since = now - Hotspots.NOW_WINDOW
     local e = 0
-    for _, t in pairs(data.enemies) do
-        if t >= since then e = e + 1 end
+    for _, enemy in pairs(data.enemies) do
+        if (Stamp(enemy) or 0) >= since then e = e + 1 end
     end
     return OurSide(data, since), e
+end
+
+-- A and E as the fight is now (the last NOW_WINDOW seconds), for the map and alerts
+function Hotspots:Now(zone, now)
+    return NowOf(zones[zone], now or ns.Utils.ServerTime())
 end
 
 -- The zone's fire level (0-3) as the map sees it: 0 for a lone WANTED ganker
@@ -254,10 +287,10 @@ end
 -- True when the zone's heat is only deaths by ONE WANTED outlaw (no fighters, no
 -- enemies seen): that is a ganker, already covered by the WANTED popup, not a
 -- battle (author, 2026-09-23: chat line only).
-function Hotspots:IsLoneOutlaw(zone, a, e)
+function Hotspots:IsLoneOutlaw(zone, a, e, data)
     if a > 0 or e > 0 then return false end
     local killer
-    for _, death in pairs(zones[zone].deaths) do
+    for _, death in pairs((data or zones[zone]).deaths) do
         if not death.killer or (killer and death.killer ~= killer) then return false end
         killer = death.killer
     end
@@ -289,39 +322,195 @@ local function Newest(data)
     return newest
 end
 
--- The zone as it is now, if it burns (level 1+, and not a lone WANTED ganker):
---   { zone, level, heat, a, e, d, x, y, t = newest activity }. Also kept for the map.
-local function Burning(zone, now)
-    local heat, level, a, e, d = Hotspots:Heat(zone, now)
-    if level == 0 or Hotspots:IsLoneOutlaw(zone, a, e) then return nil end
+-------------------------------------------------
+-- Areas (HH-163)
+-------------------------------------------------
+
+-- The lists an area holds, like a zone; names only follow the area they were seen in
+local AREA_LISTS = { "fighters", "allies", "enemies", "deaths" }
+
+local function NewArea(x, y, t)
+    return { fighters = {}, allies = {}, enemies = {}, deaths = {}, names = {}, x = x, y = y, t = t }
+end
+
+local function Distance(x1, y1, x2, y2)
+    return math.sqrt((x1 - x2) ^ 2 + (y1 - y2) ^ 2)
+end
+
+-- The area whose middle is nearest to x, y; within AREA_RADIUS unless `anyDistance`
+local function NearestArea(areas, x, y, anyDistance)
+    local best, bestDistance
+    for _, area in ipairs(areas) do
+        if area.x then
+            local distance = Distance(x, y, area.x, area.y)
+            if (anyDistance or distance <= Hotspots.AREA_RADIUS) and (not bestDistance or distance < bestDistance) then
+                best, bestDistance = area, distance
+            end
+        end
+    end
+    return best
+end
+
+-- Newest first; the same moment in a fixed order, so every HeadHunter gets the same areas
+local function NewestFirst(p, q)
+    if p.t ~= q.t then return p.t > q.t end
+    if p.list ~= q.list then return p.list < q.list end
+    return tostring(p.key) < tostring(q.key)
+end
+
+-- A zone's activity within WINDOW, split by place, newest area first. The newest activity
+-- is an area's middle; activity within AREA_RADIUS of a middle joins the nearest one,
+-- further away it starts another area. So two areas' middles are always more than
+-- AREA_RADIUS apart, and areas whose fights came together are one. Activity with no
+-- position joins the newest area (or makes one with no place).
+function Hotspots.Split(data, now)
+    local since = now - Hotspots.WINDOW
+    local items = {}
+    for _, list in ipairs(AREA_LISTS) do
+        for key, value in pairs(data[list]) do
+            local t = Stamp(value)
+            if t and t >= since then items[#items + 1] = { list = list, key = key, value = value, t = t } end
+        end
+    end
+    table.sort(items, NewestFirst)
+    local areas, loose = {}, {}
+    for _, item in ipairs(items) do
+        local x, y = type(item.value) == "table" and item.value.x, type(item.value) == "table" and item.value.y
+        if x and y then
+            local area = NearestArea(areas, x, y)
+            if not area then
+                area = NewArea(x, y, item.t)
+                areas[#areas + 1] = area
+            end
+            area[item.list][item.key] = item.value
+        else
+            loose[#loose + 1] = item
+        end
+    end
+    if #loose > 0 and #areas == 0 then areas[1] = NewArea(nil, nil, loose[1].t) end
+    for _, item in ipairs(loose) do areas[1][item.list][item.key] = item.value end
+    for key, name in pairs(data.names) do
+        if name.t >= since then
+            local area = (name.x and name.y and NearestArea(areas, name.x, name.y, true)) or areas[1]
+            if area then area.names[key] = name end
+        end
+    end
+    return areas
+end
+
+-- An area seen before at about this place (or an area with no place)
+local function SamePlace(entry, area)
+    if not (entry.x and area.x) then return true end
+    return Distance(entry.x, entry.y, area.x, area.y) <= Hotspots.AREA_RADIUS
+end
+
+-- Which areas seen before an area is. The hottest area chooses first. When it takes the
+-- place of several (their fights came together), it keeps the highest alert level and
+-- the longest [Ignore] of them, and its own level counts as said: a merge never alerts.
+local function Claim(state, area, claimed)
+    local candidates = {}
+    for id, entry in pairs(state) do
+        if not claimed[id] and SamePlace(entry, area) then candidates[#candidates + 1] = entry end
+    end
+    if #candidates == 0 then
+        areaSerial = areaSerial + 1
+        local entry = { id = areaSerial }
+        state[entry.id] = entry
+        return entry
+    end
+    table.sort(candidates, function(p, q)
+        if (p.announced or 0) ~= (q.announced or 0) then return (p.announced or 0) > (q.announced or 0) end
+        if (p.heat or 0) ~= (q.heat or 0) then return (p.heat or 0) > (q.heat or 0) end
+        return p.id < q.id
+    end)
+    local entry = candidates[1]
+    for i = 2, #candidates do
+        local other = candidates[i]
+        entry.announced = math.max(entry.announced or 0, other.announced or 0)
+        entry.ignoredUntil = math.max(entry.ignoredUntil or 0, other.ignoredUntil or 0)
+        entry.quietSince = entry.quietSince or other.quietSince
+        state[other.id] = nil
+    end
+    if #candidates > 1 then entry.announced = math.max(entry.announced or 0, area.level) end
+    return entry
+end
+
+-- A zone's areas now, hottest first: each with heat, level, a, e, d (the window), lone (a
+-- lone WANTED ganker's kills only), id and entry (what it keeps between looks). Areas
+-- seen before and gone quiet for MAP_TIME are forgotten.
+function Hotspots:Areas(zone, now)
+    now = now or ns.Utils.ServerTime()
     local data = zones[zone]
-    local x, y = LastPosition(data)
-    local known = remembered[zone]
-    a, e = Hotspots:Now(zone, now)
-    local spot = { zone = zone, level = level, heat = heat, a = a, e = e, d = d,
-        x = x or (known and known.x), y = y or (known and known.y), t = Newest(data) }
-    remembered[zone] = spot
+    local areas = data and self.Split(data, now) or {}
+    for _, area in ipairs(areas) do
+        area.heat, area.level, area.a, area.e, area.d = HeatOf(area, now)
+        area.lone = area.level > 0 and self:IsLoneOutlaw(zone, area.a, area.e, area)
+    end
+    table.sort(areas, function(p, q)
+        if p.heat ~= q.heat then return p.heat > q.heat end
+        return p.t > q.t
+    end)
+    local state = areaState[zone] or {}
+    areaState[zone] = state
+    local claimed = {}
+    for _, area in ipairs(areas) do
+        local entry = Claim(state, area, claimed)
+        claimed[entry.id] = true
+        entry.x, entry.y = area.x or entry.x, area.y or entry.y
+        entry.t = math.max(entry.t or 0, area.t or 0)
+        entry.heat = area.heat
+        area.id, area.entry = entry.id, entry
+    end
+    for id, entry in pairs(state) do
+        if not claimed[id] and now - (entry.t or 0) > self.MAP_TIME then state[id] = nil end
+    end
+    if next(state) == nil then areaState[zone] = nil end
+    return areas
+end
+
+-- One area of the zone now, by id (nil when it has no activity left)
+function Hotspots:Area(zone, id, now)
+    for _, area in ipairs(self:Areas(zone, now)) do
+        if area.id == id then return area end
+    end
+    return nil
+end
+
+-- How many of a zone's areas the map shows and alerts: the setting, 1 to MAX_AREAS
+function Hotspots.PerZone()
+    local value = tonumber(ns.db and ns.db.settings.hotspotsPerZone) or Hotspots.MAX_AREAS
+    return math.max(1, math.min(Hotspots.MAX_AREAS, math.floor(value)))
+end
+
+-- The area as it is now, if it burns (level 1+, and not a lone WANTED ganker):
+--   { zone, id, level, heat, a, e, d, x, y, t = newest activity }. Also kept for the map.
+local function Burning(zone, area, now)
+    if area.level == 0 or area.lone then return nil end
+    local a, e = NowOf(area, now)
+    local entry = area.entry
+    local spot = { zone = zone, id = area.id, level = area.level, heat = area.heat, a = a, e = e, d = area.d,
+        x = area.x or entry.x, y = area.y or entry.y, t = Newest(area) }
+    entry.spot = spot
     return spot
 end
 
--- PvP areas for the map (HH-046), hottest first: burning zones as they are now, and
--- zones that burned within MAP_TIME as they last were (remembered = true). x, y is the
--- newest fight position (nil when none is known). Lone-outlaw zones are left out: the
--- WANTED skull pin already marks that ganker.
-function Hotspots:Active(now)
+-- A zone's PvP areas for the map, hottest first, all of them: burning areas as they are
+-- now, and areas that burned within MAP_TIME as they last were (remembered = true)
+function Hotspots:Spots(zone, now)
     now = now or ns.Utils.ServerTime()
     local list, seen = {}, {}
-    for zone in pairs(zones) do
-        local spot = Burning(zone, now)
+    for _, area in ipairs(self:Areas(zone, now)) do
+        local spot = Burning(zone, area, now)
         if spot then
             list[#list + 1] = spot
-            seen[zone] = true
+            seen[area.id] = true
         end
     end
-    for zone, spot in pairs(remembered) do
-        if not seen[zone] then
+    for id, entry in pairs(areaState[zone] or {}) do
+        local spot = entry.spot
+        if not seen[id] and spot then
             if now - spot.t > self.MAP_TIME then
-                remembered[zone] = nil
+                entry.spot = nil
             else
                 local copy = {}
                 for k, v in pairs(spot) do copy[k] = v end
@@ -332,7 +521,33 @@ function Hotspots:Active(now)
     end
     table.sort(list, function(p, q)
         if p.heat ~= q.heat then return p.heat > q.heat end
-        return p.zone < q.zone
+        return p.id < q.id
+    end)
+    return list
+end
+
+-- PvP areas for the map (HH-046), hottest first: each zone's hottest PerZone() areas
+-- (HH-163). x, y is the area's newest fight position (nil when none is known).
+-- Lone-outlaw areas are left out: the WANTED skull pin already marks that ganker.
+function Hotspots:Active(now)
+    now = now or ns.Utils.ServerTime()
+    local list, done = {}, {}
+    local limit = self.PerZone()
+    for _, source in ipairs({ zones, areaState }) do
+        for zone in pairs(source) do
+            if not done[zone] then
+                done[zone] = true
+                for i, spot in ipairs(self:Spots(zone, now)) do
+                    if i > limit then break end
+                    list[#list + 1] = spot
+                end
+            end
+        end
+    end
+    table.sort(list, function(p, q)
+        if p.heat ~= q.heat then return p.heat > q.heat end
+        if p.zone ~= q.zone then return p.zone < q.zone end
+        return p.id < q.id
     end)
     return list
 end
@@ -381,6 +596,19 @@ function Hotspots.Describe(a, e, d)
     return table.concat(parts, ", ")
 end
 
+-- Where a fight is: the area's middle (HH-163; as it last was when it has gone quiet), or
+-- the zone's newest fight without an area; nil when unknown
+function Hotspots:Place(zone, areaId)
+    local entry = areaId and areaState[zone] and areaState[zone][areaId]
+    if entry then
+        self:Areas(zone)
+        if entry.x and entry.y then return entry.x, entry.y end
+    end
+    local data = zones[zone]
+    if not data then return nil end
+    return LastPosition(data)
+end
+
 -- [Help]: a waypoint to the newest fight where the client allows it (Classic Era does
 -- not), and chat always says where it is. title: "Battle", ...
 -- HH-111: the players fighting there get a quiet "help on the way" note (an addon
@@ -389,12 +617,10 @@ end
 -- another layer, and each HeadHunter at most once an hour (HH-145, Alerts/Invites.lua).
 -- Runs inside the popup click, which allows the whisper. fromMap (a shift-click on the
 -- map mark, author 2026-10-16): the whisper is only opened for the player to send, to
--- the newest fighter there, without the hourly limit.
-function Hotspots:Help(zone, title, fromMap)
-    local data = zones[zone]
-    local x, y
-    -- Not "data and LastPosition(data)": `and` would keep only the first return value
-    if data then x, y = LastPosition(data) end
+-- the newest fighter there, without the hourly limit. HH-163: areaId is the area of the
+-- popup or the map mark: the way to that fight and a fighter there; without it, the zone.
+function Hotspots:Help(zone, title, fromMap, areaId)
+    local x, y = self:Place(zone, areaId)
     local zoneName = ns.Utils.MapName(zone) or L.UNKNOWN_ZONE
     local how = ns.MapMarkers.GuideAndTell(zone, x, y, string.format(L.GUIDE_HOTSPOT, title, zoneName),
         string.format(L.HOTSPOT_WAYPOINT, zoneName))
@@ -403,7 +629,7 @@ function Hotspots:Help(zone, title, fromMap)
     ns.Transport:Queue(ns.Protocol.TYPES.HELP, ns.Protocol.EncodeHelp(zone, U.ServerTime()),
         ns.Transport.PRIORITY.alert, "B:" .. zone)
 
-    local state, target = self:InviteState(zone, nil, fromMap)
+    local state, target = self:InviteState(zone, nil, fromMap, areaId)
     if state == "ok" and fromMap then
         U.OpenWhisper(U.PlayerKey(target.sender), string.format(L.HOTSPOT_WHISPER, zoneName))
     elseif state == "ok" then
@@ -443,9 +669,11 @@ end
 -- Whether Help asks for an invite now (HH-145): "ok" and the fighter to whisper,
 -- "asked" and the seconds until one is free again, or "none" (nobody to ask, the
 -- option alerts.whisperInvite is off, or every fighter there is on our layer). noLimit:
--- for the map mark, which only opens the whisper.
-function Hotspots:InviteState(zone, now, noLimit)
+-- for the map mark, which only opens the whisper. areaId: only the fighters of that area
+-- (HH-163); an area with no activity left has nobody to ask.
+function Hotspots:InviteState(zone, now, noLimit, areaId)
     local data = zones[zone]
+    if areaId then data = self:Area(zone, areaId, now) end
     if not data or not ns.db.settings.alerts.whisperInvite then return "none" end
     local target, left = self.InviteTarget(data, ns.Utils.CompactName(ns.Utils.UnitKey("player")), zone, now, noLimit)
     if target then return "ok", target end
@@ -476,68 +704,77 @@ function Hotspots:OnHelp(record, sender)
     ns.Events:Fire("HH_HELP_COMING", zone, sender)
 end
 
+-- The zone's data changed: the map redraws (HH_HOTSPOT_CHANGED), every burning area is
+-- kept for the map for MAP_TIME (even if the map is not open now), and each of the zone's
+-- hottest PerZone() areas alerts on its own (HH-163). HH_HOTSPOT is only for alerts.
 function Hotspots:Evaluate(zone)
-    -- The zone's data changed (map pins redraw); HH_HOTSPOT below is only for alerts
     ns.Events:Fire("HH_HOTSPOT_CHANGED", zone)
     local now = ns.Utils.ServerTime()
-    local heat, level, a, e, d = self:Heat(zone, now)
-    if level == 0 then
-        announced[zone], quietSince[zone] = nil, nil
-        return
-    end
-    Burning(zone, now) -- the map keeps it for MAP_TIME, even if the map is not open now
-    if (announced[zone] or 0) >= level then return end
     local me = ns.Utils.CompactName(ns.Utils.UnitKey("player"))
-    local mine = me and zones[zone].fighters[me]
+    local limit = self.PerZone()
+    for rank, area in ipairs(self:Areas(zone, now)) do
+        if area.level == 0 then
+            area.entry.announced, area.entry.quietSince = nil, nil
+        else
+            Burning(zone, area, now)
+            if rank <= limit then self:AlertArea(zone, area, now, me) end
+        end
+    end
+end
+
+-- One area's alert, when it climbs a level: never for our own fight there, nor while
+-- [Ignore] mutes it or the zone is out of the alert range
+function Hotspots:AlertArea(zone, area, now, me)
+    local entry, level = area.entry, area.level
+    if (entry.announced or 0) >= level then return end
+    local mine = me and area.fighters[me]
     if mine and now - mine.t <= self.FIGHT_RECENT * 4 then
-        quietSince[zone] = mine.t
-        ns:Debug("Hotspot: quiet, our own fight in", zone, "level", level)
+        entry.quietSince = mine.t
+        ns:Debug("Hotspot: quiet, our own fight in", zone, "area", area.id, "level", level)
         return
     end
-    if quietSince[zone] then
-        if not self:ActivitySince(zone, quietSince[zone] + self.FIGHT_RECENT * 4, me) then return end
-        quietSince[zone] = nil
+    if entry.quietSince then
+        if not self:ActivitySince(zone, entry.quietSince + self.FIGHT_RECENT * 4, me, area) then return end
+        entry.quietSince = nil
     end
-    if ignored[zone] and ns.Utils.Now() < ignored[zone] then return end
+    if entry.ignoredUntil and ns.Utils.Now() < entry.ignoredUntil then return end
     if not ns.Zones.InRange(zone) then return end
-    announced[zone] = level
+    entry.announced = level
 
     local zoneName = ns.Utils.MapName(zone) or L.UNKNOWN_ZONE
     local title = L["HOTSPOT_LEVEL_" .. level]
-    local nowA, nowE = self:Now(zone, now)
-    local line = string.format(L.HOTSPOT_LINE, Fire(level), title, zoneName, Hotspots.Describe(nowA, nowE, d))
-    local names = self:EnemyNames(zone, now)
+    local nowA, nowE = NowOf(area, now)
+    local line = string.format(L.HOTSPOT_LINE, Fire(level), title, zoneName, Hotspots.Describe(nowA, nowE, area.d))
+    local names = self:EnemyNames(zone, now, area)
     if names then line = line .. string.format(L.HOTSPOT_NAMES, names) end
-    -- The chat line names our fighters as links to whisper; the popup cannot be clicked
     local chat = line
-    local fighters = self:FighterNames(zone, now)
+    local fighters = self:FighterNames(zone, now, false, area)
     if fighters then
         line = line .. string.format(L.HOTSPOT_FIGHTING, fighters)
-        chat = chat .. string.format(L.HOTSPOT_FIGHTING, self:FighterNames(zone, now, true))
+        chat = chat .. string.format(L.HOTSPOT_FIGHTING, self:FighterNames(zone, now, true, area))
     end
     local alert = {
-        key = "hot:" .. zone .. ":" .. level,
+        key = "hot:" .. zone .. ":" .. area.id .. ":" .. level,
         throttle = self.LEVEL_THROTTLE,
         chat = chat,
     }
-    local loneOutlaw = self:IsLoneOutlaw(zone, a, e)
-    if level >= 2 and not loneOutlaw then
+    local areaId = area.id
+    if level >= 2 and not area.lone then
         alert.sound = true
         alert.popup = {
-            -- Own dialog: must never replace a WANTED "Join the posse" popup
             dialog = ns.Alerts.HOTSPOT_POPUP,
             text = line,
             accept = L.HOTSPOT_HELP,
             decline = L.HOTSPOT_IGNORE,
-            onAccept = function() Hotspots:Help(zone, title) end,
-            onDecline = function() ignored[zone] = ns.Utils.Now() + Hotspots.IGNORE_TIME end,
+            onAccept = function() Hotspots:Help(zone, title, nil, areaId) end,
+            onDecline = function() entry.ignoredUntil = ns.Utils.Now() + Hotspots.IGNORE_TIME end,
         }
     end
-    if level >= 3 and not loneOutlaw then
+    if level >= 3 and not area.lone then
         alert.text = string.format(L.HOTSPOT_CENTER, Fire(level), title, zoneName)
     end
     ns.Alerts:Show(alert)
-    ns.Events:Fire("HH_HOTSPOT", zone, level, heat)
+    ns.Events:Fire("HH_HOTSPOT", zone, level, area.heat)
 end
 
 -- 1.0.9: a ping that names enemies, all of them from our own fight (`ours`: short id -> t)
@@ -553,16 +790,17 @@ end
 -- `since` or later (our own fight left out: our pings, and since 1.0.9 the pings and
 -- enemies of our own fight, only those we fought within WINDOW: an old fight's enemy
 -- seen again is new activity)
-function Hotspots:ActivitySince(zone, since, me)
-    local data = zones[zone]
+-- data: one area of the zone (HH-163), else the whole zone
+function Hotspots:ActivitySince(zone, since, me, data)
+    data = data or zones[zone]
     if not data then return false end
     local ours = ownEnemies[zone]
     if ours then CountRecent(ours, ns.Utils.ServerTime() - self.WINDOW) end
     for who, fighter in pairs(data.fighters) do
         if who ~= me and (fighter.t or 0) >= since and not OurFightOnly(fighter.enemies, ours) then return true end
     end
-    for id, t in pairs(data.enemies) do
-        if (tonumber(t) or 0) >= since and not (ours and ours[id]) then return true end
+    for id, enemy in pairs(data.enemies) do
+        if (tonumber(Stamp(enemy)) or 0) >= since and not (ours and ours[id]) then return true end
     end
     for _, death in pairs(data.deaths) do
         if (tonumber(death.t) or 0) >= since then return true end
@@ -816,15 +1054,27 @@ ns.Events:Register("HH_INITIALIZED", function()
     Ticker()
 end, OWNER)
 
+-- The zone's name and, when known, the area's place on its map: "Westfall 40, 60"
+local function AreaLabel(zone, area)
+    local name = ns.Utils.MapName(zone) or tostring(zone)
+    if not (area.x and area.y) then return name end
+    return string.format("%s %.0f, %.0f", name, area.x * 100, area.y * 100)
+end
+
+-- HH-163: a line per area, zone by zone, every area (the setting does not apply)
 ns.SlashCommands:Register("hotspots", function()
     local now = ns.Utils.ServerTime()
+    local list = {}
+    for zone in pairs(zones) do list[#list + 1] = zone end
+    table.sort(list)
     local any = false
-    for zone in pairs(zones) do
-        local heat, level, a, e, d = Hotspots:Heat(zone, now)
-        if heat > 0 then
-            any = true
-            ns:Print(string.format(L.HOTSPOT_STATUS, Fire(math.max(level, 0)), ns.Utils.MapName(zone) or tostring(zone),
-                heat, a, e, d))
+    for _, zone in ipairs(list) do
+        for _, area in ipairs(Hotspots:Areas(zone, now)) do
+            if area.heat > 0 then
+                any = true
+                ns:Print(string.format(L.HOTSPOT_STATUS, Fire(area.level), AreaLabel(zone, area),
+                    area.heat, area.a, area.e, area.d))
+            end
         end
     end
     if not any then ns:Print(L.HOTSPOT_NONE) end
