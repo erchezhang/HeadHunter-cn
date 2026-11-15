@@ -155,7 +155,8 @@ local function HotspotPins(mapID, now)
                 byZone[spot.zone] = {}
                 order[#order + 1] = spot.zone
             end
-            table.insert(byZone[spot.zone], spot)
+            local list = byZone[spot.zone]
+            list[#list + 1] = spot
         end
     end
     for _, zone in ipairs(order) do
