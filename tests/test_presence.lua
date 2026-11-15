@@ -161,4 +161,13 @@ return function(T, H)
         T.ok(H.Printed("0.1.7"), "versions")
         T.noErrors()
     end)
+
+    T.case("an unpackaged copy says it is dev and never that an update is out", function()
+        H.Install({ client = "era" })
+        _G.C_AddOns = { GetAddOnMetadata = function() return "@project-version@" end }
+        local ns = H.Load()
+        T.eq(ns.version, "dev", "the raw packager token reads as dev")
+        T.ok(not ns.Presence.Newer("1.2.0", ns.version), "no version is newer than dev")
+        T.noErrors()
+    end)
 end
