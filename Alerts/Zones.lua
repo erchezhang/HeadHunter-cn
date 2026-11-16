@@ -100,12 +100,71 @@ function Zones.RectOn(childMapID, ancestorMapID)
     return minX, maxX, minY, maxY
 end
 
--- A position on mapID (a cave or sub-zone map included) as a position on its zone:
--- zone, x, y. The position is nil when it cannot be translated (a wrong spot is
--- worse than none).
+Zones.ZONE_TYPE = 3
+
+-- Is mapID the continent itself (in a cave the game may give no map closer than that) or a
+-- dungeon entrance or other map whose parent is the continent (author, 2026-11-15: fights
+-- at the Gnomeregan and Razorfen Downs entrances showed on the continent, named Kalimdor
+-- or Eastern Kingdoms, but not on Dun Morogh or the Barrens)? Zones and new Forever zones
+-- are not.
+local function Orphan(mapID)
+    if CONTINENT[mapID] then return false end
+    local info = C_Map and ns.Utils.SafeCall(C_Map.GetMapInfo, mapID)
+    if not info then return false end
+    local zoneType = (Enum and Enum.UIMapType and Enum.UIMapType.Zone) or Zones.ZONE_TYPE
+    return info.mapType ~= zoneType
+end
+
+-- Is cx, cy (0..1 on continent) inside zone's box on that continent? Returns the box's area.
+local function BoxArea(zone, continent, cx, cy)
+    local minX, maxX, minY, maxY = Zones.RectOn(zone, continent)
+    if not minX or cx < minX or cx > maxX or cy < minY or cy > maxY then return nil end
+    return (maxX - minX) * (maxY - minY)
+end
+
+-- The known zone at cx, cy on continent: the one the game names there, else the smallest
+-- zone whose box holds the point (boxes overlap; a small one is the closer fit). nil if none.
+local function ZoneAt(continent, cx, cy)
+    local info = C_Map and ns.Utils.SafeCall(C_Map.GetMapInfoAtPosition, continent, cx, cy)
+    local named = info and Zones.ZoneOf(tonumber(info.mapID))
+    if named and CONTINENT[named] == continent then return named end
+    local best, bestArea
+    for zone, onContinent in pairs(CONTINENT) do
+        local area = onContinent == continent and BoxArea(zone, continent, cx, cy)
+        if area and (not bestArea or area < bestArea) then best, bestArea = zone, area end
+    end
+    return best
+end
+
+-- x, y on mapID as continent, cx, cy on its continent, or nil
+local function OnContinent(mapID, x, y)
+    local continent = ns.Utils.ContinentOf(mapID)
+    if continent == mapID then return continent, x, y end
+    local minX, maxX, minY, maxY = Zones.RectOn(mapID, continent)
+    if not minX then return nil end
+    return continent, minX + x * (maxX - minX), minY + y * (maxY - minY)
+end
+
+-- An orphan map's position as zone, x, y on the zone around it, or nil
+local function Locate(mapID, x, y)
+    local continent, cx, cy = OnContinent(mapID, x, y)
+    if not continent then return nil end
+    local zone = ZoneAt(continent, cx, cy)
+    local zMinX, zMaxX, zMinY, zMaxY = Zones.RectOn(zone, continent)
+    if not zMinX then return nil end
+    return zone, (cx - zMinX) / (zMaxX - zMinX), (cy - zMinY) / (zMaxY - zMinY)
+end
+
+-- A position on mapID (a cave, sub-zone or dungeon entrance map included) as a position
+-- on its zone: zone, x, y. The position is nil when it cannot be translated (a wrong spot
+-- is worse than none).
 function Zones.ToZone(mapID, x, y)
     local zone = Zones.ZoneOf(mapID)
     if not zone or not (x and y) then return zone, nil, nil end
+    if Orphan(zone) then
+        local found, zx, zy = Locate(zone, x, y)
+        if found then return found, zx, zy end
+    end
     if zone == tonumber(mapID) then return zone, x, y end
     local minX, maxX, minY, maxY = Zones.RectOn(mapID, zone)
     if not minX then return zone, nil, nil end

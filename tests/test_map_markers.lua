@@ -73,6 +73,58 @@ return function(T, H)
         T.eq(x, 0.4, "a zone map stays as is")
     end)
 
+    -- A dungeon entrance hangs off the continent, not off its zone (author, 2026-11-15:
+    -- Gnomeregan, Razorfen Downs). Dun Morogh's box is the smaller of the two that hold it.
+    local function DungeonEntrance()
+        H.maps[1426] = { mapID = 1426, name = "Dun Morogh", mapType = 3, parentMapID = 1415 }
+        H.maps[1432] = { mapID = 1432, name = "Loch Modan", mapType = 3, parentMapID = 1415 }
+        H.maps[9002] = { mapID = 9002, name = "Gnomeregan", mapType = 4, parentMapID = 1415 }
+        H.mapRects["9002:1415"] = { 0.40, 0.42, 0.60, 0.62 }
+        H.mapRects["1426:1415"] = { 0.35, 0.50, 0.55, 0.70 }
+        H.mapRects["1432:1415"] = { 0.30, 0.60, 0.50, 0.75 }
+    end
+
+    T.case("a dungeon entrance position becomes a position on the zone around it", function()
+        local Z = H.Boot({ client = "era" }).Zones
+        DungeonEntrance()
+        local zone, x, y = Z.ToZone(9002, 0.5, 0.5)
+        T.eq(zone, 1426, "the smallest zone box holding it")
+        near(x, 0.4, "x on Dun Morogh")
+        near(y, 0.4, "y on Dun Morogh")
+        H.mapAt = function(map) return map == 1415 and 1432 or nil end
+        zone = Z.ToZone(9002, 0.5, 0.5)
+        T.eq(zone, 1432, "the zone the game names there wins")
+        zone, x = Z.ToZone(9002, nil, nil)
+        T.eq(zone, 9002, "no position: the map stays as is")
+        T.eq(x, nil, "no position")
+    end)
+
+    T.case("in a cave the game gives the continent: the zone at that point is used", function()
+        local Z = H.Boot({ client = "era" }).Zones
+        DungeonEntrance()
+        local zone, x, y = Z.ToZone(1415, 0.41, 0.61)
+        T.eq(zone, 1426, "Dun Morogh, not Eastern Kingdoms")
+        near(x, 0.4, "x on Dun Morogh")
+        near(y, 0.4, "y on Dun Morogh")
+        zone = Z.ToZone(1415, 0.99, 0.01)
+        T.eq(zone, 1415, "no zone there: the continent stays")
+    end)
+
+    T.case("a fight at a dungeon entrance shows on the zone map, not only the continent", function()
+        local ns = H.Boot({ client = "era" })
+        DungeonEntrance()
+        Ping(ns, 9002, "Alpha-Firemaw", Ids(1, 12), 5, 0.5, 0.5)
+        local spots = ns.Hotspots:Active()
+        T.eq(#spots, 1, "one area")
+        T.eq(spots[1].zone, 1426, "kept under Dun Morogh")
+        local pins = ns.MapMarkers:PinsFor(1426)
+        T.eq(#pins, 1, "a mark on Dun Morogh")
+        T.eq(pins[1].kind, "hotspot", "a PvP area")
+        near(pins[1].x, 0.4, "where the fight is")
+        T.eq(#ns.MapMarkers:PinsFor(1415), 1, "still one mark on the continent")
+        T.noErrors()
+    end)
+
     T.case("our own fight in a cave is placed on the zone (ping and waypoint)", function()
         local ns = H.Boot({ client = "forever" })
         H.playerMap = 9001

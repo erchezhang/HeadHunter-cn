@@ -390,9 +390,15 @@ function H.Install(opts)
             local r = H.mapRects[child .. ":" .. parent]
             if r then return r[1], r[2], r[3], r[4] end
         end,
+        GetMapInfoAtPosition = function(map, x, y)
+            local at = H.mapAt and H.mapAt(map, x, y)
+            return at and H.maps[at]
+        end,
     }
     -- "child:parent" -> { minX, maxX, minY, maxY }: where a map sits on a map above it
     H.mapRects = {}
+    -- H.mapAt(map, x, y) -> the mapID the game names at that point, or nil
+    H.mapAt = nil
 
     -- hooksecurefunc(table, "method", hook) and hooksecurefunc("global", hook)
     _G.hooksecurefunc = function(target, method, hook)
@@ -413,7 +419,8 @@ function H.Install(opts)
     }
     -- opts.tooltip = "script" (OnTooltipSetUnit) | "processor" (TooltipDataProcessor):
     -- a GameTooltip stand-in; H.ShowUnitTooltip(unit) shows a unit on it and
-    -- H.tooltipLines collects the added lines
+    -- H.tooltipLines collects the added lines. H.RedrawTooltip(keep) is a tooltip addon
+    -- (TacoTip) that keeps the first `keep` rows, blanks the rest and shows the tooltip again.
     _G.TooltipDataProcessor = nil
     H.tooltipLines = {}
     if opts.tooltip then
@@ -428,7 +435,21 @@ function H.Install(opts)
             table.insert(self.hooks[script], fn)
         end
         function tip:GetUnit() return self.unitName, self.unit end
-        function tip:AddLine(text) H.tooltipLines[#H.tooltipLines + 1] = text end
+        function tip:GetName() return "GameTooltip" end
+        tip.rows = {}
+        function tip:NumLines() return #self.rows end
+        function tip:AddLine(text)
+            H.tooltipLines[#H.tooltipLines + 1] = text
+            local row = { text = text }
+            function row:GetText() return self.text end
+            function row:IsShown() return self.text ~= nil end
+            self.rows[#self.rows + 1] = row
+            _G["GameTooltipTextLeft" .. #self.rows] = row
+        end
+        function H.RedrawTooltip(keep)
+            for i = (keep or 0) + 1, #tip.rows do tip.rows[i].text = nil end
+            tip:Show()
+        end
         local postCalls = {}
         if opts.tooltip == "processor" then
             _G.Enum.TooltipDataType = { Unit = 2 }
@@ -441,12 +462,14 @@ function H.Install(opts)
         function H.ShowUnitTooltip(unit, times)
             Run("OnTooltipCleared")
             H.tooltipLines = {}
+            tip.rows = {}
             tip.unit = unit
             tip.unitName = H.units[unit] and H.units[unit].name
             for _ = 1, times or 1 do
                 Run("OnTooltipSetUnit")
                 for _, fn in ipairs(postCalls) do fn(tip, {}) end
             end
+            tip:Show()
         end
     end
 
