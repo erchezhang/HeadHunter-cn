@@ -20,30 +20,58 @@ Nameplates.SIZE = 22
 Nameplates.GAP = 2
 Nameplates.REFRESH = 60
 
-local function WantedEntry(unit)
+-- The WANTED list by Utils.CompactName, the form Utils.SameCharacter compares, so a
+-- player whose name comes in another shape is found without comparing every entry
+-- (this runs for every nameplate that appears). Wanted publishes a new table on each
+-- recompute, so a different table means the index is out of date.
+local entryByName, indexedList
+
+local function EntryByName(compactName)
+    local list = ns.Wanted:All()
+    if list ~= indexedList then
+        entryByName = {}
+        for _, entry in pairs(list) do
+            local name = entry.key and ns.Utils.CompactName(entry.key)
+            if name and not entryByName[name] then entryByName[name] = entry end
+        end
+        indexedList = list
+    end
+    return entryByName[compactName]
+end
+
+-- The list entry of the player on unit, whose player key is key (nil when unknown)
+local function FindEntry(unit, key)
     local U = ns.Utils
-    local key = U.UnitKey(unit)
     local entry = key and ns.Wanted:ByKey(key)
     if entry then return entry end
     local guid = U.UnitGUID(unit)
     entry = guid and ns.Wanted:Get("guid:" .. guid)
     if entry or not key then return entry end
     -- The same player in another shape (Forever: "Given Family", "GivenFamily", a realm)
-    for _, other in pairs(ns.Wanted:All()) do
-        if U.SameCharacter(other.key, key) then return other end
-    end
-    return nil
+    local name = U.CompactName(key)
+    return name and EntryByName(name) or nil
+end
+
+local function WantedEntry(unit)
+    return FindEntry(unit, ns.Utils.UnitKey(unit))
 end
 Nameplates.WantedEntry = WantedEntry
 
--- In order, left to right. For(unit) -> true, r, g, b (0..1) to show, else nil
+-- The player's key and list entry, read once per nameplate and shared by its marks
+local function PlayerInfo(unit)
+    local key = ns.Utils.UnitKey(unit)
+    return { key = key, entry = FindEntry(unit, key) }
+end
+
+-- In order, left to right. For(unit, player) -> true, r, g, b (0..1) to show, else nil.
+-- player: PlayerInfo(unit), read by For itself when not given (/hh dev check).
 Nameplates.BADGES = {
     {
         id = "wanted",
         texture = "Interface\\AddOns\\HeadHunter\\Assets\\Textures\\mark",
-        For = function(unit)
+        For = function(unit, player)
             if not ns.db or ns.db.settings.wantedMarks == false then return nil end
-            local entry = WantedEntry(unit)
+            local entry = (player or PlayerInfo(unit)).entry
             if entry and entry.wanted then return true, 1, 1, 1 end
             return nil
         end,
@@ -51,10 +79,10 @@ Nameplates.BADGES = {
     {
         id = "shame",
         texture = "Interface\\AddOns\\HeadHunter\\Assets\\Textures\\feather",
-        For = function(unit)
+        For = function(unit, player)
             if not ns.db or ns.db.settings.shameMarks == false then return nil end
-            local entry = WantedEntry(unit)
-            local key = ns.Utils.UnitKey(unit)
+            player = player or PlayerInfo(unit)
+            local entry, key = player.entry, player.key
             if (entry and entry.badges and entry.badges.coward) or (key and ns.Bounties:IsBlocked(key)) then
                 return true, 1, 1, 1
             end
@@ -64,8 +92,8 @@ Nameplates.BADGES = {
     {
         id = "organizer",
         texture = "Interface\\AddOns\\HeadHunter\\Assets\\Textures\\star",
-        For = function(unit)
-            local role = ns.Organizers:Enabled() and ns.Organizers:RoleOf(ns.Utils.UnitKey(unit))
+        For = function(unit, player)
+            local role = ns.Organizers:Enabled() and ns.Organizers:RoleOf((player or PlayerInfo(unit)).key)
             local color = role and ns.Organizers.COLORS[role]
             if color then return true, color[1] / 255, color[2] / 255, color[3] / 255 end
             return nil
@@ -101,10 +129,11 @@ function Nameplates:Update(unit)
     -- No marks inside an instance (Core/Guards.lua): battleground plates are not ours
     if not ns.Guards:IsActive() then return self:Hide(unit) end
     local isPlayer = ns.Utils.UnitIsPlayer(unit)
+    local player = isPlayer and PlayerInfo(unit) or nil
     local shown = {}
     for _, badge in ipairs(self.BADGES) do
         local show, r, g, b = false
-        if isPlayer then show, r, g, b = badge.For(unit) end
+        if isPlayer then show, r, g, b = badge.For(unit, player) end
         local existing = rawget(plate, "hhBadges") and plate.hhBadges[badge.id]
         if show then
             local texture = Texture(plate, badge)
