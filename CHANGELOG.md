@@ -7,6 +7,7 @@
 - **Raise a glass in the middle of the screen.** The card that asks you to raise a glass to another HeadHunter's catch now shows in the middle of the screen, a little above your character, instead of under the minimap, where it was easy to miss.
 - **Fixed: fights at dungeon entrances missing from the zone map.** A fight near a dungeon entrance, like Gnomeregan in Dun Morogh or Razorfen Downs in the Barrens, showed a mark on the continent map but not on the zone map. It now shows on the zone map too.
 - **Works with TacoTip.** TacoTip redraws player tooltips and removed HeadHunter's lines: WANTED, bounty, gang, duels and the worn buckle. HeadHunter now adds them back under TacoTip's lines.
+- **Fixed: stutter in busy cities.** With many players around, like at the Stormwind bank, every nameplate that came into view made HeadHunter go through the whole WANTED list to find out if it needed a mark, and turning the camera made the game stutter. It now finds the player at once.
 
 ## 1.1.1
 
