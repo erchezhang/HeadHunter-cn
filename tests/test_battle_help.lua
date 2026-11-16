@@ -129,6 +129,25 @@ return function(T, H)
         T.noErrors()
     end)
 
+    T.case("Help asks only a fighter still fighting there, not one whose fight is over", function()
+        local ns = H.Boot({ client = "era" })
+        Ping(ns, 1417, "Alpha-Firemaw", Ids(1, 10), nil, 9)
+        H.serverTime = H.serverTime + 70
+        ns.Hotspots:Help(1417, "Battle")
+        T.eq(#H.chatSent, 0, "the last ping is over a minute old: nobody asked")
+        T.eq(#H.waypoints, 1, "the way is still set")
+        Ping(ns, 1417, "Bravo-Firemaw", Ids(11, 12), nil, 4)
+        ns.Hotspots:Help(1417, "Battle")
+        T.eq(#H.chatSent, 1, "a fighter who pinged just now is asked")
+        T.eq(H.chatSent[1].target, "Bravo-Firemaw", "not the one whose fight is over")
+        H.serverTime = H.serverTime + 125
+        Ping(ns, 1417, "Charlie-Firemaw", Ids(13, 14), nil, 5)
+        H.serverTime = H.serverTime - 125
+        ns.Hotspots:Help(1417, "Battle")
+        T.eq(#H.chatSent, 1, "a ping stamped two minutes ahead of our clock is not a fighter still there")
+        T.noErrors()
+    end)
+
     T.case("HH-145: Help asks each fighter once an hour, from any zone, and the map says so", function()
         local ns = H.Boot({ client = "era" })
         Ping(ns, 1417, "Alpha-Firemaw", Ids(1, 10), nil, 9)

@@ -72,6 +72,11 @@ Hotspots.LEVELS = { { heat = 20, id = 3 }, { heat = 10, id = 2 }, { heat = 4, id
 -- From this level (Battle) a click on the map's PvP mark is Help (author, 2026-10-08):
 -- never for a Skirmish
 Hotspots.INVITE_LEVEL = 2
+-- Help asks only a fighter whose newest ping is at most this old: still fighting there
+-- (pings go out every PING_INTERVAL while in combat). A player who won or left is not
+-- asked for an invite (author, 2026-11-16: a Horde who had won his 1 vs 1 was asked to
+-- invite). Two pings, so one missed or late ping does not drop a fighter.
+Hotspots.INVITE_RECENT = 2 * Hotspots.PING_INTERVAL
 -- HH-163: activity further than this from an area, as a share of the zone's width,
 -- starts another area in the same zone (author, 2026-11-15)
 Hotspots.AREA_RADIUS = 0.15
@@ -770,16 +775,25 @@ function Hotspots:Help(zone, title, fromMap, areaId)
     return how
 end
 
--- The newest other fighter who said which layer they are on, can be whispered and was
--- not asked for an invite in the last hour (any, with noLimit); also the seconds until
--- the first of the ones we asked is free again. With a zone: inside it only fighters on
--- another layer than ours (from another zone layers cannot be compared, and any fighter
--- can invite).
+-- A fighter whose newest ping is at most INVITE_RECENT old. A ping stamped ahead of our
+-- clock (accepted up to MAX_SKEW) counts only that far ahead, or a skewed clock would
+-- keep a fighter "still fighting" for minutes.
+local function IsStillFighting(fighter, now)
+    local age = now - fighter.t
+    return age >= -Hotspots.INVITE_RECENT and age <= Hotspots.INVITE_RECENT
+end
+
+-- The newest other fighter who said which layer they are on, is still fighting
+-- (IsStillFighting), can be whispered and was not asked for an invite in the last
+-- hour (any, with noLimit); also the seconds until the first of the ones we asked is free
+-- again. With a zone: inside it only fighters on another layer than ours (from another
+-- zone layers cannot be compared, and any fighter can invite).
 function Hotspots.InviteTarget(data, me, zone, now, noLimit)
+    now = now or ns.Utils.ServerTime()
     local here = zone and ns.Zones.ZoneOf(ns.Utils.PlayerMapID()) == zone
     local best, left
     for who, fighter in pairs(data.fighters) do
-        if who ~= me and fighter.sender and fighter.layer
+        if who ~= me and fighter.sender and fighter.layer and IsStillFighting(fighter, now)
                 and (not here or ns.Layer:Compare(fighter.layer, zone) == "different") then
             local wait = not noLimit and ns.Invites:Left(fighter.sender, now)
             if wait then
