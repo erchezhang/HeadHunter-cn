@@ -109,6 +109,31 @@ return function(T, H)
         T.noErrors()
     end)
 
+    T.case("a WANTED player whose name comes in another shape still gets the mark", function()
+        Boot()
+        local AddPlate = Plates()
+        -- Not the list's key ("Gorvash-Firemaw"), the same character by Utils.SameCharacter
+        local plate = AddPlate("gorvash", "Horde")
+        T.ok(Shown(plate, "wanted"), "found through the name index")
+        T.eq(rawget(AddPlate("stranger", "Horde"), "hhBadges"), nil, "nobody else")
+        _G.C_NamePlate = nil
+        T.noErrors()
+    end)
+
+    T.case("the name index follows a list change", function()
+        Boot({ dev = {} })
+        local AddPlate = Plates()
+        -- Another shape of a listed name, so the name index is built before Stranger is listed
+        T.ok(Shown(AddPlate("gorvash", "Horde"), "wanted"), "found through the name index")
+        H.units.target = { name = "Stranger", realm = "Firemaw", class = "ROGUE", faction = "Horde", isPlayer = true }
+        H.Slash("dev wanted")
+        Settle()
+        local plate = AddPlate("stranger", "Horde")
+        T.ok(Shown(plate, "wanted"), "a player listed after the index was built")
+        _G.C_NamePlate = nil
+        T.noErrors()
+    end)
+
     T.case("each mark has its own option", function()
         local ns = Boot()
         local AddPlate = Plates()

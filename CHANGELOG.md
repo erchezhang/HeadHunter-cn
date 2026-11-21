@@ -8,6 +8,8 @@
 - **Fixed: fights at dungeon entrances missing from the zone map.** A fight near a dungeon entrance, like Gnomeregan in Dun Morogh or Razorfen Downs in the Barrens, showed a mark on the continent map but not on the zone map. It now shows on the zone map too.
 - **Fixed: Help asking a player whose fight was over.** Help on a PvP area asked the newest fighter of the last 5 minutes for a group invite, even when they had already won or left. It now asks only a fighter still fighting there.
 - **Works with TacoTip.** TacoTip redraws player tooltips and removed HeadHunter's lines: WANTED, bounty, gang, duels and the worn buckle. HeadHunter now adds them back under TacoTip's lines.
+- **Fixed: stutter in busy cities.** With many players around, like at the Stormwind bank, every nameplate that came into view made HeadHunter go through the whole WANTED list to find out if it needed a mark, and turning the camera made the game stutter. It now finds the player at once.
+- **Faster around many players.** The check for unpaid bounties (the white feather on Deadbeats) ran through every bounty claim HeadHunter knows for each player you saw or pointed at. It now looks up only that player's claims.
 
 ## 1.1.1
 
