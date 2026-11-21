@@ -195,11 +195,37 @@ local function CountsAsUnpaid(posterId, pay)
         and Bounties:CachedVerdict(posterId) == "verified"
 end
 
+-- The payments' poster ids by their owner's Utils.CompactName, the form Utils.SameCharacter
+-- compares: the Deadbeat check runs for every player nameplate and mouseover, and must not
+-- go through every payment. Rebuilt for another store (a new database) and after
+-- AddPayment, the only place that adds one; ids Prune removed are skipped at lookup.
+local ownerIndex, indexedStore
+
+local function PosterIdsOf(owner)
+    local store = Payments()
+    if not store then return {}, nil end
+    if store ~= indexedStore or not ownerIndex then
+        ownerIndex = {}
+        for posterId in pairs(store) do
+            local id = ns.Utils.CompactName(Bounties.OwnerOf(posterId))
+            if id then
+                ownerIndex[id] = ownerIndex[id] or {}
+                table.insert(ownerIndex[id], posterId)
+            end
+        end
+        indexedStore = store
+    end
+    local id = owner and ns.Utils.CompactName(owner)
+    return id and ownerIndex[id] or {}, store
+end
+
 -- Per owner: the newest unpaid time of each hunter, newest first
 local function UnpaidTimes(owner)
     local byHunter = {}
-    for posterId, pay in pairs(Payments() or {}) do
-        if ns.Utils.SameCharacter(Bounties.OwnerOf(posterId), owner) and CountsAsUnpaid(posterId, pay) then
+    local ids, store = PosterIdsOf(owner)
+    for _, posterId in ipairs(ids) do
+        local pay = store[posterId]
+        if pay and CountsAsUnpaid(posterId, pay) then
             local hunter = ns.Utils.CompactName(pay.hunter)
             if hunter then byHunter[hunter] = math.max(byHunter[hunter] or 0, pay.t) end
         end
@@ -215,7 +241,6 @@ local function UnpaidBy(owner, now)
     for _, t in ipairs(UnpaidTimes(owner)) do
         if t <= now + Bounties.MAX_SKEW then times[#times + 1] = t end
     end
-    table.sort(times, function(a, b) return a > b end)
     table.sort(times, function(a, b) return a > b end)
     return times
 end
@@ -569,6 +594,7 @@ function Bounties:AddPayment(pay, origin)
     end
     pay.origin = origin
     store[pay.posterId] = pay
+    ownerIndex = nil
     verdicts[pay.posterId] = nil
     ns:Debug("Bounty payment", pay.posterId, pay.status, "origin", origin)
     Changed()
