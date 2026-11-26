@@ -10,6 +10,7 @@
 - **Works with TacoTip.** TacoTip redraws player tooltips and removed HeadHunter's lines: WANTED, bounty, gang, duels and the worn buckle. HeadHunter now adds them back under TacoTip's lines.
 - **Fixed: stutter in busy cities.** With many players around, like at the Stormwind bank, every nameplate that came into view made HeadHunter go through the whole WANTED list to find out if it needed a mark, and turning the camera made the game stutter. It now finds the player at once.
 - **Faster around many players.** The check for unpaid bounties (the white feather on Deadbeats) ran through every bounty claim HeadHunter knows for each player you saw or pointed at. It now looks up only that player's claims.
+- **No stutter with long Bully lists.** HeadHunter Sync can now bring thousands of the website's Bullies, so more of the Bullies you meet can be Punished. Updating the lists is spread over several frames, and the Bullies tab opens at once however long it is.
 
 ## 1.1.1
 

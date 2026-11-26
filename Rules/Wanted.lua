@@ -28,6 +28,7 @@ local OWNER = "Wanted"
 Wanted.DEBOUNCE = 1          -- seconds after the last report before recomputing
 Wanted.BUDGET_MS = 3         -- per frame
 Wanted.EXPIRY_CHECK = 60     -- seconds
+Wanted.YIELD_ENTRIES = 100   -- entries merged or compared between yields
 
 local entries = {}           -- id -> entry
 local computing = false
@@ -105,30 +106,44 @@ local function SerialWindow()
     return minutes * 60
 end
 
--- Compare old and new, fire change events
-local function Publish(newEntries)
+-- A step counter for the loops over every entry: calls `yield` (when given) every
+-- YIELD_ENTRIES steps, so a long list (the website's bullies) spreads over frames
+local function Pacer(yield)
+    local steps = 0
+    return function()
+        steps = steps + 1
+        if yield and steps % Wanted.YIELD_ENTRIES == 0 then yield() end
+    end
+end
+
+-- Compare old and new, then swap the list in and fire the change events at once. The
+-- comparison yields now and then; the swap and the events never do, so nobody sees a
+-- half-published list.
+local function Publish(newEntries, yield)
     local old = entries
-    entries = newEntries
+    local step = Pacer(yield)
+    local fire = {}
     local changed = false
     for id, entry in pairs(newEntries) do
+        step()
         local before = old[id]
         if entry.wanted and not (before and before.wanted) then
             changed = true
-            ns.Events:Fire("HH_WANTED_ADDED", entry)
+            fire[#fire + 1] = { "HH_WANTED_ADDED", entry }
         elseif entry.wanted and before and before.wanted and RankOrder(entry) > RankOrder(before) then
             changed = true
-            ns.Events:Fire("HH_WANTED_RANK", entry, before.rank)
+            fire[#fire + 1] = { "HH_WANTED_RANK", entry, before.rank }
         elseif before and before.wanted and not entry.wanted then
             changed = true
             if entry.lastCaught and entry.lastCaught ~= before.lastCaught then
-                ns.Events:Fire("HH_WANTED_CAUGHT", entry, before)
+                fire[#fire + 1] = { "HH_WANTED_CAUGHT", entry, before }
             else
-                ns.Events:Fire("HH_WANTED_EXPIRED", entry)
+                fire[#fire + 1] = { "HH_WANTED_EXPIRED", entry }
             end
         elseif before and before.atLarge and not entry.atLarge and not entry.wanted
                 and entry.caughtAtLarge and entry.caughtAtLarge ~= before.caughtAtLarge then
             changed = true
-            ns.Events:Fire("HH_WANTED_CAUGHT", entry, before)
+            fire[#fire + 1] = { "HH_WANTED_CAUGHT", entry, before }
         elseif not before or (entry.wanted and entry.kills ~= before.kills)
                 or (entry.atLarge or false) ~= (before.atLarge or false)
                 or (entry.badges and entry.badges.coward or false) ~= (before.badges and before.badges.coward or false)
@@ -137,11 +152,14 @@ local function Publish(newEntries)
         end
     end
     for id, before in pairs(old) do
+        step()
         if not newEntries[id] then
             changed = true
-            if before.wanted then ns.Events:Fire("HH_WANTED_EXPIRED", before) end
+            if before.wanted then fire[#fire + 1] = { "HH_WANTED_EXPIRED", before } end
         end
     end
+    entries = newEntries
+    for _, event in ipairs(fire) do ns.Events:Fire(unpack(event)) end
     if changed then ns.Events:Fire("HH_WANTED_UPDATED") end
 end
 
@@ -189,8 +207,10 @@ end
 -- while their time runs, unless a catch we know of came after their last kill; when we
 -- both have the outlaw WANTED, the one with the newer kill wins.
 -- entries: id -> entry (changed in place); site: id -> entry; catches: id -> { t... }
-function Wanted.MergeSite(entries, site, catches, now)
+function Wanted.MergeSite(entries, site, catches, now, yield)
+    local step = Pacer(yield)
     for id, theirs in pairs(site or {}) do
+        step()
         local caughtAfter = false
         for _, t in ipairs(catches[id] or {}) do
             if t > LastKillAt(theirs) then caughtAfter = true end
@@ -219,10 +239,12 @@ end
 -- WANTED. Their alerts and the +3 bounty then work as for our own bullies.
 -- HH-160: one whose newest bully kill is older than 30 days is no Bully and left out.
 -- entries: id -> entry (changed in place); site: id -> entry (Sync/SiteData.lua)
-function Wanted.MergeBullies(entries, site, now)
+function Wanted.MergeBullies(entries, site, now, yield)
     now = now or ns.Utils.ServerTime()
     local Engine = ns.RulesEngine
+    local step = Pacer(yield)
     for id, theirs in pairs(site or {}) do
+        step()
         local ours = entries[id]
         local counts = theirs.lastCowardKill == nil or Engine.BullyKillCounts(theirs.lastCowardKill, now)
         if counts and ours then
@@ -247,8 +269,10 @@ end
 -- HH-160: the website's WANTED entries keep the badges it sent; one whose newest bully
 -- kill fell out of the 30 days since the download is no Bully any more.
 -- entries: id -> entry (changed in place)
-function Wanted.EndBullies(entries, now)
+function Wanted.EndBullies(entries, now, yield)
+    local step = Pacer(yield)
     for _, entry in pairs(entries) do
+        step()
         if entry.badges and entry.badges.coward and not ns.RulesEngine.IsBully(entry, now) then
             local badges = {}
             for k, v in pairs(entry.badges) do badges[k] = v end
@@ -263,8 +287,10 @@ end
 -- HH-118: the targets of the website's players' bounties that we never saw, added as
 -- plain entries (not WANTED), so their bounty shows on the WANTED tab and the poster.
 -- entries: id -> entry (changed in place); site: id -> entry (Sync/SiteData.lua)
-function Wanted.MergeBountyTargets(entries, site)
+function Wanted.MergeBountyTargets(entries, site, yield)
+    local step = Pacer(yield)
     for id, theirs in pairs(site or {}) do
+        step()
         if not entries[id] then
             local copy = {}
             for k, v in pairs(theirs) do copy[k] = v end
@@ -288,18 +314,18 @@ function Wanted:ComputeNow(yield)
     local result = ns.RulesEngine.Compute(reports, now,
         { serialWindow = SerialWindow(), wantedKills = Wanted.TestThreshold(), catches = catches },
         yield)
-    Wanted.MergeSite(result, ns.SiteData:Wanted(), catches, now)
+    Wanted.MergeSite(result, ns.SiteData:Wanted(), catches, now, yield)
     -- Test entries from /hh dev (Core/Dev.lua), this client only
     Wanted.MergeSite(result, ns.Dev.TestEntries("wanted"), catches, now)
-    Wanted.MergeBullies(result, ns.SiteData:Bullies(), now)
-    Wanted.MergeSite(result, ns.SharedSite:Wanted(), catches, now)
-    Wanted.MergeBullies(result, ns.SharedSite:Bullies(), now)
+    Wanted.MergeBullies(result, ns.SiteData:Bullies(), now, yield)
+    Wanted.MergeSite(result, ns.SharedSite:Wanted(), catches, now, yield)
+    Wanted.MergeBullies(result, ns.SharedSite:Bullies(), now, yield)
     Wanted.MergeBullies(result, ns.Dev.TestEntries("shame"), now)
-    Wanted.EndBullies(result, now)
-    Wanted.MergeBountyTargets(result, ns.SiteData:BountyTargets())
-    Wanted.MergeBountyTargets(result, ns.SharedSite:BountyTargets())
-    Wanted.FromSightings(result, function(key) return ns.EnemyCache:ByKey(key) end)
-    Publish(result)
+    Wanted.EndBullies(result, now, yield)
+    Wanted.MergeBountyTargets(result, ns.SiteData:BountyTargets(), yield)
+    Wanted.MergeBountyTargets(result, ns.SharedSite:BountyTargets(), yield)
+    Wanted.FromSightings(result, function(key) return ns.EnemyCache:ByKey(key) end, yield)
+    Publish(result, yield)
     return result
 end
 
@@ -307,8 +333,10 @@ end
 -- 2026-10-04: another player's report made a level 30 female hunter "level 20, male"):
 -- race, class and sex from our sighting, the level when we saw them after their last kill.
 -- sighting: key -> the enemy cache record, or nil
-function Wanted.FromSightings(entries, sighting)
+function Wanted.FromSightings(entries, sighting, yield)
+    local step = Pacer(yield)
     for _, entry in pairs(entries) do
+        step()
         local seen = entry.key and sighting(entry.key)
         if type(seen) == "table" then
             entry.race = seen.race or entry.race

@@ -369,6 +369,24 @@ function MainWindow.BountyRow(entry, summary, now)
     }
 end
 
+-- One bully's row; its id and plain name (the search) are set at once, the rest the first
+-- time a field is read, so the website's thousands of bullies cost only the rows that
+-- are drawn (as DuelRow, HH-137). No WANTED or busted counts in the addon (author,
+-- 2026-10-04): it only knows what it saw, the website has the whole record.
+local BullyRow = {}
+BullyRow.__index = function(row, field)
+    local entry, now = rawget(row, "entry"), rawget(row, "now")
+    if not entry or rawget(row, "filled") then return nil end
+    rawset(row, "filled", true)
+    rawset(row, "name", Named(rawget(row, "plain"), entry))
+    rawset(row, "desc", ns.DeathReports.Describe(entry))
+    rawset(row, "coward", tostring(entry.cowardKills or 0))
+    rawset(row, "kills", tostring(entry.killCount or 0))
+    rawset(row, "status", entry.wanted and string.format(L.SHAME_WANTED, ns.Wanted.RankName(entry.rank)) or L.TIP_NOT_WANTED)
+    rawset(row, "tooltip", MainWindow.EntryTooltip(entry, now))
+    return rawget(row, field)
+end
+
 -- faction: "Alliance" | "Horde" or nil for both. HH-160: Bullies within 30 days of their
 -- newest bully kill, in Wanted.BullyBefore's order (no shared places)
 local function BullyRows(now, faction)
@@ -380,25 +398,8 @@ local function BullyRows(now, faction)
     end
     table.sort(list, ns.Wanted.BullyBefore)
     local rows = {}
-    for _, entry in ipairs(list) do
-        local status
-        if entry.wanted then
-            status = string.format(L.SHAME_WANTED, ns.Wanted.RankName(entry.rank))
-        else
-            -- No WANTED or busted counts in the addon (author, 2026-10-04): it only knows
-            -- what it saw, the website has the whole record
-            status = L.TIP_NOT_WANTED
-        end
-        rows[#rows + 1] = {
-            id = entry.id,
-            plain = OutlawName(entry),
-            name = Named(OutlawName(entry), entry),
-            desc = ns.DeathReports.Describe(entry),
-            coward = tostring(entry.cowardKills or 0),
-            kills = tostring(entry.killCount or 0),
-            status = status,
-            tooltip = MainWindow.EntryTooltip(entry, now),
-        }
+    for i, entry in ipairs(list) do
+        rows[i] = setmetatable({ id = entry.id, plain = OutlawName(entry), entry = entry, now = now }, BullyRow)
     end
     return rows
 end
