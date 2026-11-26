@@ -183,4 +183,29 @@ return function(T, H)
         Settle()
         T.eq(ns.Wanted:ByKey("Stab-Firemaw").badges.serialkiller, true, "inside 15 min")
     end)
+
+    T.case("many website bullies spread a recount over frames, and the list changes only at its end", function()
+        local bullies = {}
+        for i = 1, 300 do
+            bullies[i] = { name = "Stomper" .. i, realm = "Firemaw", faction = "horde", race = "orc", level = 40,
+                coward_kills = 2, kill_count = 4, last_coward_kill_at = H.serverTime - 3600 }
+        end
+        local ns = H.Boot({ client = "era", siteData = { format_version = 1, generated_at = H.serverTime - 600,
+            characters = {}, worlds = { ["era|eu|Firemaw"] = { generated_at = H.serverTime - 600, wanted = {},
+                duels = { alliance = {}, horde = {} }, bullies = bullies } } } })
+        local events = Track(ns)
+        local recount = coroutine.create(function() ns.Wanted:ComputeNow(coroutine.yield) end)
+        local slices, listedEarly = 0, false
+        while true do
+            T.ok(coroutine.resume(recount), "the recount runs")
+            if coroutine.status(recount) == "dead" then break end
+            slices = slices + 1
+            listedEarly = listedEarly or ns.Wanted:ByKey("Stomper1-Firemaw") ~= nil
+        end
+        T.ok(slices >= 6, "spread over frames: " .. slices)
+        T.eq(listedEarly, false, "nothing shows before the recount ends")
+        T.ok(ns.Wanted:ByKey("Stomper300-Firemaw").badges.coward, "every bully listed at the end")
+        T.ok(events.updated >= 1, "HH_WANTED_UPDATED once published")
+        T.noErrors()
+    end)
 end
