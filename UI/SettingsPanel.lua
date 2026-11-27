@@ -23,8 +23,10 @@ SettingsPanel.PAGES = {
     { id = "display", label = "SET_TAB_DISPLAY" },
 }
 
--- kind: "toggle" | "choice" | "number"; path: Database setting path. A section starts a
--- block of its page; the options after it belong to that page
+-- kind: "toggle" | "choice" | "number" | "text"; path: Database setting path. A section
+-- starts a block of its page; the options after it belong to that page. enabledBy: the
+-- toggle that must be on for the option to be changed. A text option shows default() when
+-- unset, and saves nothing (back to the default) when cleared or set to it
 SettingsPanel.OPTIONS = {
     { section = "SET_SECTION_ALERTS", page = "general" },
     { key = "alerts", kind = "toggle", path = "alerts.enabled", label = "SET_ALERTS", tip = "SET_ALERTS_TIP" },
@@ -33,6 +35,9 @@ SettingsPanel.OPTIONS = {
     { key = "range", kind = "choice", path = "alerts.range", label = "SET_RANGE", tip = "SET_RANGE_TIP",
         choices = { "adjacent", "continent" } },
     { key = "whisper", kind = "toggle", path = "alerts.whisperInvite", label = "SET_WHISPER", tip = "SET_WHISPER_TIP" },
+    { key = "whisperText", kind = "text", path = "alerts.whisperText", label = "SET_WHISPER_TEXT", tip = "SET_WHISPER_TEXT_TIP",
+        enabledBy = "whisper", maxLetters = ns.Invites.TEXT_MAX,
+        clean = function(text) return ns.Invites.Clean(text) end, default = function() return L.INVITE_WHISPER end },
     { key = "shame", kind = "toggle", path = "alerts.shame", label = "SET_SHAME", tip = "SET_SHAME_TIP" },
     { key = "glassPopup", kind = "toggle", path = "alerts.glassPopup", label = "SET_GLASS_POPUP", tip = "SET_GLASS_POPUP_TIP" },
     { key = "glassGap", kind = "number", path = "alerts.glassPopupGap", min = 3, max = 15, step = 1, format = "SET_MINUTES",
@@ -80,8 +85,10 @@ function SettingsPanel.Option(key)
     return nil
 end
 
--- false when the option needs something this player does not have (option.available)
+-- false when the option needs something this player does not have (option.available),
+-- or its enabledBy toggle is off
 function SettingsPanel.Available(option)
+    if option.enabledBy and not SettingsPanel.Get(SettingsPanel.Option(option.enabledBy)) then return false end
     return option.available == nil or option.available() == true
 end
 
@@ -89,6 +96,7 @@ function SettingsPanel.Get(option)
     local value = ns.Database:GetSetting(option.path)
     if option.invert then return not value end
     if option.kind == "toggle" then return value ~= false end
+    if option.kind == "text" then return option.clean(value) or option.default() end
     return value
 end
 
@@ -99,6 +107,9 @@ function SettingsPanel.Set(option, value)
         local valid = false
         for _, choice in ipairs(option.choices) do valid = valid or choice == value end
         if not valid then return false end
+    elseif option.kind == "text" then
+        value = option.clean(value)
+        if value == option.default() then value = nil end
     elseif option.invert then
         value = not value
     end
@@ -212,6 +223,36 @@ local function AddNumber(option, y)
     return y - 30
 end
 
+-- A text box under its toggle: Enter or leaving it saves, Escape puts the saved text back
+local function AddText(option, y)
+    local box = CreateFrame("EditBox", nil, host, "InputBoxTemplate")
+    box:SetSize(SettingsPanel.TEXT_WIDTH, 20)
+    box:SetPoint("TOPLEFT", 58, y + 2)
+    box:SetAutoFocus(false)
+    box:SetMaxLetters(option.maxLetters or 255)
+    box:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
+    box:SetScript("OnEscapePressed", function(self)
+        self:SetText(SettingsPanel.Get(option))
+        self:ClearFocus()
+    end)
+    box:SetScript("OnEditFocusLost", function(self)
+        SettingsPanel.Set(option, self:GetText())
+        widgets[option.key].refresh()
+    end)
+    box:SetScript("OnEnter", function(self) ShowTip(self, option) end)
+    box:SetScript("OnLeave", HideTip)
+    widgets[option.key] = { refresh = function()
+        local available = SettingsPanel.Available(option)
+        if not box:HasFocus() then
+            box:SetText(SettingsPanel.Get(option))
+            box:SetCursorPosition(0)
+        end
+        box:SetEnabled(available)
+        if available then box:SetTextColor(1, 1, 1) else box:SetTextColor(0.5, 0.5, 0.5) end
+    end }
+    return y - 30
+end
+
 local function CreatePanel()
     panel = CreateFrame("Frame", "HeadHunterSettingsPanel", UIParent)
     panel.name = L.WINDOW_TITLE
@@ -268,6 +309,8 @@ local function CreatePanel()
             y[host] = AddChoice(option, top)
         elseif option.kind == "number" then
             y[host] = AddNumber(option, top)
+        elseif option.kind == "text" then
+            y[host] = AddText(option, top)
         end
     end
     for _, page in pairs(pages) do
@@ -283,6 +326,7 @@ local function CreatePanel()
     return panel
 end
 
+SettingsPanel.TEXT_WIDTH = 420
 SettingsPanel.TAB_HEIGHT = 28
 SettingsPanel.TAB_BOTTOM = 76     -- the line under the tabs, from the top of the page
 SettingsPanel.TAB_PADDING = 12

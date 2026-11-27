@@ -762,9 +762,9 @@ function Hotspots:Help(zone, title, fromMap, areaId)
 
     local state, target = self:InviteState(zone, nil, fromMap, areaId)
     if state == "ok" and fromMap then
-        U.OpenWhisper(U.PlayerKey(target.sender), string.format(L.HOTSPOT_WHISPER, zoneName))
+        U.OpenWhisper(U.PlayerKey(target.sender), ns.Invites.WhisperText())
     elseif state == "ok" then
-        local ok = pcall(SendChatMessage, string.format(L.HOTSPOT_WHISPER, zoneName), "WHISPER", nil, target.sender)
+        local ok = pcall(SendChatMessage, ns.Invites.WhisperText(), "WHISPER", nil, target.sender)
         if ok then
             ns.Invites:Mark(target.sender)
             ns:Print(string.format(L.POSSE_WHISPERED, U.DisplayName(U.PlayerKey(target.sender)) or target.sender))

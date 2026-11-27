@@ -178,7 +178,7 @@ function Posse:Join(entry, report)
     -- always a valid target. Runs inside the popup click, which allows the whisper.
     if ns.Layer:Compare(report.layer, report.mapID) == "different"
             and ns.db.settings.alerts.whisperInvite and report.sender and Posse.DiedAgain(report) then
-        local ok = pcall(SendChatMessage, string.format(L.POSSE_WHISPER, name), "WHISPER", nil, report.sender)
+        local ok = pcall(SendChatMessage, ns.Invites.WhisperText(), "WHISPER", nil, report.sender)
         if ok then ns:Print(string.format(L.POSSE_WHISPERED, U.DisplayName(U.PlayerKey(report.sender)) or report.sender)) end
     end
     ns.Events:Fire("HH_POSSE_JOINED", entry, report)
