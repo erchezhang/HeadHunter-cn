@@ -196,7 +196,7 @@ return function(T, H)
         Wait(1)
         T.eq(#Whispers("1HE:"), 2, "both members")
         local line = "No player named 'Moon Sedai' is currently playing."
-        T.ok(ns.Gossip.SystemFilter(nil, "CHAT_MSG_SYSTEM", line), "the line is hidden")
+        T.ok(ns.Transport.NotFoundFilter(nil, "CHAT_MSG_SYSTEM", line), "the line is hidden")
         H.Fire("CHAT_MSG_SYSTEM", line)
         local reachable = ns.Gossip:Reachable()
         T.eq(reachable, 1, "one member left in reach")
@@ -206,7 +206,7 @@ return function(T, H)
         local sent = Whispers("1HE:")
         T.eq(#sent, 1, "only the one in reach")
         T.eq(sent[1].target, "Arisaka Hautelame", "who answered")
-        T.ok(not ns.Gossip.SystemFilter(nil, "CHAT_MSG_SYSTEM", "No player named 'Someone Else' is currently playing."),
+        T.ok(not ns.Transport.NotFoundFilter(nil, "CHAT_MSG_SYSTEM", "No player named 'Someone Else' is currently playing."),
             "a player we never whispered keeps the game's line")
     end)
 
