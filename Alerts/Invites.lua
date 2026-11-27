@@ -11,16 +11,22 @@ local addonName, ns = ...
 local Invites = ns:RegisterModule("Invites", {})
 
 Invites.LIMIT = ns.Database.LIMITS.inviteSeconds
--- the game sends at most 255 letters in one chat message
+-- the game sends at most 255 bytes in one chat message; a Russian letter takes 2, a
+-- Korean or Chinese one 3
 Invites.TEXT_MAX = 255
 
 -- A whisper text as the game takes it: no pipes (escape codes) or line breaks, trimmed,
--- at most TEXT_MAX letters; nil when nothing is left
+-- at most TEXT_MAX bytes, cut between letters (a UTF-8 byte 0x80-0xBF continues the
+-- letter before it); nil when nothing is left
 function Invites.Clean(text)
     if type(text) ~= "string" then return nil end
     text = text:gsub("[|\r\n]", " "):gsub("^%s+", ""):gsub("%s+$", "")
     if text == "" then return nil end
-    return text:sub(1, Invites.TEXT_MAX)
+    local cut = math.min(#text, Invites.TEXT_MAX)
+    while cut > 0 and cut < #text and text:byte(cut + 1) >= 0x80 and text:byte(cut + 1) < 0xC0 do
+        cut = cut - 1
+    end
+    return text:sub(1, cut)
 end
 
 -- The invite whisper (Join a posse, Help): the player's own text from the options page

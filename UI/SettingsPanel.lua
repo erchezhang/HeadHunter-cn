@@ -36,7 +36,7 @@ SettingsPanel.OPTIONS = {
         choices = { "adjacent", "continent" } },
     { key = "whisper", kind = "toggle", path = "alerts.whisperInvite", label = "SET_WHISPER", tip = "SET_WHISPER_TIP" },
     { key = "whisperText", kind = "text", path = "alerts.whisperText", label = "SET_WHISPER_TEXT", tip = "SET_WHISPER_TEXT_TIP",
-        enabledBy = "whisper", maxLetters = ns.Invites.TEXT_MAX,
+        enabledBy = "whisper", maxBytes = ns.Invites.TEXT_MAX,
         clean = function(text) return ns.Invites.Clean(text) end, default = function() return L.INVITE_WHISPER end },
     { key = "shame", kind = "toggle", path = "alerts.shame", label = "SET_SHAME", tip = "SET_SHAME_TIP" },
     { key = "glassPopup", kind = "toggle", path = "alerts.glassPopup", label = "SET_GLASS_POPUP", tip = "SET_GLASS_POPUP_TIP" },
@@ -223,13 +223,15 @@ local function AddNumber(option, y)
     return y - 30
 end
 
--- A text box under its toggle: Enter or leaving it saves, Escape puts the saved text back
+-- A text box under its toggle: Enter or leaving it saves, Escape puts the saved text back.
+-- It takes option.maxBytes bytes, as the game's own chat box does (SetMaxBytes counts the
+-- closing zero byte too), so a long Russian or Chinese text stops where the game would
 local function AddText(option, y)
     local box = CreateFrame("EditBox", nil, host, "InputBoxTemplate")
     box:SetSize(SettingsPanel.TEXT_WIDTH, 20)
     box:SetPoint("TOPLEFT", 58, y + 2)
     box:SetAutoFocus(false)
-    box:SetMaxLetters(option.maxLetters or 255)
+    box:SetMaxBytes((option.maxBytes or 255) + 1)
     box:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
     box:SetScript("OnEscapePressed", function(self)
         self:SetText(SettingsPanel.Get(option))
