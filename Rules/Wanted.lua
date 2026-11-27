@@ -28,7 +28,8 @@ local OWNER = "Wanted"
 Wanted.DEBOUNCE = 1          -- seconds after the last report before recomputing
 Wanted.BUDGET_MS = 3         -- per frame
 Wanted.EXPIRY_CHECK = 60     -- seconds
-Wanted.YIELD_ENTRIES = 100   -- entries merged or compared between yields
+-- Entries merged or compared between yields of a paced recount
+Wanted.YIELD_ENTRIES = 100
 
 local entries = {}           -- id -> entry
 local computing = false

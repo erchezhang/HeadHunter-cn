@@ -20,7 +20,7 @@
 -- Fires HH_WITNESS_ADDED(record), and HH_HUNTED_DIED(outlaw id, GUID) when we saw a
 -- hunted player die (Sync/Justice.lua makes it our catch on Forever when the game
 -- gives us honor for it).
--- Forever has no combat log, so a Bully or the other faction's Deadbeat we see die is
+-- Forever has no combat log, so an enemy Bully or Deadbeat we see die is
 -- watched the same way and fires HH_HUNTED_DIED too (Justice makes it a punishment
 -- with our honor), but gets no witness record: those back bounty claims only.
 
@@ -37,7 +37,9 @@ Witness.MAX_SKEW = 300
 Witness.SENDER_LIMIT = 10      -- records accepted per sender per window
 Witness.SENDER_WINDOW = 600
 
-local watched = {}             -- GUID -> outlaw id of a hunted player, Bully or Deadbeat in sight
+-- watched: GUID -> outlaw id of a hunted player in sight, or on Forever a Bully or
+-- Deadbeat
+local watched = {}
 local alive = {}               -- GUID -> Now() we last saw them alive
 local senderLog = {}
 
@@ -104,11 +106,12 @@ local function Hunted(entry)
     return entry ~= nil and (ns.Wanted.Hunted(entry) or ns.Bounties:ActiveOn(entry))
 end
 
--- A Bully, or the other faction's Deadbeat: killing them while not hunted is a
--- punishment (Justice:OnEnemyKilled)
-local function Shamed(unit, key, entry)
-    if entry and entry.badges and entry.badges.coward then return true end
-    return ns.Utils.UnitIsEnemyPlayer(unit) and ns.Bounties:IsBlocked(key)
+-- Forever: an enemy Bully or Deadbeat, whose death with our honor is a punishment
+-- (Justice:OnEnemyKilled). Era sees those kills in the combat log, so nothing is
+-- watched for them there.
+local function BullyOrDeadbeat(unit, key, entry)
+    if ns.Features.HasCLEU or not ns.Utils.UnitIsEnemyPlayer(unit) then return false end
+    return (entry and entry.badges and entry.badges.coward) or ns.Bounties:IsBlocked(key)
 end
 
 -- Someone else already told this death (not the hunter's own record)
@@ -177,7 +180,7 @@ function Witness:Check(unit, discover)
         local key = U.UnitKey(unit)
         if not key then return end
         local entry = ns.Wanted:ByKey(key)
-        if not (Hunted(entry) or Shamed(unit, key, entry)) then return end
+        if not (Hunted(entry) or BullyOrDeadbeat(unit, key, entry)) then return end
         outlaw = entry and entry.id or key
         watched[guid] = outlaw
     end

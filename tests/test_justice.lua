@@ -263,10 +263,11 @@ return function(T, H)
         T.eq(Count(), 5, "rate limited per sender")
     end)
 
-    -- Forever: Grim Reaper (WANTED) on `unit`, seen alive, then dead
-    local function SeeDie(unit)
+    -- Forever: Grim Reaper (WANTED) on `unit`, seen alive, then dead; a Horde player
+    -- unless `faction` says otherwise
+    local function SeeDie(unit, faction)
         H.units[unit] = { name = "Grim", realm = "Reaper", fullName = "Grim Reaper", level = 60, class = "ROGUE",
-            race = "Orc", faction = "Horde", isPlayer = true, guid = "Player-4613-00ABCDEF", dead = false }
+            race = "Orc", faction = faction or "Horde", isPlayer = true, guid = "Player-4613-00ABCDEF", dead = false }
         H.Fire(unit == "target" and "PLAYER_TARGET_CHANGED" or "NAME_PLATE_UNIT_ADDED", unit)
         H.units[unit].dead = true
         H.Fire("UNIT_HEALTH", unit)
@@ -376,6 +377,27 @@ return function(T, H)
         local punished = Punished(ns)
         T.eq(#punished, 1, "punished")
         T.eq(punished[1].kind, "deadbeat", "as a Deadbeat")
+        T.noErrors()
+    end)
+
+    T.case("forever: a Bully of our own faction dying near our honor is no punishment", function()
+        local ns = ForeverBully()
+        SeeDie("nameplate1", "Alliance")
+        H.Advance(1)
+        Honor()
+        Settle()
+        T.eq(#Punished(ns), 0, "not watched: we cannot have killed them")
+        T.noErrors()
+    end)
+
+    T.case("era: a Bully or Deadbeat is never watched for a seen death (the combat log tells)", function()
+        local ns = H.Boot({ client = "era" })
+        ns.Bounties.IsBlocked = function() return true end
+        local died = 0
+        ns.Events:Register("HH_HUNTED_DIED", function() died = died + 1 end, "test")
+        SeeDie("nameplate1")
+        Settle()
+        T.eq(died, 0, "not watched")
         T.noErrors()
     end)
 
