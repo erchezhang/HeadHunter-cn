@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Write your own invite whisper.** When you join a posse or press Help on a fight on another layer, HeadHunter whispers that player for a group invite. Under "Ask for an invite on another layer" in Options there is now a text box with that whisper: change it to your own words, or clear it to go back to HeadHunter's. The box is greyed out while the option is off.
+- **Fewer hidden whispers to strangers.** On WoW Forever, HeadHunter sends a hidden addon message to a nearby player of your faction from another home server to find other HeadHunters. A player who doesn't answer (no HeadHunter) is no longer asked again, and at most 2 players a minute are asked. The game's "No player named X is currently playing" line no longer shows in chat after any of HeadHunter's hidden messages.
 - **Up to 3 PvP areas per zone.** Busy zones like Stranglethorn Vale often have several fights at once. Each fight now gets its own red area on the zone map, with its own alert, Help and Ignore, instead of one area for the whole zone. On the continent map each zone has one mark: hover it to see its fights, click to open the zone. Choose 1 to 3 areas per zone in Options > Display.
 - **PvP areas leave the map sooner.** A PvP area now goes 5 minutes after the last fight in it (it was 10), so the map shows the fights going on now. Choose 3 to 10 minutes in Options > Display.
 - **Raise a glass in the middle of the screen.** The card that asks you to raise a glass to another HeadHunter's catch now shows in the middle of the screen, a little above your character, instead of under the minimap, where it was easy to miss.

@@ -552,9 +552,9 @@ return function(T, H)
         T.eq(#To("k;Rowan Fairhill", "Tobin Ashford"), 1, "the others hear who left")
         T.eq(#To("p;" .. kick.chatChannel, "Tobin Ashford"), 1, "and get the new channel")
         T.eq(#To("p;", "Rowan Fairhill"), 0, "never the kicked member")
-        T.ok(ns.Gangs.SystemFilter(nil, "CHAT_MSG_SYSTEM", string.format(ERR_CHAT_PLAYER_NOT_FOUND_S, "Tobin Ashford")),
+        T.ok(ns.Transport.NotFoundFilter(nil, "CHAT_MSG_SYSTEM", string.format(ERR_CHAT_PLAYER_NOT_FOUND_S, "Tobin Ashford")),
             "no 'not playing' line for an offline member we told")
-        T.ok(not ns.Gangs.SystemFilter(nil, "CHAT_MSG_SYSTEM", string.format(ERR_CHAT_PLAYER_NOT_FOUND_S, "Ellis Brightwood")),
+        T.ok(not ns.Transport.NotFoundFilter(nil, "CHAT_MSG_SYSTEM", string.format(ERR_CHAT_PLAYER_NOT_FOUND_S, "Ellis Brightwood")),
             "others keep it")
     end)
 

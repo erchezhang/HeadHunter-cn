@@ -142,6 +142,45 @@ local function ChannelTextFilter(_, _, text, _, _, channelName, _, _, _, _, chan
         and text:sub(1, #Transport.CHAT_MARK) == Transport.CHAT_MARK
 end
 
+-- "No player named X is currently playing.": the game says so in chat when one of our
+-- addon whispers finds the player gone. Hidden for a player we whispered within
+-- QUIET_FOR seconds, whichever module sent it (catch-up, links, gossip, gangs).
+Transport.QUIET_FOR = 60
+-- compact name -> when we last whispered them
+local whispered = {}
+local prunedAt = 0
+local notFoundFormat, notFoundPattern
+
+local function NoteWhisper(target)
+    local U = ns.Utils
+    local name = U.CompactName(target)
+    if not name then return end
+    local now = U.Now()
+    whispered[name] = now
+    if now - prunedAt < Transport.QUIET_FOR then return end
+    prunedAt = now
+    for other, at in pairs(whispered) do
+        if now - at > Transport.QUIET_FOR then whispered[other] = nil end
+    end
+end
+
+-- The player a "not found" line names, as a compact name; nil for any other line
+function Transport.NotFoundName(text)
+    local format = _G.ERR_CHAT_PLAYER_NOT_FOUND_S
+    if type(format) ~= "string" or type(text) ~= "string" then return nil end
+    if format ~= notFoundFormat then
+        local escaped = format:gsub("[%^%$%(%)%.%[%]%*%+%-%?]", "%%%0")
+        notFoundFormat, notFoundPattern = format, "^" .. escaped:gsub("%%s", "(.+)") .. "$"
+    end
+    return ns.Utils.CompactName(text:match(notFoundPattern))
+end
+
+function Transport.NotFoundFilter(_, _, text)
+    local name = Transport.NotFoundName(text)
+    local at = name and whispered[name]
+    return at ~= nil and ns.Utils.Now() - at <= Transport.QUIET_FOR
+end
+
 local function InstallChatFilters()
     local add = ChatFrame_AddMessageEventFilter
         or (ChatFrameUtil and ChatFrameUtil.AddMessageEventFilter)
@@ -151,6 +190,7 @@ local function InstallChatFilters()
         pcall(add, event, ChannelNoticeFilter)
     end
     pcall(add, "CHAT_MSG_CHANNEL", ChannelTextFilter)
+    pcall(add, "CHAT_MSG_SYSTEM", Transport.NotFoundFilter)
 end
 
 -- 1.0.5: our own channels: this one, its backup, and gang chat channels (Sync/GangChat.lua)
@@ -441,6 +481,7 @@ Transport.DescribeResult = Describe
 -- nothing is sent, and the queue treats it as sent so it does not retry.
 local function RawSend(message, chatType, target)
     if ns.Dev.NoSharing() then return true, "not sent: test mode" end
+    if chatType == "WHISPER" then NoteWhisper(target) end
     local sender = C_ChatInfo and C_ChatInfo.SendAddonMessage or SendAddonMessage
     local ok, result = pcall(sender, Transport.PREFIX, message, chatType, target)
     if not ok then return false, "error: " .. tostring(result) end

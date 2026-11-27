@@ -59,9 +59,6 @@ Gangs.CHAT_PREFIX = "GangHH"
 Gangs.OLD_CHAT_PREFIX = "Gang_HH"
 Gangs.CHAT_LETTERS = 12
 Gangs.CHAT_PASSWORD_LENGTH = 16
--- seconds the game's "No player named ... is currently playing" is hidden for a member we
--- told something (they may be offline)
-Gangs.QUIET_FOR = 30
 -- The website's Gangs page, where taken names can be checked (the download's own link wins)
 Gangs.SITE_GANGS = "https://headhunterwow.com/gangs"
 Gangs.KINDS = { create = true, invite = true, accept = true, leave = true, kick = true, rename = true, lead = true }
@@ -80,8 +77,6 @@ local inviteLog = {}
 -- { leader, name, at, sender }: the invite on show
 local incoming
 local counter = 0
--- player name -> when we whispered them a gang note
-local quiet = {}
 
 local function Store()
     return ns.db and ns.db.gangActions
@@ -490,11 +485,9 @@ function Gangs:AskSuffix(asked, given)
     StaticPopup_Show(Gangs.SUFFIX_POPUP)
 end
 
--- Whispers a gang note to a player, keeping the game's "not playing" line quiet for them
+-- Whispers a gang note to a player; the game's "not playing" line for an offline member
+-- is hidden by Transport.NotFoundFilter
 function Gangs.Tell(key, code)
-    local now = ns.Utils.Now()
-    quiet[ns.Utils.DisplayName(key)] = now
-    quiet[key] = now
     ns.Transport:SendDirect(ns.Protocol.TYPES.GANG, { code }, key)
 end
 
@@ -505,21 +498,6 @@ function Gangs:TellMembers(code, gang, skip)
             Gangs.Tell(member.key, code)
         end
     end
-end
-
--- Hides "No player named X is currently playing." for a member we just told something
-function Gangs.SystemFilter(_, _, text)
-    local format = _G.ERR_CHAT_PLAYER_NOT_FOUND_S
-    if type(text) ~= "string" or type(format) ~= "string" then return false end
-    local now = ns.Utils.Now()
-    for name, at in pairs(quiet) do
-        if now - at > Gangs.QUIET_FOR then
-            quiet[name] = nil
-        elseif text == format:format(name) then
-            return true
-        end
-    end
-    return false
 end
 
 -------------------------------------------------
@@ -765,7 +743,7 @@ end
 
 -- Forget invites and limits (tests)
 function Gangs:Reset()
-    sentInvites, inviteLog, incoming, counter, heard, quiet = {}, {}, nil, 0, {}, {}
+    sentInvites, inviteLog, incoming, counter, heard = {}, {}, nil, 0, {}
 end
 
 -------------------------------------------------
@@ -1018,7 +996,5 @@ ns.Events:Register("HH_INITIALIZED", function()
     ns.Transport:RegisterHandler(ns.Protocol.TYPES.GANG, function(record, sender)
         Gangs:OnMessage(record, sender)
     end)
-    local addFilter = ChatFrame_AddMessageEventFilter or (ChatFrameUtil and ChatFrameUtil.AddMessageEventFilter)
-    if addFilter then pcall(addFilter, "CHAT_MSG_SYSTEM", Gangs.SystemFilter) end
     if Gangs.Enabled() then Gangs:TellResults() end
 end, OWNER)

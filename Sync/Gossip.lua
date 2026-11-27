@@ -432,25 +432,9 @@ end
 -- "No player named X is currently playing."
 -------------------------------------------------
 
-local notFound
-
-local function NotFoundPattern()
-    if notFound ~= nil then return notFound end
-    local format = _G.ERR_CHAT_PLAYER_NOT_FOUND_S
-    if type(format) ~= "string" then
-        notFound = false
-        return notFound
-    end
-    local escaped = format:gsub("[%^%$%(%)%.%[%]%*%+%-%?]", "%%%0")
-    notFound = "^" .. escaped:gsub("%%s", "(.+)") .. "$"
-    return notFound
-end
-
 -- The member a "not found" line names, when we whispered them within QUIET_FOR
 function Gossip.NotFound(text)
-    local pattern = NotFoundPattern()
-    if not pattern or type(text) ~= "string" then return nil end
-    local name = ns.Utils.CompactName(text:match(pattern))
+    local name = ns.Transport.NotFoundName(text)
     local at = name and recent[name]
     if at and ns.Utils.Now() - at <= Gossip.QUIET_FOR then return name end
     return nil
@@ -464,10 +448,6 @@ function Gossip:OnSystemMessage(text)
         peer.unreachableUntil = ns.Utils.Now() + self.UNREACHABLE_FOR
         self.stats.unreachable = self.stats.unreachable + 1
     end
-end
-
-function Gossip.SystemFilter(_, _, text)
-    return Gossip.NotFound(text) ~= nil
 end
 
 -- Forget everything (tests)
@@ -503,8 +483,6 @@ end
 ns.Events:Register("HH_INITIALIZED", function()
     if not Gossip.Enabled() then return end
     ns.Events:Register("CHAT_MSG_SYSTEM", function(_, text) Gossip:OnSystemMessage(text) end, OWNER)
-    local add = ChatFrame_AddMessageEventFilter or (ChatFrameUtil and ChatFrameUtil.AddMessageEventFilter)
-    if add then pcall(add, "CHAT_MSG_SYSTEM", Gossip.SystemFilter) end
     ns.Events:Register("HH_SYNC_CHANNEL_JOINED", function() Gossip:RequestRoster() end, OWNER)
     FlushLoop()
     RosterLoop()

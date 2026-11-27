@@ -248,6 +248,59 @@ return function(T, H)
         T.noErrors()
     end)
 
+    local function LinkWhispers()
+        local count = 0
+        for _, m in ipairs(H.sent) do
+            if m.chatType == "WHISPER" and m.message:find("^1AH:") then count = count + 1 end
+        end
+        return count
+    end
+
+    T.case("a player who never answered a link is not asked again; one who did is, after 10 minutes", function()
+        local ns = Boot()
+        H.units.nameplate1 = { name = "Rook Hale", guid = "Player-6856-00000077", faction = "Alliance", isPlayer = true }
+        H.units.nameplate2 = { name = "Moss Fern", guid = "Player-6856-00000078", faction = "Alliance", isPlayer = true }
+        H.sent = {}
+        H.Fire("NAME_PLATE_UNIT_ADDED", "nameplate1")
+        H.Fire("NAME_PLATE_UNIT_ADDED", "nameplate2")
+        Wait(4)
+        T.eq(LinkWhispers(), 2, "both asked once")
+        Fire(ns, "H", ns.Protocol.ToB36(6856), "WHISPER", "Rook Hale")
+        Wait(ns.Bridge.LINK_EVERY + 1)
+        H.sent = {}
+        H.Fire("NAME_PLATE_UNIT_ADDED", "nameplate1")
+        H.Fire("NAME_PLATE_UNIT_ADDED", "nameplate2")
+        Wait(4)
+        T.eq(LinkWhispers(), 1, "only the HeadHunter who answered")
+        T.eq(H.sent[#H.sent].target, "Rook Hale", "Rook Hale")
+    end)
+
+    T.case("at most two links a minute", function()
+        local ns = Boot()
+        H.sent = {}
+        for i = 1, 4 do
+            H.units["nameplate" .. i] = { name = "Stranger " .. i, guid = "Player-6856-0000007" .. i, faction = "Alliance", isPlayer = true }
+            H.Fire("NAME_PLATE_UNIT_ADDED", "nameplate" .. i)
+        end
+        Wait(4)
+        T.eq(LinkWhispers(), ns.Bridge.LINK_PER_MINUTE, "two of four")
+    end)
+
+    T.case("the game's 'not playing' line for a player we linked is hidden, others keep theirs", function()
+        local ns = Boot()
+        _G.ERR_CHAT_PLAYER_NOT_FOUND_S = "No player named '%s' is currently playing."
+        H.units.nameplate1 = { name = "Rook Hale", guid = "Player-6856-00000077", faction = "Alliance", isPlayer = true }
+        H.Fire("NAME_PLATE_UNIT_ADDED", "nameplate1")
+        Wait(4)
+        T.ok(ns.Transport.NotFoundFilter(nil, "CHAT_MSG_SYSTEM", "No player named 'Rook Hale' is currently playing."),
+            "hidden right after the link")
+        T.ok(not ns.Transport.NotFoundFilter(nil, "CHAT_MSG_SYSTEM", "No player named 'Moss Fern' is currently playing."),
+            "a player we never whispered keeps the line")
+        Wait(ns.Transport.QUIET_FOR + 1)
+        T.ok(not ns.Transport.NotFoundFilter(nil, "CHAT_MSG_SYSTEM", "No player named 'Rook Hale' is currently playing."),
+            "shown again after QUIET_FOR")
+    end)
+
     T.case("a nameplate of our own server, or of the other faction, gets nothing", function()
         local ns = Boot()
         H.units.nameplate1 = { name = "Moss Walker", guid = "Player-6946-00000077", faction = "Alliance", isPlayer = true }

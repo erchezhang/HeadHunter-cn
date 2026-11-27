@@ -12,7 +12,9 @@
 --     else carried the record first;
 --   - by a link: a player of our faction whose nameplate shows, from another server and
 --     not in our group, gets one hidden whisper (LINK); when they answer, both pull each
---     other's last LINK_PULL_SINCE seconds once (CatchUp:PullFrom).
+--     other's last LINK_PULL_SINCE seconds once (CatchUp:PullFrom). A player who never
+--     answered (no HeadHunter) is not asked again this session; one who did, every
+--     LINK_EVERY seconds. At most LINK_PER_MINUTE links a minute.
 -- A carried record goes in an envelope (Protocol: E) with its author and world, at most
 -- MAX_HOPS carriers and LIFETIME seconds. What changes WANTED, bounty or ranks goes
 -- through the relay rules (Sync/Relay.lua: a second source or a direct copy); the rest
@@ -35,7 +37,7 @@ Bridge.QUEUE_MAX = 100
 Bridge.HOLD_MIN = 1
 Bridge.HOLD_MAX = 3
 Bridge.LINK_EVERY = 600
-Bridge.LINK_PER_MINUTE = 4
+Bridge.LINK_PER_MINUTE = 2
 Bridge.LINK_PULL_SINCE = 600
 
 local TYPES = ns.Protocol.TYPES
@@ -382,6 +384,8 @@ end
 -------------------------------------------------
 
 local asked, answered, pulled, sentThisMinute, minuteStart = {}, {}, {}, 0, 0
+-- players who sent us a LINK: they run HeadHunter, so they are asked again later
+local linked = {}
 
 function Bridge:OnNameplate(unit)
     if not self.Enabled() or not ns.Guards:IsActive() then return end
@@ -395,7 +399,7 @@ function Bridge:OnNameplate(unit)
     local name = key and U.CompactName(key)
     if not name then return end
     local now = U.Now()
-    if asked[name] and now - asked[name] < self.LINK_EVERY then return end
+    if asked[name] and (not linked[name] or now - asked[name] < self.LINK_EVERY) then return end
     if now - minuteStart >= 60 then minuteStart, sentThisMinute = now, 0 end
     if sentThisMinute >= self.LINK_PER_MINUTE then return end
     sentThisMinute = sentThisMinute + 1
@@ -411,6 +415,7 @@ function Bridge:OnLink(record, sender, faction, chatType)
     local name = U.CompactName(sender)
     if not server or not mine or server == mine or not name then return end
     ns.Presence:Heard(sender, faction, nil, server)
+    linked[name] = true
     local now = U.Now()
     if not answered[name] or now - answered[name] >= self.LINK_EVERY then
         answered[name] = now
@@ -426,7 +431,7 @@ end
 -- Forget everything (tests)
 function Bridge:Reset()
     seen, seenOrder, seenHead, seenCount, carried, queue = {}, {}, 1, 0, {}, {}
-    asked, answered, pulled, sentThisMinute, minuteStart = {}, {}, {}, 0, 0
+    asked, answered, pulled, linked, sentThisMinute, minuteStart = {}, {}, {}, {}, 0, 0
     groupServers, groupDirty, ruleset = {}, true, nil
     for k in pairs(self.stats) do self.stats[k] = 0 end
 end
