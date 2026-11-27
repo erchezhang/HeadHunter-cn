@@ -11,6 +11,7 @@
 - **Fixed: stutter in busy cities.** With many players around, like at the Stormwind bank, every nameplate that came into view made HeadHunter go through the whole WANTED list to find out if it needed a mark, and turning the camera made the game stutter. It now finds the player at once.
 - **Faster around many players.** The check for unpaid bounties (the white feather on Deadbeats) ran through every bounty claim HeadHunter knows for each player you saw or pointed at. It now looks up only that player's claims.
 - **No stutter with long Bully lists.** HeadHunter Sync can now bring thousands of the website's Bullies, so more of the Bullies you meet can be Punished. Updating the lists is spread over several frames, and the Bullies tab opens at once however long it is.
+- **Fixed: no Punished on WoW Forever.** Killing a Bully or the other faction's Deadbeat who was not WANTED never counted as Punished on WoW Forever, because HeadHunter only watched WANTED players die. It now also watches Bullies and Deadbeats on your target and nameplates, and a kill the game gives you honor for is Punished.
 
 ## 1.1.1
 
