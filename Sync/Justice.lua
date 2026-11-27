@@ -343,15 +343,16 @@ function Justice:OnHonorGain(text)
     return nil
 end
 
--- Forever: a seen death the game gave us honor for is our catch
+-- Forever: a seen death the game gave us honor for is our catch, or our punishment of
+-- a Bully or Deadbeat who was not hunted
 local function Catch(death)
     local key = not death.outlaw:find("^guid:") and death.outlaw or nil
     local record = Justice:OnEnemyKilled(key, death.guid, "seen")
-    ns.Log:Add("info", "WANTED death seen: " .. death.outlaw .. " -> " .. (record and "catch" or "no new catch"))
+    ns.Log:Add("info", "Death seen: " .. death.outlaw .. " -> " .. (record and "catch" or "no new catch"))
 end
 
--- Forever: we saw a hunted player die (outlaw: their WANTED id). The log says why it
--- was or was not our catch.
+-- Forever: we saw a hunted player, a Bully or a Deadbeat die (outlaw: their WANTED id,
+-- or their key). The log says why it was or was not ours.
 function Justice:OnSeenDeath(outlaw, guid)
     local now = ns.Utils.Now()
     local death = { outlaw = outlaw, guid = guid, at = now }
@@ -361,7 +362,7 @@ function Justice:OnSeenDeath(outlaw, guid)
         for i, waiting in ipairs(seenDeaths) do
             if waiting == death then
                 table.remove(seenDeaths, i)
-                ns.Log:Add("info", "WANTED death seen: " .. outlaw .. " -> no catch, no honor for us")
+                ns.Log:Add("info", "Death seen: " .. outlaw .. " -> no honor for us")
                 return
             end
         end

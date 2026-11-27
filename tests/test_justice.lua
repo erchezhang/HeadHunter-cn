@@ -263,10 +263,11 @@ return function(T, H)
         T.eq(Count(), 5, "rate limited per sender")
     end)
 
-    -- Forever: Grim Reaper (WANTED) on `unit`, seen alive, then dead
-    local function SeeDie(unit)
+    -- Forever: Grim Reaper (WANTED) on `unit`, seen alive, then dead; a Horde player
+    -- unless `faction` says otherwise
+    local function SeeDie(unit, faction)
         H.units[unit] = { name = "Grim", realm = "Reaper", fullName = "Grim Reaper", level = 60, class = "ROGUE",
-            race = "Orc", faction = "Horde", isPlayer = true, guid = "Player-4613-00ABCDEF", dead = false }
+            race = "Orc", faction = faction or "Horde", isPlayer = true, guid = "Player-4613-00ABCDEF", dead = false }
         H.Fire(unit == "target" and "PLAYER_TARGET_CHANGED" or "NAME_PLATE_UNIT_ADDED", unit)
         H.units[unit].dead = true
         H.Fire("UNIT_HEALTH", unit)
@@ -301,7 +302,7 @@ return function(T, H)
         Settle()
         T.eq(#ns.Wanted:List(), 0, "caught")
         T.ok(Logged("Honor award: You have been awarded 5 Honor%."), "the award is understood")
-        T.ok(Logged("WANTED death seen: Grim Reaper %-> catch"), "the log says why")
+        T.ok(Logged("Death seen: Grim Reaper %-> catch"), "the log says why")
         T.eq(#H.forbidden, 0, "never touched the combat log")
         T.noErrors()
     end)
@@ -323,11 +324,90 @@ return function(T, H)
         H.Advance(ns.Justice.HONOR_WINDOW)
         Settle()
         T.eq(#ns.Wanted:List(), 1, "still WANTED")
-        T.ok(Logged("Grim Reaper %-> no catch, no honor for us"), "the log says why")
+        T.ok(Logged("Grim Reaper %-> no honor for us"), "the log says why")
 
         Honor() -- too late: another kill's honor
         Settle()
         T.eq(#ns.Wanted:List(), 1, "still WANTED")
+        T.noErrors()
+    end)
+
+    -- Forever: Grim Reaper as one of the website's Bullies, not WANTED
+    local function ForeverBully()
+        local ns = H.Boot({ client = "forever", siteData = { format_version = 1, generated_at = H.serverTime - 600,
+            characters = {}, worlds = { ["forever|us|pvp"] = { generated_at = H.serverTime - 600, wanted = {},
+                duels = { alliance = {}, horde = {} }, bullies = { { name = "Grim Reaper", faction = "horde", race = "orc",
+                    level = 60, coward_kills = 2, kill_count = 2, last_coward_kill_at = H.serverTime - 3600 } } } } } })
+        Settle()
+        T.ok(ns.Wanted:ByKey("Grim Reaper").badges.coward, "a Bully")
+        T.eq(#ns.Wanted:List(), 0, "not WANTED")
+        return ns
+    end
+
+    local function Punished(ns)
+        local list = {}
+        for _, record in ns.Punishments:All() do list[#list + 1] = record end
+        return list
+    end
+
+    T.case("forever: a Bully dies in front of us and the game gives us honor for it: punished, not caught", function()
+        local ns = ForeverBully()
+        SeeDie("nameplate1")
+        H.Advance(1)
+        Honor()
+        Settle()
+        local punished = Punished(ns)
+        T.eq(#punished, 1, "punished")
+        T.eq(punished[1].outlaw, "Grim Reaper", "the Bully")
+        T.eq(punished[1].kind, "bully", "as a Bully")
+        local catches = 0
+        for _ in ns.Justice:All() do catches = catches + 1 end
+        T.eq(catches, 0, "no catch")
+        T.eq(#ns.Witness:Of("Grim Reaper"), 0, "no witness record: nobody hunts them")
+        T.noErrors()
+    end)
+
+    T.case("forever: the other faction's Deadbeat dies in front of us with our honor: punished", function()
+        local ns = H.Boot({ client = "forever" })
+        ns.Bounties.IsBlocked = function(_, owner) return owner == "Grim Reaper" end
+        SeeDie("target")
+        H.Advance(1)
+        Honor()
+        Settle()
+        local punished = Punished(ns)
+        T.eq(#punished, 1, "punished")
+        T.eq(punished[1].kind, "deadbeat", "as a Deadbeat")
+        T.noErrors()
+    end)
+
+    T.case("forever: a Bully of our own faction dying near our honor is no punishment", function()
+        local ns = ForeverBully()
+        SeeDie("nameplate1", "Alliance")
+        H.Advance(1)
+        Honor()
+        Settle()
+        T.eq(#Punished(ns), 0, "not watched: we cannot have killed them")
+        T.noErrors()
+    end)
+
+    T.case("era: a Bully or Deadbeat is never watched for a seen death (the combat log tells)", function()
+        local ns = H.Boot({ client = "era" })
+        ns.Bounties.IsBlocked = function() return true end
+        local died = 0
+        ns.Events:Register("HH_HUNTED_DIED", function() died = died + 1 end, "test")
+        SeeDie("nameplate1")
+        Settle()
+        T.eq(died, 0, "not watched")
+        T.noErrors()
+    end)
+
+    T.case("forever: a Bully's death without honor for us is no punishment", function()
+        local ns = ForeverBully()
+        SeeDie("nameplate1")
+        H.Advance(ns.Justice.HONOR_WINDOW)
+        Settle()
+        T.eq(#Punished(ns), 0, "not ours")
+        T.ok(Logged("Grim Reaper %-> no honor for us"), "the log says why")
         T.noErrors()
     end)
 

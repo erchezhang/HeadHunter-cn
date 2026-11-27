@@ -20,6 +20,9 @@
 -- Fires HH_WITNESS_ADDED(record), and HH_HUNTED_DIED(outlaw id, GUID) when we saw a
 -- hunted player die (Sync/Justice.lua makes it our catch on Forever when the game
 -- gives us honor for it).
+-- Forever has no combat log, so an enemy Bully or Deadbeat we see die is
+-- watched the same way and fires HH_HUNTED_DIED too (Justice makes it a punishment
+-- with our honor), but gets no witness record: those back bounty claims only.
 
 local addonName, ns = ...
 
@@ -34,7 +37,9 @@ Witness.MAX_SKEW = 300
 Witness.SENDER_LIMIT = 10      -- records accepted per sender per window
 Witness.SENDER_WINDOW = 600
 
-local watched = {}             -- GUID -> outlaw id of a hunted player in sight
+-- watched: GUID -> outlaw id of a hunted player in sight, or on Forever a Bully or
+-- Deadbeat
+local watched = {}
 local alive = {}               -- GUID -> Now() we last saw them alive
 local senderLog = {}
 
@@ -101,6 +106,14 @@ local function Hunted(entry)
     return entry ~= nil and (ns.Wanted.Hunted(entry) or ns.Bounties:ActiveOn(entry))
 end
 
+-- Forever: an enemy Bully or Deadbeat, whose death with our honor is a punishment
+-- (Justice:OnEnemyKilled). Era sees those kills in the combat log, so nothing is
+-- watched for them there.
+local function BullyOrDeadbeat(unit, key, entry)
+    if ns.Features.HasCLEU or not ns.Utils.UnitIsEnemyPlayer(unit) then return false end
+    return (entry and entry.badges and entry.badges.coward) or ns.Bounties:IsBlocked(key)
+end
+
 -- Someone else already told this death (not the hunter's own record)
 local function Told(outlaw, t)
     local me = ns.Utils.UnitKey("player")
@@ -153,8 +166,8 @@ function Witness:Saw(outlaw, t, killer, own)
 end
 
 -- A unit came into sight (discover: a new nameplate or target) or its health changed:
--- remember hunted players, and their deaths. Health changes of players nobody hunts
--- cost one table lookup.
+-- remember hunted players, Bullies and Deadbeats, and their deaths. Health changes of
+-- anyone else cost one table lookup.
 function Witness:Check(unit, discover)
     local U = ns.Utils
     if type(unit) ~= "string" or not (unit == "target" or unit:find("^nameplate")) then return end
@@ -165,9 +178,10 @@ function Witness:Check(unit, discover)
         if not discover then return end
         if U.Accessible(U.SafeCall(UnitIsPlayer, unit)) ~= true then return end
         local key = U.UnitKey(unit)
-        local entry = key and ns.Wanted:ByKey(key)
-        if not Hunted(entry) then return end
-        outlaw = entry.id
+        if not key then return end
+        local entry = ns.Wanted:ByKey(key)
+        if not (Hunted(entry) or BullyOrDeadbeat(unit, key, entry)) then return end
+        outlaw = entry and entry.id or key
         watched[guid] = outlaw
     end
     local dead = U.Accessible(U.SafeCall(UnitIsDead, unit))
@@ -177,7 +191,7 @@ function Witness:Check(unit, discover)
         local seen = alive[guid]
         alive[guid] = nil
         if seen and U.Now() - seen <= self.ALIVE_WINDOW then
-            self:Saw(outlaw, U.ServerTime())
+            if Hunted(ns.Wanted:Get(outlaw)) then self:Saw(outlaw, U.ServerTime()) end
             ns.Events:Fire("HH_HUNTED_DIED", outlaw, guid)
         end
     end

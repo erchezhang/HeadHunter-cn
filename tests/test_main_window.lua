@@ -191,8 +191,8 @@ return function(T, H)
         local ids = {}
         for i, tab in ipairs(f.tabs.buttons) do ids[i] = tab.id end
         T.eq(table.concat(ids, ","), "board,busted,duels,gang,events,me,wechat", "the top tabs")
-        T.eq(M.SectionBadge("gang"), "NEW", "Gang carries a small NEW tag")
-        T.eq(M.SectionLabel("gang"), "Gang", "beside its label, not in it")
+        T.eq(M.SectionBadge("gang"), nil, "Gang no longer carries the NEW tag")
+        T.eq(M.SectionLabel("gang"), "Gang", "the Gang label")
         T.eq(M.SectionBadge("duels"), nil, "Duels does not")
         T.ok(f.subtabs.board:IsShown(), "WANTED and Bullies under the board")
         T.ok(not f.subtabs.events:IsShown(), "only the section's own sub-tabs")

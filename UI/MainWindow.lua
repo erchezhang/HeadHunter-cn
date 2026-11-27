@@ -55,9 +55,9 @@ MainWindow.SYNC_NOTE_COLOR = { 0.4, 0.7, 1 }
 MainWindow.GANG_EMPTY_SIZE = 18
 MainWindow.GANG_EMPTY_SPACING = 8
 
--- Sections new in this version carry a small raised NEW tag on their top tab (HH-155: Gang
--- in 1.0.0)
-MainWindow.NEW_SECTIONS = { gang = true }
+-- Sections new in this version carry a small raised NEW tag on their top tab (none now:
+-- Gang was new in 1.0.0)
+MainWindow.NEW_SECTIONS = {}
 
 function MainWindow.SectionLabel(id)
     return L["SECTION_" .. id:upper()]
