@@ -15,7 +15,7 @@ local addonName, ns = ...
 
 local DB = ns:RegisterModule("Database", {})
 
-DB.SCHEMA_VERSION = 5
+DB.SCHEMA_VERSION = 6
 
 -- Old saved data mixed every realm. On WoW Forever it goes to the PvP realm, where the
 -- author played most (author, 2026-09-29); Era takes the realm of the last character.
@@ -86,7 +86,7 @@ local DEFAULTS = {
         -- HH-155: the colour of gang chat lines, hex, as the player last chose it in the game's
         -- chat settings (or /hh gang color), given to a new gang channel (Sync/GangChat.lua)
         gangChatColor = "d4ffb6",
-        -- gang chat names in class colours, as last chosen in the game's chat settings
+        -- HH-155: gang chat names in class colours, as last chosen in the game's chat settings
         gangChatClassNames = true,
         -- HH-155: the gang channel last put in the main chat window (once per channel, after the
         -- game joined it; gangChatShown before 1.0.1 was set even when the window refused it)
@@ -202,6 +202,13 @@ end
 -- old default (off) into every player's settings, so it is turned on once
 MIGRATIONS[5] = function(db)
     if type(db.settings) == "table" then db.settings.gangSocialTab = true end
+end
+
+-- Gang chat's colour is light green by default since its colour moved to the game's chat
+-- settings. Every player saved the old default orange (ff9f40), so it gives way once; an
+-- orange chosen after that stays
+MIGRATIONS[6] = function(db)
+    if type(db.settings) == "table" and db.settings.gangChatColor == "ff9f40" then db.settings.gangChatColor = "d4ffb6" end
 end
 
 -- Use this home's data. Returns true when the home changed. A confirmed home keeps the

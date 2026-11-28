@@ -33,9 +33,6 @@ GangChat.OLD_PREFIXES = { ns.Gangs.OLD_CHAT_PREFIX, "HHG" }
 GangChat.JOIN_DELAY = 1
 GangChat.JOIN_WAIT_MAX = 45
 GangChat.DEFAULT_COLOR = "d4ffb6"
--- the default before the game's chat settings had the colour: kept by everyone who never
--- changed it, so it means "not chosen" and gives way to DEFAULT_COLOR
-GangChat.OLD_DEFAULT_COLOR = "ff9f40"
 
 local current
 -- true once the first join after login ran (JOIN_DELAY): from then on a gang change joins
@@ -143,22 +140,26 @@ function GangChat:OnJoinLeave(joined, sender, channelBaseName, channelName)
     ns.Events:Fire("HH_GANG_CHANGED")
 end
 
--- "ff9f40" -> r, g, b (0..1)
--- The game's chat type of our channel ("CHANNEL5"), or nil while we are not in it
-local function ChatType()
-    local id = ChannelId(current)
-    return id and ("CHANNEL" .. id) or nil
-end
-
+-- Our channel's number and its entry in the game's chat settings (ChatTypeInfo["CHANNEL5"]:
+-- r, g, b, colorNameByClass), or nil while we are not in it
 local function ChatInfo()
-    local chatType = ChatType()
-    return chatType and type(ChatTypeInfo) == "table" and ChatTypeInfo[chatType] or nil
+    local id = ChannelId(current)
+    if not id then return nil, nil end
+    return id, type(ChatTypeInfo) == "table" and ChatTypeInfo["CHANNEL" .. id] or nil
 end
 
+-- Whether a chat type the game names is our channel's ("channel5" too: the game upper-cases it)
+local function IsOurChatType(chatType)
+    local id = ChannelId(current)
+    return id ~= nil and type(chatType) == "string" and chatType:upper() == "CHANNEL" .. id
+end
+
+-- "d4ffb6" -> r, g, b (0..1)
 local function Rgb(hex)
     return tonumber(hex:sub(1, 2), 16) / 255, tonumber(hex:sub(3, 4), 16) / 255, tonumber(hex:sub(5, 6), 16) / 255
 end
 
+-- r, g, b (0..1) -> "d4ffb6"
 local function Hex(r, g, b)
     return string.format("%02x%02x%02x", math.floor(r * 255 + 0.5), math.floor(g * 255 + 0.5), math.floor(b * 255 + 0.5))
 end
@@ -166,9 +167,7 @@ end
 -- The colour the player chose for gang chat (hex), DEFAULT_COLOR when none
 function GangChat.SavedColor()
     local hex = ns.db and ns.db.settings.gangChatColor
-    if type(hex) ~= "string" or not hex:match("^%x%x%x%x%x%x$") or hex == GangChat.OLD_DEFAULT_COLOR then
-        return GangChat.DEFAULT_COLOR
-    end
+    if type(hex) ~= "string" or not hex:match("^%x%x%x%x%x%x$") then return GangChat.DEFAULT_COLOR end
     return hex
 end
 
@@ -177,16 +176,18 @@ function GangChat.SavedClassNames()
     return not (ns.db and ns.db.settings.gangChatClassNames == false)
 end
 
--- Gang chat's colour: the channel's in the game's chat settings, else the saved one
-function GangChat.Color()
-    local info = ChatInfo()
+-- Gang chat's colour: the channel's in the game's chat settings (`info`, looked up when not
+-- given), else the saved one
+function GangChat.Color(info)
+    if info == nil then info = select(2, ChatInfo()) end
     if info and info.r then return info.r, info.g, info.b end
     return Rgb(GangChat.SavedColor())
 end
 
--- Whether names are class coloured: the channel's "Color names by class", else the saved choice
-function GangChat.ClassNames()
-    local info = ChatInfo()
+-- Whether names are class coloured: the channel's "Color names by class" (`info`, looked up
+-- when not given), else the saved choice
+function GangChat.ClassNames(info)
+    if info == nil then info = select(2, ChatInfo()) end
     if info and info.colorNameByClass ~= nil then return info.colorNameByClass and true or false end
     return GangChat.SavedClassNames()
 end
@@ -194,28 +195,28 @@ end
 -- Gives the channel the saved colour and class-name choice in the game's chat settings when
 -- it has others: on the first join, and on a new channel after a kick
 function GangChat.ApplyChatSettings()
-    local chatType = ChatType()
-    if not chatType then return end
-    local info = ChatInfo()
+    local id, info = ChatInfo()
+    if not id then return end
+    local chatType = "CHANNEL" .. id
     local hex = GangChat.SavedColor()
     if ChangeChatColor and not (info and info.r and Hex(info.r, info.g, info.b) == hex) then
         pcall(ChangeChatColor, chatType, Rgb(hex))
     end
     local classNames = GangChat.SavedClassNames()
-    if SetChatColorNameByClass and not (info and info.colorNameByClass ~= nil and (info.colorNameByClass and true or false) == classNames) then
+    if SetChatColorNameByClass and not (info and info.colorNameByClass ~= nil and GangChat.ClassNames(info) == classNames) then
         pcall(SetChatColorNameByClass, chatType, classNames)
     end
 end
 
 -- The player changed our channel's colour in the game's chat settings: kept for a new channel
 function GangChat:OnChatColor(chatType, r, g, b)
-    if chatType == nil or chatType ~= ChatType() or type(r) ~= "number" then return end
+    if not IsOurChatType(chatType) or type(r) ~= "number" then return end
     ns.Database:SetSetting("gangChatColor", Hex(r, g, b))
 end
 
 -- The player turned our channel's class-coloured names on or off: kept for a new channel
 function GangChat:OnChatClassNames(chatType, on)
-    if chatType == nil or chatType ~= ChatType() then return end
+    if not IsOurChatType(chatType) then return end
     ns.Database:SetSetting("gangChatClassNames", on and true or false)
 end
 
@@ -229,13 +230,10 @@ function GangChat.SetColor(hex)
 end
 
 -- A gang member's class token for a class-coloured name, or nil: the game's for the GUID,
--- else what HeadHunter knows of the gang member; nil while names are not class coloured
+-- else what HeadHunter knows of the gang member
 function GangChat.SenderClass(sender, guid)
-    if not GangChat.ClassNames() then return nil end
-    if guid then
-        local _, class = ns.Utils.SafeCall(GetPlayerInfoByGUID, guid)
-        if class and class ~= "" then return class end
-    end
+    local class = ns.Utils.ClassOfGUID(guid)
+    if class then return class end
     local gang = ns.Gangs:Mine()
     local key = ns.Utils.PlayerKey(sender) or sender
     for _, member in ipairs(gang and gang.members or {}) do
@@ -250,9 +248,12 @@ function GangChat:OnChannelText(text, sender, channelBaseName, channelName, guid
     if not OurChannel(channelBaseName, channelName) or type(text) ~= "string" then return end
     local key = ns.Utils.PlayerKey(sender)
     if key then presence[key] = { online = true, t = ns.Utils.Now() } end
-    local line = self.Line(sender, text, ChannelId(current), self.SenderClass(sender, guid))
+    local id, info = ChatInfo()
+    local class = self.ClassNames(info) and self.SenderClass(sender, guid) or nil
+    local line = self.Line(sender, text, id, class)
+    local r, g, b = self.Color(info)
     for _, window in ipairs(self.Windows(current)) do
-        if window.AddMessage then window:AddMessage(line, self.Color()) end
+        if window.AddMessage then window:AddMessage(line, r, g, b) end
     end
 end
 
@@ -266,7 +267,7 @@ end
 -- in its class colour when given one
 function GangChat.Line(sender, text, id, class)
     local key = ns.Utils.PlayerKey(sender) or sender
-    local shown = ns.MainWindow.ClassColored(ns.Utils.DisplayName(key) or key, class)
+    local shown = ns.Utils.ClassColored(ns.Utils.DisplayName(key) or key, class)
     local label = id and string.format("|Hchannel:channel:%d|h[%s]|h", id, L.TAB_GANG) or ("[" .. L.TAB_GANG .. "]")
     return string.format("%s |Hplayer:%s|h[%s]|h: %s", label, sender, shown, text)
 end

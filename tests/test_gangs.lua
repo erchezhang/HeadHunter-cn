@@ -685,9 +685,10 @@ return function(T, H)
     end)
 
     T.case("gang chat colour and class names: the game's chat settings, our defaults once, kept for a new channel", function()
+        local function HexOf(info) return string.format("%02x%02x%02x", info.r * 255 + 0.5, info.g * 255 + 0.5, info.b * 255 + 0.5) end
         local data = Data({ Gang("Black Hand", "Vati Guda", { "Vati Guda", "Tobin Ashford" }) })
         data.characters[1].gang_chat = { channel = "GangHHabcdefghijkl", password = "secret" }
-        local ns = Boot(data, { settings = { gangChatColor = "ff9f40" } })
+        local ns = Boot(data, { schemaVersion = 5, settings = { gangChatColor = "ff9f40" } })
         _G.ChatTypeInfo = {}
         local changes = {}
         _G.ChangeChatColor = function(chatType, r, g, b)
@@ -702,7 +703,7 @@ return function(T, H)
         H.joinWorks = true
         ns.GangChat:Join()
         local r, g, b = ns.GangChat.Color()
-        T.eq(string.format("%02x%02x%02x", r * 255 + 0.5, g * 255 + 0.5, b * 255 + 0.5), "d4ffb6", "the old orange nobody chose gives way to light green")
+        T.eq(HexOf({ r = r, g = g, b = b }), "d4ffb6", "the old orange nobody chose gives way to light green")
         T.eq(_G.ChatTypeInfo.CHANNEL5.colorNameByClass, true, "class-coloured names on")
         ns.GangChat:Join()
         T.eq(#changes, 1, "set once: the game's chat settings decide after that")
@@ -718,6 +719,10 @@ return function(T, H)
         local rogue = RAID_CLASS_COLORS.ROGUE
         T.ok(shown[2].text:find(string.format("|cff%02x%02x%02x", rogue.r * 255, rogue.g * 255, rogue.b * 255), 1, true), "else the gang member's class we know")
 
+        H.Fire("UPDATE_CHAT_COLOR", "channel5", 1, 0.62, 0.25)
+        _G.ChatTypeInfo.CHANNEL5.r, _G.ChatTypeInfo.CHANNEL5.g, _G.ChatTypeInfo.CHANNEL5.b = 1, 0.62, 0.25
+        ns.GangChat:OnChannelsChanged()
+        T.eq(HexOf(_G.ChatTypeInfo.CHANNEL5), "ff9e40", "an orange chosen now stays, the game's lower-case chat type too")
         H.Fire("UPDATE_CHAT_COLOR", "CHANNEL5", 1, 0, 0)
         _G.ChatTypeInfo.CHANNEL5.r, _G.ChatTypeInfo.CHANNEL5.g, _G.ChatTypeInfo.CHANNEL5.b = 1, 0, 0
         H.Fire("UPDATE_CHAT_COLOR_NAME_BY_CLASS", "CHANNEL5", false)
@@ -734,7 +739,7 @@ return function(T, H)
         _G.HeadHunter_SiteData = data
         ns.SiteData:Load()
         ns.GangChat:Join()
-        T.eq(string.format("%02x%02x%02x", _G.ChatTypeInfo.CHANNEL5.r * 255, _G.ChatTypeInfo.CHANNEL5.g * 255, _G.ChatTypeInfo.CHANNEL5.b * 255), "ff0000", "a new channel after a kick keeps the colour")
+        T.eq(HexOf(_G.ChatTypeInfo.CHANNEL5), "ff0000", "a new channel after a kick keeps the colour")
         T.eq(_G.ChatTypeInfo.CHANNEL5.colorNameByClass, false, "and the class-name choice")
 
         T.ok(ns.GangChat.SetColor("#00FF00"), "/hh gang color still works")

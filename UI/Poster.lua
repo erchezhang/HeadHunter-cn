@@ -59,7 +59,7 @@ function Poster.Content(id, now)
     local c = {
         id = entry.id,
         name = name,
-        title = (icons ~= "" and (icons .. " ") or "") .. ns.MainWindow.ClassColored(name, entry.class),
+        title = (icons ~= "" and (icons .. " ") or "") .. ns.Utils.ClassColored(name, entry.class),
         who = ns.DeathReports.Describe(entry),
         raceAtlas = U.RaceAtlas(entry.race, entry.sex), -- the portrait on the paper
         wanted = entry.wanted == true,
