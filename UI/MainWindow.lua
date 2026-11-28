@@ -200,13 +200,7 @@ MainWindow.COLUMNS = {
 -- Rows (pure)
 -------------------------------------------------
 
-local function ClassColored(text, class)
-    local color = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
-    if not color then return text end
-    return string.format("|cff%02x%02x%02x%s|r", color.r * 255, color.g * 255, color.b * 255, text)
-end
-
-MainWindow.ClassColored = ClassColored
+local ClassColored = ns.Utils.ClassColored
 
 local function OutlawName(entry)
     return entry.key and ns.Utils.DisplayName(entry.key) or entry.name or "?"

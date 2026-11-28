@@ -159,7 +159,7 @@ function SocialTab.MemberName(member)
     local U = ns.Utils
     local class = ns.Gangs:MemberClass(member)
     local icon = U.ClassIcon(class, 16)
-    return (icon ~= "" and (icon .. " ") or "") .. ns.MainWindow.ClassColored(U.DisplayName(member.key), class)
+    return (icon ~= "" and (icon .. " ") or "") .. ns.Utils.ClassColored(U.DisplayName(member.key), class)
 end
 
 -- "Level 12 · Online · Leader": level when known, online in green, offline in grey

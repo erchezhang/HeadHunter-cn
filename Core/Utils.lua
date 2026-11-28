@@ -153,6 +153,20 @@ function Utils.RaceFaction(raceFile)
     return raceFile and RACE_FACTION[raceFile]
 end
 
+-- The class token ("MAGE") the game gives a player's GUID, or nil (unknown, or a secret value)
+function Utils.ClassOfGUID(guid)
+    if not guid then return nil end
+    local _, class = SafeCall(_G.GetPlayerInfoByGUID, guid)
+    return AccessibleString(class)
+end
+
+-- Text in a class's colour (RAID_CLASS_COLORS), or the text as it is for an unknown class
+function Utils.ClassColored(text, class)
+    local color = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
+    if not color then return text end
+    return string.format("|cff%02x%02x%02x%s|r", color.r * 255, color.g * 255, color.b * 255, text)
+end
+
 -- True only when the GUID is known to be a player of our own faction.
 -- Unknown race or faction -> false (trust the hostility flags).
 function Utils.IsSameFactionGUID(guid)

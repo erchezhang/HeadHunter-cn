@@ -644,7 +644,7 @@ return function(T, H)
         _G.ChatFrame_OpenChat = function(text) opened = text end
         SlashCmdList.HEADHUNTERGANGCHAT("")
         T.eq(opened, "/5 ", "/gang alone opens the chat box on the gang channel")
-        T.eq(_G.SLASH_HEADHUNTERGANGCHAT2, nil, "no /gc (GudaChat has it)")
+        T.eq(_G.SLASH_HEADHUNTERGANGCHAT2, "/gg", "/gg too, but no /gc (GudaChat has it)")
         local hidden = false
         for _, fn in ipairs(H.chatFilterList.CHAT_MSG_CHANNEL or {}) do
             if fn(nil, "CHAT_MSG_CHANNEL", "hi", "Tobin Ashford", "", "5. GangHHabcdefghijkl", "", "", 0, 5, "GangHHabcdefghijkl") then
@@ -682,6 +682,68 @@ return function(T, H)
         header:SetText("[5. GangHHabcdefghijkl]: ")
         H.Advance(0)
         T.eq(header.text, "Gang: ", "and again right after, over the game's own header")
+    end)
+
+    T.case("gang chat colour and class names: the game's chat settings, our defaults once, kept for a new channel", function()
+        local function HexOf(info) return string.format("%02x%02x%02x", info.r * 255 + 0.5, info.g * 255 + 0.5, info.b * 255 + 0.5) end
+        local data = Data({ Gang("Black Hand", "Vati Guda", { "Vati Guda", "Tobin Ashford" }) })
+        data.characters[1].gang_chat = { channel = "GangHHabcdefghijkl", password = "secret" }
+        local ns = Boot(data, { schemaVersion = 5, settings = { gangChatColor = "ff9f40" } })
+        _G.ChatTypeInfo = {}
+        local changes = {}
+        _G.ChangeChatColor = function(chatType, r, g, b)
+            changes[#changes + 1] = chatType
+            _G.ChatTypeInfo[chatType] = _G.ChatTypeInfo[chatType] or {}
+            _G.ChatTypeInfo[chatType].r, _G.ChatTypeInfo[chatType].g, _G.ChatTypeInfo[chatType].b = r, g, b
+        end
+        _G.SetChatColorNameByClass = function(chatType, on)
+            _G.ChatTypeInfo[chatType] = _G.ChatTypeInfo[chatType] or {}
+            _G.ChatTypeInfo[chatType].colorNameByClass = on
+        end
+        H.joinWorks = true
+        ns.GangChat:Join()
+        local r, g, b = ns.GangChat.Color()
+        T.eq(HexOf({ r = r, g = g, b = b }), "d4ffb6", "the old orange nobody chose gives way to light green")
+        T.eq(_G.ChatTypeInfo.CHANNEL5.colorNameByClass, true, "class-coloured names on")
+        ns.GangChat:Join()
+        T.eq(#changes, 1, "set once: the game's chat settings decide after that")
+
+        local shown = {}
+        _G.ChatFrame1 = { AddMessage = function(_, text, red) shown[#shown + 1] = { text = text, r = red } end }
+        _G.GetChatWindowChannels = function(i) if i == 1 then return "GangHHabcdefghijkl", 0 end end
+        H.guidInfo["Player-1-0000BEEF"] = { class = "MAGE", race = "Human", sex = 2, name = "Tobin Ashford", realm = "" }
+        ns.GangChat:OnChannelText("hi", "Tobin Ashford", "GangHHabcdefghijkl", "5. GangHHabcdefghijkl", "Player-1-0000BEEF")
+        local mage = RAID_CLASS_COLORS.MAGE
+        T.ok(shown[1].text:find(string.format("|cff%02x%02x%02x", mage.r * 255, mage.g * 255, mage.b * 255), 1, true), "the game's class for the sender")
+        ns.GangChat:OnChannelText("hi", "Tobin Ashford", "GangHHabcdefghijkl", "5. GangHHabcdefghijkl")
+        local rogue = RAID_CLASS_COLORS.ROGUE
+        T.ok(shown[2].text:find(string.format("|cff%02x%02x%02x", rogue.r * 255, rogue.g * 255, rogue.b * 255), 1, true), "else the gang member's class we know")
+
+        H.Fire("UPDATE_CHAT_COLOR", "channel5", 1, 0.62, 0.25)
+        _G.ChatTypeInfo.CHANNEL5.r, _G.ChatTypeInfo.CHANNEL5.g, _G.ChatTypeInfo.CHANNEL5.b = 1, 0.62, 0.25
+        ns.GangChat:OnChannelsChanged()
+        T.eq(HexOf(_G.ChatTypeInfo.CHANNEL5), "ff9e40", "an orange chosen now stays, the game's lower-case chat type too")
+        H.Fire("UPDATE_CHAT_COLOR", "CHANNEL5", 1, 0, 0)
+        _G.ChatTypeInfo.CHANNEL5.r, _G.ChatTypeInfo.CHANNEL5.g, _G.ChatTypeInfo.CHANNEL5.b = 1, 0, 0
+        H.Fire("UPDATE_CHAT_COLOR_NAME_BY_CLASS", "CHANNEL5", false)
+        _G.ChatTypeInfo.CHANNEL5.colorNameByClass = false
+        ns.GangChat:OnChannelText("plain", "Tobin Ashford", "GangHHabcdefghijkl", "5. GangHHabcdefghijkl", "Player-1-0000BEEF")
+        T.eq(shown[3].r, 1, "printed in the colour chosen in the game's chat settings")
+        T.ok(not shown[3].text:find("|cff", 1, true), "no class colour once turned off")
+        H.Fire("UPDATE_CHAT_COLOR", "CHANNEL7", 0, 1, 0)
+        T.eq(ns.db.settings.gangChatColor, "ff0000", "another channel's colour is not ours")
+
+        H.channels = {}
+        _G.ChatTypeInfo = {}
+        data.characters[1].gang_chat = { channel = "GangHHzyxwvutsrqpo", password = "secret" }
+        _G.HeadHunter_SiteData = data
+        ns.SiteData:Load()
+        ns.GangChat:Join()
+        T.eq(HexOf(_G.ChatTypeInfo.CHANNEL5), "ff0000", "a new channel after a kick keeps the colour")
+        T.eq(_G.ChatTypeInfo.CHANNEL5.colorNameByClass, false, "and the class-name choice")
+
+        T.ok(ns.GangChat.SetColor("#00FF00"), "/hh gang color still works")
+        T.eq(_G.ChatTypeInfo.CHANNEL5.g, 1, "and sets the game's chat settings")
     end)
 
     T.case("gang chat waits for our sync channel, so it never takes /1 ahead of the game's channels", function()
@@ -980,6 +1042,17 @@ return function(T, H)
         T.eq(box.chatType, "CHANNEL", "channel chat")
         T.eq(box.target, 5, "the gang channel")
         T.eq(box.text, "", "the box cleared for typing")
+        box.text, box.chatType = "/gg ", nil
+        T.ok(ns.GangChat.SwitchOnSlash(box), "/gg and a space too")
+        T.ok(ns.GangChat.ClaimShortcut(), "/gg stays ours while no other addon has it")
+        _G.SLASH_OTHERADDON1 = "/GG"
+        T.ok(not ns.GangChat.ClaimShortcut(), "another addon's /gg wins")
+        _G.SLASH_OTHERADDON1 = nil
+        T.eq(_G.SLASH_HEADHUNTERGANGCHAT2, nil, "our /gg command is gone")
+        box.text, box.chatType = "/gg ", nil
+        T.ok(not ns.GangChat.SwitchOnSlash(box), "and /gg and a space no longer switches")
+        ns.GangChat.SWITCH_TEXTS["/gg "] = true
+        _G.SLASH_HEADHUNTERGANGCHAT2 = "/gg"
         H.Slash("gang slashswitch off")
         box.text = "/gang "
         T.ok(not ns.GangChat.SwitchOnSlash(box), "off when the player turns it off")
