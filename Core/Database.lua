@@ -83,8 +83,11 @@ local DEFAULTS = {
         -- HH-155: the Gang tab in the Social window (UI/SocialTab.lua); on since 1.0.2, after the
         -- in-game check of the side-tab window (2026-11-05)
         gangSocialTab = true,
-        -- HH-155: the colour of gang chat lines, hex (Sync/GangChat.lua)
-        gangChatColor = "ff9f40",
+        -- HH-155: the colour of gang chat lines, hex, as the player last chose it in the game's
+        -- chat settings (or /hh gang color), given to a new gang channel (Sync/GangChat.lua)
+        gangChatColor = "d4ffb6",
+        -- gang chat names in class colours, as last chosen in the game's chat settings
+        gangChatClassNames = true,
         -- HH-155: the gang channel last put in the main chat window (once per channel, after the
         -- game joined it; gangChatShown before 1.0.1 was set even when the window refused it)
         gangChatWindow = false,
